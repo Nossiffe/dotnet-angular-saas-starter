@@ -1,10 +1,10 @@
-﻿namespace Saas.IntegrationTests;
+namespace Saas.IntegrationTests;
 
 public class UnitTest1
 {
     [Fact]
-    public void Test1()
+    public void PlaceholderAlwaysPasses()
     {
-
+        Assert.True(true);
     }
 }
