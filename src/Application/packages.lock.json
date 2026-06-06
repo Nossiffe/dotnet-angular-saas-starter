@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "saas.domain": {
+        "type": "Project"
+      }
+    }
+  }
+}

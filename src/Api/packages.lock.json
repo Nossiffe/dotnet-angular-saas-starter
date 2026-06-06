@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "saas.application": {
+        "type": "Project",
+        "dependencies": {
+          "Saas.Domain": "[1.0.0, )"
+        }
+      },
+      "saas.domain": {
+        "type": "Project"
+      },
+      "saas.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "Saas.Application": "[1.0.0, )"
+        }
+      }
+    }
+  }
+}
