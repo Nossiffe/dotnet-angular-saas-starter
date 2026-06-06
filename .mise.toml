@@ -1,0 +1,6 @@
+[tools]
+dotnet = "10"
+node = "lts"
+
+[settings]
+trusted_config_paths = ["."]
