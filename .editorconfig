@@ -41,6 +41,8 @@ dotnet_diagnostic.IDE0005.severity = warning
 dotnet_diagnostic.IDE0040.severity = warning
 dotnet_diagnostic.CA2007.severity  = none
 dotnet_diagnostic.CA1062.severity  = warning
+# Meziantou : ConfigureAwait inutile pour une app ASP.NET (pas de SynchronizationContext)
+dotnet_diagnostic.MA0004.severity = none
 
 # Nommage : interfaces 'I', async '...Async', champs privés '_camelCase'
 dotnet_naming_rule.interface_begins_with_i.severity = error
