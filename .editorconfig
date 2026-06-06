@@ -72,6 +72,7 @@ dotnet_naming_style.underscore_camel.capitalization  = camel_case
 [src/tests/**.cs]
 dotnet_diagnostic.CA1707.severity = none
 dotnet_diagnostic.CA1062.severity = none
+dotnet_diagnostic.CA1711.severity = none
 
 # ── Migrations EF générées : désactiver les règles de style ─
 [src/Infrastructure/Persistence/Migrations/**.cs]
