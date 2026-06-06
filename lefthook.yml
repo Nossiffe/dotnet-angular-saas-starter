@@ -2,7 +2,7 @@ pre-commit:
   parallel: true
   commands:
     dotnet-format:
-      glob: "*.cs"
+      glob: "**/*.cs"
       run: dotnet format --include {staged_files} --verify-no-changes
       fail_text: "Code C# non formaté — lance: dotnet format"
 

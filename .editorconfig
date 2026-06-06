@@ -69,4 +69,4 @@ dotnet_naming_style.underscore_camel.capitalization  = camel_case
 # ── Tests : assouplir quelques règles ─────────────────────
 [src/tests/**.cs]
 dotnet_diagnostic.CA1707.severity = none
-dotnet_diagnostic.CA2007.severity = none
+dotnet_diagnostic.CA1062.severity = none

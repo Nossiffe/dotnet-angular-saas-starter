@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Api\Saas.Api.csproj" />
+    <ProjectReference Include="../../Api/Saas.Api.csproj" />
   </ItemGroup>
 
 </Project>
