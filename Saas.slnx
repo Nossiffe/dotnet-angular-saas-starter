@@ -1,0 +1,22 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Api/">
+    <Project Path="src/Api/Saas.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Application/">
+    <Project Path="src/Application/Saas.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Domain/">
+    <Project Path="src/Domain/Saas.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Infrastructure/">
+    <Project Path="src/Infrastructure/Saas.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/tests/" />
+  <Folder Name="/src/tests/IntegrationTests/">
+    <Project Path="src/tests/IntegrationTests/Saas.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/src/tests/UnitTests/">
+    <Project Path="src/tests/UnitTests/Saas.UnitTests.csproj" />
+  </Folder>
+</Solution>
