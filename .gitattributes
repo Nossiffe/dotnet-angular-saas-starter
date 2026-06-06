@@ -1,0 +1,10 @@
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+
+# Code généré : exclu des diffs et marqué généré
+*.g.cs linguist-generated=true
+**/Migrations/*.cs linguist-generated=true
+packages.lock.json linguist-generated=true

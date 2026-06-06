@@ -1,0 +1,30 @@
+# .NET
+bin/
+obj/
+*.user
+[Bb]in/
+[Oo]bj/
+artifacts/
+.vs/
+
+# NuGet
+*.nupkg
+.nuget-packages/
+
+# Node / front
+node_modules/
+dist/
+.angular/
+coverage/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+appsettings.Production.json
+*.user.json
+
+# OS / éditeurs
+.DS_Store
+*.swp
