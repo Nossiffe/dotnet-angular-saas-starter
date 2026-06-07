@@ -819,6 +819,7 @@
           "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "[10.0.8, )",
           "NetEscapades.AspNetCore.SecurityHeaders": "[1.3.1, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.2, )",
+          "Npgsql.OpenTelemetry": "[10.0.3, )",
           "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
           "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
           "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
@@ -826,7 +827,8 @@
           "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
           "Saas.Application": "[1.0.0, )",
           "Saas.Infrastructure": "[1.0.0, )",
-          "Serilog.AspNetCore": "[10.0.0, )"
+          "Serilog.AspNetCore": "[10.0.0, )",
+          "Serilog.Enrichers.Span": "[3.1.0, )"
         }
       },
       "saas.application": {
@@ -1093,6 +1095,16 @@
           "Npgsql": "10.0.3"
         }
       },
+      "Npgsql.OpenTelemetry": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.3, )",
+        "resolved": "10.0.3",
+        "contentHash": "ShsdG/FHxJ2VuWM6tebJL/mCWkcxymmvtENN59c85EsJdT4TStWwwtgZoBu/9UvC0qi1jpFZ6bOfl9ijiWD+vA==",
+        "dependencies": {
+          "Npgsql": "10.0.3",
+          "OpenTelemetry.API": "1.15.3"
+        }
+      },
       "OpenTelemetry.Exporter.OpenTelemetryProtocol": {
         "type": "CentralTransitive",
         "requested": "[1.15.3, )",
@@ -1154,6 +1166,15 @@
           "Serilog.Sinks.Console": "6.1.1",
           "Serilog.Sinks.Debug": "3.0.0",
           "Serilog.Sinks.File": "7.0.0"
+        }
+      },
+      "Serilog.Enrichers.Span": {
+        "type": "CentralTransitive",
+        "requested": "[3.1.0, )",
+        "resolved": "3.1.0",
+        "contentHash": "xNxy5FxIuLLusRHBpJwJ/YqVw5S7Dtbt79NUsPQxDtu4+CYG4kJgjLs9fjZhKPMjZQL8GZRewT8brap9h2r+Vw==",
+        "dependencies": {
+          "Serilog": "2.10.0"
         }
       },
       "Vogen": {

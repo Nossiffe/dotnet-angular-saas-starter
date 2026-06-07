@@ -1,13 +1,14 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, httpResource } from '@angular/common/http';
-import type { Product, ProductsPage } from '../../api/types';
+import type { PagedResultOfProductDto, PostApiV1ProductsData } from '../../api/generated';
 
-export type ProductInput = Pick<Product, 'name' | 'price'>;
+// Corps de création = DTO généré `CreateProductCommand` (via le type Hey API). Pas d'interface à la main.
+export type ProductInput = PostApiV1ProductsData['body'];
 
 @Injectable({ providedIn: 'root' })
 export class ProductsService {
   private readonly http = inject(HttpClient);
-  readonly products = httpResource<ProductsPage>(() => '/api/v1/products');
+  readonly products = httpResource<PagedResultOfProductDto>(() => '/api/v1/products');
 
   create(body: ProductInput) {
     return this.http.post('/api/v1/products', body);

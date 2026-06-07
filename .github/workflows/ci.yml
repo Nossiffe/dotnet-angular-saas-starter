@@ -52,3 +52,37 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+
+  e2e-angular:
+    runs-on: ubuntu-latest
+    # Specs are front-only: navigate to /login, check DOM/a11y — no backend required.
+    defaults:
+      run:
+        working-directory: web-angular
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web-angular/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+
+  e2e-react:
+    runs-on: ubuntu-latest
+    # Specs are front-only: navigate to /login, check DOM/a11y — no backend required.
+    defaults:
+      run:
+        working-directory: web-react
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web-react/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

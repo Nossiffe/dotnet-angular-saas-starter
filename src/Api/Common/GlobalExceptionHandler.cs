@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -43,6 +44,9 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
         {
             problem.Extensions["errors"] = errors;
         }
+
+        // Corrélation logs/traces : le traceId permet de relier la réponse d'erreur aux spans OTel et aux logs.
+        problem.Extensions["traceId"] = Activity.Current?.Id ?? httpContext.TraceIdentifier;
 
         return await problemDetails.TryWriteAsync(new ProblemDetailsContext
         {

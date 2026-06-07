@@ -19,9 +19,8 @@ public sealed class RealJwtFlowTests(RealJwtApiFactory factory)
         var email = $"jwt-{Guid.NewGuid():N}@saas.local";
         const string password = "Sup3rSecret!!42";
 
-        // Register
-        var register = await client.PostAsJsonAsync("/api/v1/auth/register", new { email, password }, ct);
-        register.StatusCode.ShouldBe(HttpStatusCode.Created);
+        // Register + confirmation d'email (requise au login)
+        await AuthTestFlow.RegisterAndConfirmAsync(client, factory, email, password, ct);
 
         // Login → real JWT
         var login = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password }, ct);

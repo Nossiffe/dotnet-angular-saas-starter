@@ -3,21 +3,26 @@ using Asp.Versioning;
 using Hangfire;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Saas.Api.Common;
+using Saas.Api.Common.OpenApi;
 using Saas.Application;
 using Saas.Application.Common.Behaviors;
 using Saas.Infrastructure;
 using Saas.Infrastructure.Persistence;
 using Serilog;
+using Serilog.Enrichers.Span;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((context, config) =>
     config.ReadFrom.Configuration(context.Configuration)
+          .Enrich.FromLogContext()
+          .Enrich.WithSpan() // TraceId/SpanId depuis Activity.Current → corrélation logs ↔ traces OTel
           .WriteTo.Console(formatProvider: System.Globalization.CultureInfo.InvariantCulture));
 
 builder.WebHost.ConfigureKestrel(o => o.AddServerHeader = false);
@@ -54,8 +59,13 @@ builder.Services.AddApiVersioning(options =>
 });
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-builder.Services.AddProblemDetails();
-builder.Services.AddOpenApi();
+builder.Services.AddProblemDetails(options =>
+    // Injecte traceId dans TOUS les ProblemDetails (validation, status-code pages, etc.),
+    // pas seulement ceux du GlobalExceptionHandler — pour la corrélation logs/traces OTel.
+    options.CustomizeProblemDetails = context =>
+        context.ProblemDetails.Extensions["traceId"] =
+            System.Diagnostics.Activity.Current?.Id ?? context.HttpContext.TraceIdentifier);
+builder.Services.AddOpenApi(options => options.AddDocumentTransformer<BearerSecuritySchemeTransformer>());
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>(name: "db", tags: ["ready"]);
@@ -174,15 +184,24 @@ static void AddRateLimiter(WebApplicationBuilder b)
 static void AddOpenTelemetry(WebApplicationBuilder b)
 {
     var serviceName = b.Configuration["OTEL_SERVICE_NAME"] ?? "saas-api";
+    var otlpEnabled = !string.IsNullOrWhiteSpace(b.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
+
     IOpenTelemetryBuilder otelBuilder = b.Services.AddOpenTelemetry()
         .ConfigureResource(r => r.AddService(serviceName))
-        .WithTracing(t => t.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation())
+        .WithTracing(t => t
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddNpgsql()) // spans SQL via l'instrumentation native Npgsql (Npgsql.OpenTelemetry)
         .WithMetrics(m => m
             .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation()
             .AddRuntimeInstrumentation());
-    if (!string.IsNullOrWhiteSpace(b.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
+
+    // Active le signal "logging" UNIQUEMENT quand l'export OTLP est configuré : sinon UseOtlpExporter
+    // n'exporterait aucun log (seul un signal activé est exporté). En dev sans OTLP, on garde Serilog/console.
+    if (otlpEnabled)
     {
+        otelBuilder.WithLogging();
         otelBuilder.UseOtlpExporter();
     }
 }

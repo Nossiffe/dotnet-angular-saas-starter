@@ -57,6 +57,16 @@ REGISTER_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
 [ "$REGISTER_STATUS" = "201" ] || fail "Register: attendu 201, obtenu $REGISTER_STATUS"
 ok "POST /api/v1/auth/register → 201"
 
+# ---- 4b. Confirmer l'email ----
+# Le login exige désormais un email confirmé. En production, l'utilisateur clique le lien reçu
+# par email (Mailpit en dev). Pour le smoke, on confirme directement le compte en base afin de
+# garder le test déterministe (pas de scraping de Mailpit).
+echo "▶ Confirmation de l'email (directe en base)"
+docker compose exec -T db psql -U saas -d saas \
+  -c "UPDATE \"AspNetUsers\" SET \"EmailConfirmed\" = true WHERE \"Email\" = '${EMAIL}';" >/dev/null \
+  || fail "Confirmation email: échec UPDATE en base"
+ok "Email confirmé en base pour ${EMAIL}"
+
 # ---- 5. Login → JWT ----
 echo "▶ Login"
 LOGIN_RESPONSE=$(curl -sf \

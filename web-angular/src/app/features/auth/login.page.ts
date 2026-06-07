@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { form, FormField, required, email, minLength } from '@angular/forms/signals';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -15,6 +15,25 @@ import { AuthService } from '../../core/auth/auth.service';
 export class LoginPage {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
+  /**
+   * Cible de redirection après login : `returnUrl` (posé par `authGuard`),
+   * sinon `/products`. Anti open-redirect : on n'honore que les chemins
+   * relatifs à l'app (commencent par un seul `/`, pas `//` ni une URL absolue).
+   */
+  private safeReturnUrl(): string {
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+    if (
+      returnUrl &&
+      returnUrl.startsWith('/') &&
+      !returnUrl.startsWith('//') &&
+      !returnUrl.startsWith('/\\')
+    ) {
+      return returnUrl;
+    }
+    return '/products';
+  }
 
   readonly model = signal({ email: '', password: '' });
   readonly submitting = signal(false);
@@ -35,7 +54,7 @@ export class LoginPage {
     this.auth.login(this.model()).subscribe({
       next: () => {
         this.submitting.set(false);
-        void this.router.navigateByUrl('/products');
+        void this.router.navigateByUrl(this.safeReturnUrl());
       },
       error: () => {
         this.serverError.set('Identifiants invalides');
