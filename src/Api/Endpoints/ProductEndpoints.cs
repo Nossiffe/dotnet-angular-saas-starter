@@ -2,6 +2,7 @@ using Mediator;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Saas.Api.Common;
 using Saas.Api.Contracts;
+using Saas.Application.Common;
 using Saas.Application.Products;
 using Saas.Application.Products.CreateProduct;
 using Saas.Application.Products.DeleteProduct;
@@ -24,7 +25,7 @@ public sealed class ProductEndpoints : IEndpoint
             .Produces(StatusCodes.Status400BadRequest);
 
         group.MapGet("/", ListProducts)
-            .Produces<IReadOnlyList<ProductDto>>(StatusCodes.Status200OK);
+            .Produces<PagedResult<ProductDto>>(StatusCodes.Status200OK);
 
         group.MapGet("/{id:guid}", GetProduct)
             .Produces<ProductDto>(StatusCodes.Status200OK)
@@ -48,9 +49,9 @@ public sealed class ProductEndpoints : IEndpoint
         return TypedResults.Created($"/api/v1/products/{id}", new CreateProductResponse(id));
     }
 
-    private static async Task<Ok<IReadOnlyList<ProductDto>>> ListProducts(
-        ISender sender, CancellationToken ct) =>
-        TypedResults.Ok(await sender.Send(new ListProductsQuery(), ct));
+    private static async Task<Ok<PagedResult<ProductDto>>> ListProducts(
+        ISender sender, CancellationToken ct, int page = 1, int pageSize = 20) =>
+        TypedResults.Ok(await sender.Send(new ListProductsQuery(page, pageSize), ct));
 
     private static async Task<Results<Ok<ProductDto>, NotFound>> GetProduct(
         Guid id, ISender sender, CancellationToken ct)
