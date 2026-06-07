@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Saas.Domain.Identity;
 using Saas.Domain.Products;
 using Saas.Domain.Tenancy;
@@ -14,5 +13,5 @@ public interface IAppDbContext
     DbSet<RefreshToken> RefreshTokens { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
-    Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
+    Task ExecuteInTransactionAsync(Func<CancellationToken, Task> operation, CancellationToken cancellationToken);
 }

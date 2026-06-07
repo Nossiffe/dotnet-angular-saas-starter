@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Saas.Application.Common.Interfaces;
 using Saas.Domain.Identity;
 using Saas.Domain.Products;
@@ -17,8 +16,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
     public DbSet<OrganizationMembership> Memberships => Set<OrganizationMembership>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
-    public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken) =>
-        Database.BeginTransactionAsync(cancellationToken);
+    public async Task ExecuteInTransactionAsync(Func<CancellationToken, Task> operation, CancellationToken cancellationToken)
+    {
+        var strategy = Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await Database.BeginTransactionAsync(cancellationToken);
+            await operation(cancellationToken);
+            await tx.CommitAsync(cancellationToken);
+        });
+    }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
