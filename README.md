@@ -2,6 +2,49 @@
 
 Template SaaS de production : **.NET 10** (Clean Architecture + DDD/CQRS) + **Angular 22** + **React 19** + **PostgreSQL 17**.
 
+## Générer un nouveau SaaS
+
+Le script `~/.local/bin/new-saas` copie ce template et le tokenise pour créer un nouveau projet.
+
+```bash
+new-saas <nom> [--front=angular|react] [--public|--private] [--no-install] [--no-git] [--no-repo]
+
+# Exemples
+new-saas facturation                  # Angular + repo GitHub privé + push
+new-saas crm --front=react --public   # React/Vite + repo GitHub public
+new-saas demo --no-repo               # pas de création de repo distant
+```
+
+### Ce que fait `new-saas`
+
+1. **Copie** le template `~/dev/.templates/saas/` → `~/dev/<nom>/` (rsync, sans `bin/`, `obj/`, `node_modules/`, `docs/superpowers/`, etc.)
+2. **Tokenise l'identifiant** `Saas` → `<Pascal>` (namespaces, `.csproj`, `.slnx`, contenu des `.cs`, `.json`, `.ts`…) et renomme les fichiers.
+3. **Tokenise le nom lowercase** `saas` → `<nom>` (docker-compose, `.env.example`, appsettings, connection strings, labels JWT…).
+4. **Alloue un bloc de 10 ports** depuis le registre `~/dev/.saas-ports.tsv` (base depuis 5400, incrément de 10) et remplace les ports hardcodés dans launchSettings, proxy.conf, vite.config, appsettings, docker-compose, smoke.sh.
+5. **Retire le front non choisi** (`web-react/` ou `web-angular/`) et nettoie les références mortes : job CI (`.github/workflows/ci.yml`), hooks lefthook, règle `.claude/rules/`, CLAUDE.md.
+6. **`git init` + commit initial** + `gh repo create` (si `gh` est authentifié et `--no-repo` non spécifié).
+7. **Met à jour le registre** `~/dev/.saas-ports.tsv` avec le nom et la base de ports allouée.
+
+### Post-scaffold
+
+```bash
+saas <nom>                              # cd ~/dev/<nom>
+direnv allow                            # activer le .envrc (1ère fois)
+docker network create devnet 2>/dev/null || true
+docker compose up -d                    # Postgres + Adminer + Mailpit
+mise exec -- dotnet run --project src/Api
+
+# Front Angular
+cd web-angular && npm install && npm start
+
+# Front React
+cd web-react && npm install && npm run dev
+```
+
+Activer les plugins LSP (scope utilisateur) : `claude mcp add csharp-ls --scope user -- csharp-ls`.
+
+---
+
 ## Quickstart
 
 ```bash
