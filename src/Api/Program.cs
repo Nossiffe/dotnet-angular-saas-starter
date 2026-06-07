@@ -142,7 +142,8 @@ static void AddRateLimiter(WebApplicationBuilder b)
         // En tests d'intégration, tous les appels partagent la même IP ("unknown") → la fenêtre fixe
         // de 10/30s déclenche des 429 parasites sur les flux auth multi-appels. Un flag de config
         // (RateLimiting:DisableAuthPolicy=true, posé uniquement par la factory de test) neutralise la limite.
-        var disableAuthLimit = b.Configuration.GetValue<bool>("RateLimiting:DisableAuthPolicy");
+        var disableAuthLimit = b.Environment.IsDevelopment()
+            && b.Configuration.GetValue<bool>("RateLimiting:DisableAuthPolicy");
         options.AddPolicy("auth", http =>
             disableAuthLimit
                 ? RateLimitPartition.GetNoLimiter("auth-disabled")

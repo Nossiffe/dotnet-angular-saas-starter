@@ -20,7 +20,20 @@ public sealed class SmtpEmailSender(IOptions<EmailOptions> options) : IEmailSend
         message.Body = new BodyBuilder { HtmlBody = htmlBody }.ToMessageBody();
 
         using var client = new SmtpClient();
-        var socketOptions = _o.UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.None;
+        SecureSocketOptions socketOptions;
+        if (_o.UseSslOnConnect)
+        {
+            socketOptions = SecureSocketOptions.SslOnConnect;
+        }
+        else if (_o.UseStartTls)
+        {
+            socketOptions = SecureSocketOptions.StartTls;
+        }
+        else
+        {
+            socketOptions = SecureSocketOptions.None;
+        }
+
         await client.ConnectAsync(_o.Host, _o.Port, socketOptions, cancellationToken);
         if (!string.IsNullOrEmpty(_o.UserName))
         {

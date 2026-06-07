@@ -7,5 +7,5 @@ public sealed class AppOptions
 {
     public const string SectionName = "App";
 
-    [Required] public string BaseUrl { get; init; } = "http://localhost:4200";
+    [Required] public string BaseUrl { get; init; } = string.Empty;
 }

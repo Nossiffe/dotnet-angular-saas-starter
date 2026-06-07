@@ -17,34 +17,41 @@ public sealed class AuthEndpoints : IEndpoint
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
-        var group = app.MapGroup("/auth").WithTags("Auth").AllowAnonymous().RequireRateLimiting("auth");
+        // Groupe de base : rate-limiting auth partagé. Chaque route gère son propre niveau d'accès.
+        var group = app.MapGroup("/auth").WithTags("Auth").RequireRateLimiting("auth");
 
         group.MapPost("/register", Register)
+            .AllowAnonymous()
             .Produces<RegisterResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest);
 
         group.MapPost("/login", Login)
+            .AllowAnonymous()
             .Produces<AuthResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/refresh", Refresh)
+            .AllowAnonymous()
             .Produces<AuthResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        // Logout : révoque le refresh token. Réservé à l'utilisateur connecté (override du group AllowAnonymous).
+        // Logout : révoque le refresh token. Réservé à l'utilisateur connecté — pas d'AllowAnonymous ici.
         group.MapPost("/logout", Logout)
             .RequireAuthorization()
             .Produces(StatusCodes.Status204NoContent);
 
         group.MapPost("/confirm-email", ConfirmEmail)
+            .AllowAnonymous()
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest);
 
         // Anti-énumération : renvoie toujours 200, qu'on connaisse l'email ou non.
         group.MapPost("/forgot-password", ForgotPassword)
+            .AllowAnonymous()
             .Produces(StatusCodes.Status200OK);
 
         group.MapPost("/reset-password", ResetPassword)
+            .AllowAnonymous()
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest);
     }

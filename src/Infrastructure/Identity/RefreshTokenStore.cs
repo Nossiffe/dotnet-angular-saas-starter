@@ -90,7 +90,14 @@ public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> opti
         }
 
         existing.RevokedAt = clock.UtcNow;
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Déjà révoqué par une requête concurrente — succès idempotent.
+        }
     }
 
     private static string Hash(string raw)
