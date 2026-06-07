@@ -1,4 +1,5 @@
 using Mediator;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Saas.Application.Products;
 using Saas.Application.Products.CreateProduct;
 using Saas.Application.Products.DeleteProduct;
@@ -16,35 +17,46 @@ public static class ProductEndpoints
         var group = app.MapGroup("/products").WithTags("Products")
             .RequireAuthorization("HasTenant");
 
-        group.MapPost("/", async (CreateProductCommand command, ISender sender, CancellationToken ct) =>
+        group.MapPost("/", async Task<Results<Created<CreateProductResponse>, ValidationProblem>> (
+            CreateProductCommand command, ISender sender, CancellationToken ct) =>
         {
             var id = await sender.Send(command, ct);
-            return Results.Created($"/products/{id}", new { id });
-        });
+            return TypedResults.Created($"/products/{id}", new CreateProductResponse(id));
+        }).Produces<CreateProductResponse>(StatusCodes.Status201Created)
+          .Produces(StatusCodes.Status400BadRequest);
 
-        group.MapGet("/", async (ISender sender, CancellationToken ct) =>
-            Results.Ok(await sender.Send(new ListProductsQuery(), ct)));
+        group.MapGet("/", async Task<Ok<IReadOnlyList<ProductDto>>> (ISender sender, CancellationToken ct) =>
+            TypedResults.Ok(await sender.Send(new ListProductsQuery(), ct)))
+          .Produces<IReadOnlyList<ProductDto>>(StatusCodes.Status200OK);
 
-        group.MapGet("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+        group.MapGet("/{id:guid}", async Task<Results<Ok<ProductDto>, NotFound>> (
+            Guid id, ISender sender, CancellationToken ct) =>
         {
             ProductDto? product = await sender.Send(new GetProductByIdQuery(id), ct);
-            return product is null ? Results.NotFound() : Results.Ok(product);
-        });
+            return product is null ? TypedResults.NotFound() : TypedResults.Ok(product);
+        }).Produces<ProductDto>(StatusCodes.Status200OK)
+          .Produces(StatusCodes.Status404NotFound);
 
-        group.MapPut("/{id:guid}", async (Guid id, UpdateProductBody body, ISender sender, CancellationToken ct) =>
+        group.MapPut("/{id:guid}", async Task<Results<NoContent, NotFound>> (
+            Guid id, UpdateProductBody body, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new UpdateProductCommand(id, body.Name, body.Price), ct);
-            return Results.NoContent();
-        });
+            return TypedResults.NoContent();
+        }).Produces(StatusCodes.Status204NoContent)
+          .Produces(StatusCodes.Status404NotFound);
 
-        group.MapDelete("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+        group.MapDelete("/{id:guid}", async Task<Results<NoContent, NotFound>> (
+            Guid id, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new DeleteProductCommand(id), ct);
-            return Results.NoContent();
-        }).RequireAuthorization("TenantAdmin");
+            return TypedResults.NoContent();
+        }).Produces(StatusCodes.Status204NoContent)
+          .Produces(StatusCodes.Status404NotFound)
+          .RequireAuthorization("TenantAdmin");
 
         return app;
     }
 
     public sealed record UpdateProductBody(string Name, decimal Price);
+    public sealed record CreateProductResponse(Guid Id);
 }

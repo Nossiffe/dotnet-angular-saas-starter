@@ -44,7 +44,12 @@ public static class DependencyInjection
         services.AddScoped<AuditableEntityInterceptor>();
         services.AddDbContext<AppDbContext>((sp, options) =>
         {
-            options.UseNpgsql(configuration.GetConnectionString("Default"));
+            options.UseNpgsql(
+                configuration.GetConnectionString("Default"),
+                npgsql => npgsql.EnableRetryOnFailure(
+                    maxRetryCount: 5,
+                    maxRetryDelay: TimeSpan.FromSeconds(10),
+                    errorCodesToAdd: null));
             options.AddInterceptors(sp.GetRequiredService<AuditableEntityInterceptor>());
         });
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());

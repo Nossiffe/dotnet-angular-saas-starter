@@ -1,10 +1,12 @@
-// The GET /products response has no named schema in the OpenAPI spec.
-// Product shape is defined manually based on the known API contract {id, name, price}.
-export interface Product {
-  id: string;
-  name: string;
-  price: number;
-}
+// Re-export all generated types
+export type {
+  ProductDto,
+  CreateProductCommand,
+  LoginRequest,
+  RegisterRequest,
+  AuthResponse,
+  RegisterResponse,
+} from './generated/types.gen';
 
-// Re-export request DTOs from generated schema (@hey-api/openapi-ts → types.gen.ts)
-export type { CreateProductCommand, LoginRequest, RegisterRequest } from './generated/types.gen';
+// Alias for backward-compat with components using the `Product` name
+export type { ProductDto as Product } from './generated/types.gen';

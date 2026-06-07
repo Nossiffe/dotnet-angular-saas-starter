@@ -17,17 +17,9 @@ import {
     TableRow,
 } from '@/components/ui/table';
 
-// GET /products returns untyped response in OpenAPI — define local type
-interface Product {
-    id: string;
-    name: string;
-    price: number;
-}
-
 export function ProductsPage() {
     const qc = useQueryClient();
-    const { data, isPending, error } = useQuery({ ...getProductsOptions() });
-    const products = data as Product[] | undefined;
+    const { data: products, isPending, error } = useQuery({ ...getProductsOptions() });
     const [name, setName] = useState('');
     const [price, setPrice] = useState(0);
 
