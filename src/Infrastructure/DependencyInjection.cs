@@ -13,6 +13,7 @@ using Microsoft.IdentityModel.Tokens;
 using Saas.Application.Common.Interfaces;
 using Saas.Domain.Identity;
 using Saas.Infrastructure.Common;
+using Saas.Infrastructure.Email;
 using Saas.Infrastructure.Identity;
 using Saas.Infrastructure.Jobs;
 using Saas.Infrastructure.Persistence;
@@ -41,8 +42,23 @@ public static class DependencyInjection
         AddJwt(services, configuration);
         AddAuthorization(services);
         AddBackgroundJobs(services, configuration);
+        AddEmail(services, configuration);
 
         return services;
+    }
+
+    private static void AddEmail(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<EmailOptions>()
+            .Bind(configuration.GetSection(EmailOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddOptions<AppOptions>()
+            .Bind(configuration.GetSection(AppOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
+        services.AddSingleton<IEmailLinkBuilder, EmailLinkBuilder>();
     }
 
     private static void AddBackgroundJobs(IServiceCollection services, IConfiguration configuration)
@@ -109,7 +125,8 @@ public static class DependencyInjection
             })
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<AppDbContext>()
-            .AddSignInManager();
+            .AddSignInManager()
+            .AddDefaultTokenProviders(); // requis pour GenerateEmailConfirmationToken / GeneratePasswordResetToken
         services.AddScoped<IIdentityService, IdentityService>();
     }
 

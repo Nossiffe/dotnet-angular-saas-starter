@@ -1,4 +1,6 @@
+using System.Text;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.WebUtilities;
 using Saas.Application.Common.Interfaces;
 using Saas.Domain.Identity;
 
@@ -64,4 +66,61 @@ public sealed class IdentityService(
 
         return (IReadOnlyList<string>)await users.GetRolesAsync(user);
     }
+
+    public async Task<string?> GenerateEmailConfirmationTokenAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var user = await users.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            return null;
+        }
+
+        var token = await users.GenerateEmailConfirmationTokenAsync(user);
+        return Encode(token);
+    }
+
+    public async Task<bool> ConfirmEmailAsync(Guid userId, string token, CancellationToken cancellationToken)
+    {
+        var user = await users.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            return false;
+        }
+
+        var result = await users.ConfirmEmailAsync(user, Decode(token));
+        return result.Succeeded;
+    }
+
+    public async Task<(Guid UserId, string Token)?> GeneratePasswordResetTokenAsync(
+        string email, CancellationToken cancellationToken)
+    {
+        var user = await users.FindByEmailAsync(email);
+        if (user is null)
+        {
+            return null; // email inconnu — le handler ne révèle rien (anti-énumération)
+        }
+
+        var token = await users.GeneratePasswordResetTokenAsync(user);
+        return (user.Id, Encode(token));
+    }
+
+    public async Task<bool> ResetPasswordAsync(
+        Guid userId, string token, string newPassword, CancellationToken cancellationToken)
+    {
+        var user = await users.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            return false;
+        }
+
+        var result = await users.ResetPasswordAsync(user, Decode(token), newPassword);
+        return result.Succeeded;
+    }
+
+    // Les tokens Identity contiennent des caractères non-URL-safe → Base64Url pour le transport en lien email.
+    private static string Encode(string token)
+        => WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
+    private static string Decode(string token)
+        => Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
 }
