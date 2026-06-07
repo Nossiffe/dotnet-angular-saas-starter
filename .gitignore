@@ -29,3 +29,5 @@ appsettings.Production.json
 # OS / éditeurs
 .DS_Store
 *.swp
+.idea/
+.vscode/
