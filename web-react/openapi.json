@@ -17,7 +17,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterRequest"
+                "$ref": "#/components/schemas/RegisterCommand"
               }
             }
           },
@@ -47,7 +47,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
+                "$ref": "#/components/schemas/LoginCommand"
               }
             }
           },
@@ -77,7 +77,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RefreshRequest"
+                "$ref": "#/components/schemas/RefreshTokenCommand"
               }
             }
           },
@@ -276,7 +276,7 @@
           }
         }
       },
-      "LoginRequest": {
+      "LoginCommand": {
         "required": ["email", "password", "tenantId"],
         "type": "object",
         "properties": {
@@ -310,7 +310,7 @@
           }
         }
       },
-      "RefreshRequest": {
+      "RefreshTokenCommand": {
         "required": ["refreshToken"],
         "type": "object",
         "properties": {
@@ -319,7 +319,7 @@
           }
         }
       },
-      "RegisterRequest": {
+      "RegisterCommand": {
         "required": ["email", "password"],
         "type": "object",
         "properties": {
