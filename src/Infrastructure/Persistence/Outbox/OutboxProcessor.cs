@@ -48,6 +48,7 @@ internal sealed partial class OutboxProcessor(
         var messages = await db.OutboxMessages
             .Where(m => m.ProcessedOn == null && m.Attempts < MaxAttempts)
             .OrderBy(m => m.OccurredOn)
+            .ThenBy(m => m.Id)   // Guid v7 (monotonique) → ordre FIFO déterministe si même timestamp
             .Take(BatchSize)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);

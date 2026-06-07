@@ -34,6 +34,8 @@ public sealed class GetProductByIdHandler(IDbConnectionFactory factory, ITenantP
 
         // On ne garde pas un "miss" en cache : sinon un produit créé juste après resterait masqué
         // jusqu'à expiration. L'invalidation sur write reste l'autre garde-fou.
+        // Note : best-effort — une courte fenêtre (race entre miss et RemoveAsync) est acceptable
+        // en cache-aside ; les writes invalident la clé explicitement après commit.
         if (dto is null)
         {
             await cache.RemoveAsync(key, cancellationToken);

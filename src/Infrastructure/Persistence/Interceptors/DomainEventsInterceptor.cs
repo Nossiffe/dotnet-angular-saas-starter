@@ -14,6 +14,10 @@ namespace Saas.Infrastructure.Persistence.Interceptors;
 // transaction que l'agrégat → atomicité (aucun event perdu sur crash, aucun event publié sans commit).
 // Le dispatch effectif (IPublisher.Publish) est désormais propriété de l'OutboxProcessor.
 //
+// SEMANTIQUE AT-LEAST-ONCE : combiné avec la stratégie de retry EF (ExecuteInTransactionAsync),
+// une transaction rejouée peut produire des lignes outbox dupliquées → un même event peut être
+// dispatché PLUSIEURS FOIS. Les handlers de domain events DOIVENT donc être IDEMPOTENTS.
+//
 // Contrainte conservée : le dispatch passe par le générateur Mediator → l'assembly qui DÉFINIT le
 // type d'événement doit figurer dans options.AddMediator(... Assemblies ...).
 public sealed class DomainEventsInterceptor(IDateTimeProvider clock) : SaveChangesInterceptor

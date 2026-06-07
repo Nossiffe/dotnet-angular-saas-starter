@@ -276,11 +276,13 @@ Les domain events ne sont plus dispatchés directement après `SaveChanges`. Le 
 
 `Hangfire.AspNetCore` + `Hangfire.PostgreSql` — Hangfire crée ses **propres tables** Postgres au démarrage (pas de migration EF). API de config version-sensible : `UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connString))`.
 
-- **Dashboard** : `/hangfire`, sécurisé par `HangfireDashboardAuthFilter` (Dev : loopback ; prod : utilisateur authentifié + `tenant_role = Owner`). Servi par Hangfire (navigateur), indépendant de la fallback policy JWT.
+- **Dashboard** : `/hangfire`, sécurisé par `HangfireDashboardAuthFilter`. Dev : loopback uniquement. Prod : claim `platform_role=PlatformAdmin` obligatoire.
 - **Recurring job réel** : `PurgeExpiredRefreshTokensJob` (purge quotidienne des refresh tokens expirés/révoqués via `ExecuteDeleteAsync`).
 - **Fire-and-forget** : `BackgroundJob.Enqueue<PurgeExpiredRefreshTokensJob>(j => j.RunAsync())`.
 
-> Durcissement prod : placer `/hangfire` derrière reverse-proxy/VPN ou auth interactive dédiée aux admins plateforme.
+> **Sécurité dashboard** : le dashboard est **secure-by-default** — le claim `platform_role` n'est émis par aucun flow de login standard (ni par le claim `tenant_role=Owner`). Tout propriétaire de tenant aurait vu les jobs de TOUS les tenants s'il avait été utilisé. En prod, personne n'accède au dashboard tant qu'un opérateur infra n'est pas explicitement provisionné avec `platform_role=PlatformAdmin` (seed admin ou config IdP). Alternative : ne monter le dashboard que hors-production.
+
+> Durcissement complémentaire : placer `/hangfire` derrière un reverse-proxy/VPN ou une auth interactive dédiée.
 
 ### HybridCache (.NET 10)
 
