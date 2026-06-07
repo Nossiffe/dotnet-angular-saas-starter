@@ -12,7 +12,7 @@ using Xunit;
 
 namespace Saas.IntegrationTests;
 
-public sealed class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly PostgreSqlContainer _db = new PostgreSqlBuilder("postgres:17-alpine")
         .WithDatabase("saas")
@@ -20,23 +20,33 @@ public sealed class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncL
         .WithPassword("saas")
         .Build();
 
+    protected virtual bool UseTestAuth => true;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.UseSetting("ConnectionStrings:Default", _db.GetConnectionString());
+        builder.UseSetting("Jwt:SigningKey", "integration-tests-signing-key-0123456789abcdef");
 
-        builder.ConfigureTestServices(services =>
+        if (UseTestAuth)
         {
-            services.AddAuthentication(TestAuthHandler.SchemeName)
-                .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
-            services.AddAuthorizationBuilder()
-                .SetFallbackPolicy(
-                    new AuthorizationPolicyBuilder(TestAuthHandler.SchemeName).RequireAuthenticatedUser().Build())
-                .SetDefaultPolicy(
-                    new AuthorizationPolicyBuilder(TestAuthHandler.SchemeName).RequireAuthenticatedUser().Build())
-                .AddPolicy("HasTenant", p => p.RequireClaim("tenant"))
-                .AddPolicy("TenantAdmin", p => p.RequireRole("Admin"));
-        });
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddAuthentication(TestAuthHandler.SchemeName)
+                    .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
+                services.AddAuthorizationBuilder()
+                    .SetFallbackPolicy(
+                        new AuthorizationPolicyBuilder(TestAuthHandler.SchemeName).RequireAuthenticatedUser().Build())
+                    .SetDefaultPolicy(
+                        new AuthorizationPolicyBuilder(TestAuthHandler.SchemeName).RequireAuthenticatedUser().Build())
+                    .AddPolicy("HasTenant", p => p.RequireAssertion(ctx =>
+                    {
+                        var v = ctx.User.FindFirst("tenant")?.Value;
+                        return Guid.TryParse(v, out var id) && id != Guid.Empty;
+                    }))
+                    .AddPolicy("TenantAdmin", p => p.RequireClaim("tenant_role", "Owner"));
+            });
+        }
     }
 
     public async ValueTask InitializeAsync()
@@ -51,5 +61,6 @@ public sealed class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncL
     {
         await _db.DisposeAsync();
         await base.DisposeAsync();
+        GC.SuppressFinalize(this);
     }
 }
