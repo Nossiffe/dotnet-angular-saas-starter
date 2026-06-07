@@ -105,6 +105,7 @@ cd web-react && npm install && npm run dev
 |---|---|
 | `ARCHITECTURE.md` | Architecture complète (couches, DDD, CQRS, cycle de vie requête) |
 | `CONTRIBUTING.md` | Workflow, skills, conventions, tests |
+| `DEPLOYMENT.md` | Déploiement (image Docker, secrets prod, migrations bundle, health probes, scaling) |
 | `docs/adr/0001` | Strongly-typed IDs & value objects (Vogen STJ-only + converter EF) |
 | `docs/adr/0002` | Persistance CQRS (repos write + Dapper read) |
 

@@ -2,6 +2,7 @@ using System.Threading.RateLimiting;
 using Asp.Versioning;
 using Hangfire;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -57,13 +58,25 @@ builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 
 builder.Services.AddHealthChecks()
-    .AddDbContextCheck<AppDbContext>(name: "db");
+    .AddDbContextCheck<AppDbContext>(name: "db", tags: ["ready"]);
 
 AddCors(builder);
 AddRateLimiter(builder);
 AddOpenTelemetry(builder);
 
 var app = builder.Build();
+
+// Auto-migration au démarrage UNIQUEMENT en Development (confort dotnet run).
+// En prod : utiliser le migration bundle (pas d'auto-migrate en multi-instance).
+// Guard double : IsDevelopment() + Database:MigrateOnStartup (les tests le désactivent via UseSetting).
+if (app.Environment.IsDevelopment()
+    && app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var strategy = db.Database.CreateExecutionStrategy();
+    await strategy.ExecuteAsync(async () => await db.Database.MigrateAsync());
+}
 
 app.UseExceptionHandler();
 app.UseSecurityHeaders(new HeaderPolicyCollection().AddDefaultApiSecurityHeaders());
@@ -84,11 +97,16 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi().AllowAnonymous();
 }
 
-app.MapHealthChecks("/health").AllowAnonymous();
-app.MapHealthChecks("/health/db", new HealthCheckOptions
+// Health probes : /health/live (liveness — process up, aucun check) + /health/ready (readiness — DB)
+app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
-    Predicate = check => string.Equals(check.Name, "db", StringComparison.Ordinal),
+    Predicate = _ => false, // aucun check : vivant si le process répond
 }).AllowAnonymous();
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = c => c.Tags.Contains("ready"), // vérifie les dépendances (DB)
+}).AllowAnonymous();
+app.MapHealthChecks("/health").AllowAnonymous(); // tous les checks (commodité)
 
 app.MapEndpoints();
 
