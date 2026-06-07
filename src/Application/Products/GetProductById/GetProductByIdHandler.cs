@@ -13,20 +13,19 @@ public sealed class GetProductByIdHandler(IDbConnectionFactory factory, ITenantP
         ArgumentNullException.ThrowIfNull(query);
         var key = $"product:{tenant.TenantId}:{query.Id}";
 
+        var tenantId = tenant.TenantId;
         var dto = await cache.GetOrCreateAsync(
             key,
-            (factory, tenant, query.Id),
-            static async (state, token) =>
+            async token =>
             {
-                var (connectionFactory, tenantProvider, id) = state;
-                await using var connection = await connectionFactory.OpenConnectionAsync(token);
+                await using var connection = await factory.OpenConnectionAsync(token);
                 var command = new CommandDefinition(
                     """
                     SELECT "Id", "Name", "Price_Amount" AS "Price"
                     FROM "Products"
                     WHERE "Id" = @Id AND "TenantId" = @TenantId AND "IsDeleted" = FALSE
                     """,
-                    new { Id = id, tenantProvider.TenantId },
+                    new { query.Id, TenantId = tenantId },
                     cancellationToken: token);
 
                 return await connection.QuerySingleOrDefaultAsync<ProductDto>(command);

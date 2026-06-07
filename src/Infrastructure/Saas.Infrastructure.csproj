@@ -21,4 +21,8 @@
     <ProjectReference Include="..\Application\Saas.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Saas.IntegrationTests" />
+  </ItemGroup>
+
 </Project>
