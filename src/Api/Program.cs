@@ -57,7 +57,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 
 builder.Services.AddHealthChecks()
-    .AddDbContextCheck<AppDbContext>(name: "db");
+    .AddDbContextCheck<AppDbContext>(name: "db", tags: ["ready"]);
 
 AddCors(builder);
 AddRateLimiter(builder);
@@ -84,11 +84,16 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi().AllowAnonymous();
 }
 
-app.MapHealthChecks("/health").AllowAnonymous();
-app.MapHealthChecks("/health/db", new HealthCheckOptions
+// Health probes : /health/live (liveness — process up, aucun check) + /health/ready (readiness — DB)
+app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
-    Predicate = check => string.Equals(check.Name, "db", StringComparison.Ordinal),
+    Predicate = _ => false, // aucun check : vivant si le process répond
 }).AllowAnonymous();
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = c => c.Tags.Contains("ready"), // vérifie les dépendances (DB)
+}).AllowAnonymous();
+app.MapHealthChecks("/health").AllowAnonymous(); // tous les checks (commodité)
 
 app.MapEndpoints();
 
