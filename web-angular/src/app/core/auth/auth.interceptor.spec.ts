@@ -35,18 +35,18 @@ describe('authInterceptor', () => {
   it('(a) attache Authorization: Bearer quand authentifié', () => {
     // Log in first to get a token
     auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
-    httpMock.expectOne('/auth/login').flush(TOKEN_RESP);
+    httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);
 
     // Now make a request
-    http.get('/products').subscribe();
-    const req = httpMock.expectOne('/products');
+    http.get('/api/v1/products').subscribe();
+    const req = httpMock.expectOne('/api/v1/products');
     expect(req.request.headers.get('Authorization')).toBe('Bearer AT');
     req.flush([]);
   });
 
-  it("(b) n'attache pas Authorization sur /auth/login", () => {
+  it("(b) n'attache pas Authorization sur /api/v1/auth/login", () => {
     auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
-    const req = httpMock.expectOne('/auth/login');
+    const req = httpMock.expectOne('/api/v1/auth/login');
     expect(req.request.headers.has('Authorization')).toBe(false);
     req.flush(TOKEN_RESP);
   });
@@ -54,23 +54,23 @@ describe('authInterceptor', () => {
   it('(c) un 401 déclenche un refresh puis retentetive avec le nouveau token', () => {
     // Log in first
     auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
-    httpMock.expectOne('/auth/login').flush(TOKEN_RESP);
+    httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);
 
     // Make a request that returns 401
     let responseReceived = false;
-    http.get('/products').subscribe(() => (responseReceived = true));
+    http.get('/api/v1/products').subscribe(() => (responseReceived = true));
 
     // Return 401
-    const firstReq = httpMock.expectOne('/products');
+    const firstReq = httpMock.expectOne('/api/v1/products');
     firstReq.flush(null, { status: 401, statusText: 'Unauthorized' });
 
     // Interceptor should call refresh
-    const refreshReq = httpMock.expectOne('/auth/refresh');
+    const refreshReq = httpMock.expectOne('/api/v1/auth/refresh');
     expect(refreshReq.request.method).toBe('POST');
     refreshReq.flush(NEW_TOKEN_RESP);
 
     // Interceptor should retry with new token
-    const retryReq = httpMock.expectOne('/products');
+    const retryReq = httpMock.expectOne('/api/v1/products');
     expect(retryReq.request.headers.get('Authorization')).toBe('Bearer AT2');
     retryReq.flush([]);
 

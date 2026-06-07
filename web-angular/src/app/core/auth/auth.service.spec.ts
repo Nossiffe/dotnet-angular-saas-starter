@@ -24,7 +24,7 @@ describe('AuthService', () => {
 
   it('stocke le token et authentifie au login', () => {
     service.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
-    const req = httpMock.expectOne('/auth/login');
+    const req = httpMock.expectOne('/api/v1/auth/login');
     expect(req.request.method).toBe('POST');
     req.flush({ accessToken: 'AT', expiresAt: '2030-01-01T00:00:00Z', refreshToken: 'RT' });
     expect(service.token()).toBe('AT');
@@ -35,7 +35,7 @@ describe('AuthService', () => {
   it('nettoie au logout', () => {
     service.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
     httpMock
-      .expectOne('/auth/login')
+      .expectOne('/api/v1/auth/login')
       .flush({ accessToken: 'AT', expiresAt: '2030-01-01T00:00:00Z', refreshToken: 'RT' });
     service.logout();
     expect(service.isAuthenticated()).toBe(false);
