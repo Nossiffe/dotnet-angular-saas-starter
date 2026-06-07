@@ -12,7 +12,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options, IDateTimeProvi
     private readonly JwtOptions _o = options.Value;
 
     public (string Token, DateTimeOffset ExpiresAt) CreateAccessToken(
-        Guid userId, string email, Guid tenantId, IEnumerable<string> roles)
+        Guid userId, string email, Guid tenantId, IEnumerable<string> roles, string tenantRole)
     {
         var now = clock.UtcNow;
         var expires = now.AddMinutes(_o.AccessTokenMinutes);
@@ -24,6 +24,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options, IDateTimeProvi
         identity.AddClaim(new Claim(JwtRegisteredClaimNames.Email, email));
         identity.AddClaim(new Claim(JwtRegisteredClaimNames.Jti, Guid.CreateVersion7().ToString()));
         identity.AddClaim(new Claim("tenant", tenantId.ToString()));
+        identity.AddClaim(new Claim("tenant_role", tenantRole));
         foreach (var role in roles)
         {
             identity.AddClaim(new Claim(ClaimTypes.Role, role));

@@ -30,6 +30,7 @@ public sealed class TestAuthHandler(
             new Claim(JwtRegisteredClaimNames.Email, "test@saas.local"),
             new Claim("tenant", tenant),
             new Claim(ClaimTypes.Role, "Admin"),
+            new Claim("tenant_role", "Owner"),
         };
         var ticket = new AuthenticationTicket(
             new ClaimsPrincipal(new ClaimsIdentity(claims, SchemeName)), SchemeName);

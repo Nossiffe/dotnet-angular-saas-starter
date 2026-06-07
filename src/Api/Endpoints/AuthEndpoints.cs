@@ -27,10 +27,14 @@ public static class AuthEndpoints
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        await using var tx = await db.BeginTransactionAsync(ct);
+
         var user = new ApplicationUser { UserName = req.Email, Email = req.Email };
         var created = await users.CreateAsync(user, req.Password);
         if (!created.Succeeded)
         {
+            await tx.RollbackAsync(ct);
             return Results.ValidationProblem(
                 created.Errors.ToDictionary(e => e.Code, e => new[] { e.Description }, StringComparer.Ordinal));
         }
@@ -39,6 +43,7 @@ public static class AuthEndpoints
         db.Organizations.Add(org);
         db.Memberships.Add(new OrganizationMembership { OrganizationId = org.Id, UserId = user.Id, Role = "Owner" });
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
 
         return Results.Created($"/users/{user.Id}", new { user.Id });
     }
@@ -71,12 +76,13 @@ public static class AuthEndpoints
             return Results.Unauthorized();
         }
 
-        var tenantId = req.TenantId is { } requested && memberships.Exists(m => m.OrganizationId == requested)
-            ? requested
-            : memberships[0].OrganizationId;
+        var membership = req.TenantId is { } requested && memberships.Exists(m => m.OrganizationId == requested)
+            ? memberships.First(m => m.OrganizationId == requested)
+            : memberships[0];
 
+        var tenantId = membership.OrganizationId;
         var roles = await users.GetRolesAsync(user);
-        var (access, accessExp) = tokens.CreateAccessToken(user.Id, user.Email!, tenantId, roles);
+        var (access, accessExp) = tokens.CreateAccessToken(user.Id, user.Email!, tenantId, roles, membership.Role);
         var refreshToken = await refresh.IssueAsync(user.Id, tenantId, ct);
 
         return Results.Ok(new AuthResponse(access, accessExp, refreshToken));
@@ -85,6 +91,7 @@ public static class AuthEndpoints
     private static async Task<IResult> RefreshHandler(
         RefreshRequest req,
         UserManager<ApplicationUser> users,
+        IAppDbContext db,
         ITokenService tokens,
         IRefreshTokenStore refresh,
         CancellationToken ct)
@@ -102,8 +109,13 @@ public static class AuthEndpoints
             return Results.Unauthorized();
         }
 
+        var membershipRole = await db.Memberships
+            .Where(m => m.UserId == rotated.UserId && m.OrganizationId == rotated.TenantId)
+            .Select(m => m.Role)
+            .FirstOrDefaultAsync(ct) ?? "Member";
+
         var roles = await users.GetRolesAsync(user);
-        var (access, accessExp) = tokens.CreateAccessToken(user.Id, user.Email!, rotated.TenantId, roles);
+        var (access, accessExp) = tokens.CreateAccessToken(user.Id, user.Email!, rotated.TenantId, roles, membershipRole);
         return Results.Ok(new AuthResponse(access, accessExp, rotated.NewRefreshToken));
     }
 

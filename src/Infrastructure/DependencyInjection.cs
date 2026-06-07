@@ -97,7 +97,11 @@ public static class DependencyInjection
     {
         services.AddAuthorizationBuilder()
             .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
-            .AddPolicy("HasTenant", p => p.RequireClaim("tenant"))
-            .AddPolicy("TenantAdmin", p => p.RequireRole("Admin"));
+            .AddPolicy("HasTenant", p => p.RequireAssertion(ctx =>
+            {
+                var v = ctx.User.FindFirst("tenant")?.Value;
+                return Guid.TryParse(v, out var id) && id != Guid.Empty;
+            }))
+            .AddPolicy("TenantAdmin", p => p.RequireClaim("tenant_role", "Owner"));
     }
 }
