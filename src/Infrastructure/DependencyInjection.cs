@@ -73,8 +73,12 @@ public static class DependencyInjection
                 opt.UseNpgsqlConnection(configuration.GetConnectionString("Default"))));
         services.AddHangfireServer();
 
-        // Job résolu par DI (ctor : AppDbContext + IDateTimeProvider + logger).
+        // Jobs résolus par DI.
         services.AddScoped<PurgeExpiredRefreshTokensJob>();
+        services.AddScoped<ProcessPasswordResetJob>();
+
+        // Queue d'enfilement Hangfire (abstraction Application-pure).
+        services.AddScoped<IPasswordResetEnqueuer, PasswordResetRequestQueue>();
     }
 
     // Enregistre les recurring jobs (référence le type interne PurgeExpiredRefreshTokensJob).
