@@ -39,7 +39,9 @@ public sealed class DomainEventsInterceptor(IPublisher publisher) : SaveChangesI
 
         foreach (var domainEvent in events)
         {
-            await publisher.Publish(domainEvent, cancellationToken);
+            // Cast en object pour forcer la résolution du handler sur le TYPE concret
+            // (ex. ProductCreatedDomainEvent) plutôt que sur IDomainEvent.
+            await publisher.Publish((object)domainEvent, cancellationToken);
         }
     }
 }

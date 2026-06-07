@@ -25,7 +25,11 @@ builder.Services.AddEndpoints();
 
 builder.Services.AddMediator(options =>
 {
-    options.Assemblies = [typeof(Saas.Application.DependencyInjection).Assembly];
+    options.Assemblies =
+    [
+        typeof(Saas.Application.DependencyInjection).Assembly,
+        typeof(Saas.Domain.Common.IDomainEvent).Assembly,
+    ];
     options.ServiceLifetime = ServiceLifetime.Scoped;
     options.PipelineBehaviors =
     [
