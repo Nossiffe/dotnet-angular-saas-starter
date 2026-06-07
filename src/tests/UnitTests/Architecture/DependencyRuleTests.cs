@@ -10,7 +10,7 @@ public sealed class DependencyRuleTests
     private const string Infrastructure = "Saas.Infrastructure";
     private const string Api = "Saas.Api";
 
-    private static readonly System.Reflection.Assembly DomainAsm = typeof(Domain.Common.BaseEntity).Assembly;
+    private static readonly System.Reflection.Assembly DomainAsm = typeof(Saas.Domain.Common.BaseEntity).Assembly;
 
     [Fact]
     public void Domain_ne_depend_de_rien_dautre()
