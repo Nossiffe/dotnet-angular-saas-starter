@@ -18,6 +18,11 @@ public sealed class RegisterHandler(
 
         Guid userId = Guid.Empty;
 
+        // Choix délibéré : user Identity + Organization + membership Owner dans UNE seule transaction
+        // (all-or-nothing → pas d'utilisateur orphelin sans organisation). En cas de perte d'ACK très rare
+        // pendant le commit, l'execution strategy peut rejouer le délégué et l'email déjà pris renvoie une
+        // erreur de validation trompeuse — mais les données restent cohérentes (compte fonctionnel). C'est
+        // l'« Option 1 » documentée par EF sur l'idempotence au commit, acceptable ici (cf. ADR persistance).
         await uow.ExecuteInTransactionAsync(async ct2 =>
         {
             var result = await identity.CreateUserAsync(command.Email, command.Password, ct2);

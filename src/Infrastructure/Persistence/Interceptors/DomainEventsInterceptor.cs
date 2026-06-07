@@ -6,6 +6,12 @@ using Saas.Domain.Common;
 namespace Saas.Infrastructure.Persistence.Interceptors;
 
 // Après SaveChanges, collecte les domain events des AggregateRoot<> trackés et les publie via Mediator.
+//
+// Contraintes à connaître (par conception) :
+//  - Un domain event n'est dispatché que lors d'un SaveChanges : lever un événement sans sauver = jamais publié.
+//  - Le dispatch passe par le générateur source de Mediator : l'assembly qui DÉFINIT le type d'événement
+//    doit figurer dans `options.AddMediator(... Assemblies ...)` (ici l'assembly Domain est inclus), sinon
+//    l'événement est silencieusement ignoré (pas de handler généré → no-op).
 public sealed class DomainEventsInterceptor(IPublisher publisher) : SaveChangesInterceptor
 {
     public override async ValueTask<int> SavedChangesAsync(

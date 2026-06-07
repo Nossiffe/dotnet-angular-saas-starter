@@ -10,7 +10,9 @@ public static class EndpointExtensions
         var endpoints = Assembly.GetExecutingAssembly().DefinedTypes
             .Where(t => t is { IsAbstract: false, IsInterface: false }
                 && typeof(IEndpoint).IsAssignableFrom(t))
-            .Select(t => (IEndpoint)Activator.CreateInstance(t)!);
+            .Select(t => (IEndpoint)(Activator.CreateInstance(t)
+                ?? throw new InvalidOperationException(
+                    $"Impossible d'instancier l'endpoint {t.FullName} : un constructeur public sans paramètre est requis.")));
 
         foreach (var endpoint in endpoints)
         {
