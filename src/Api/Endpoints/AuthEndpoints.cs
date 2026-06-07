@@ -58,7 +58,9 @@ public static class AuthEndpoints
             outcome = TypedResults.Created($"/users/{user.Id}", new RegisterResponse(user.Id));
         }, ct);
 
-        return outcome!;
+        // outcome est toujours assigné quand la transaction se termine sans exception
+        // (validation échouée -> ligne 48 ; succès -> ligne 58). Une exception propage avant ce point.
+        return outcome ?? throw new InvalidOperationException("Register: transaction terminée sans résultat.");
     }
 
     private static async Task<Results<Ok<AuthResponse>, UnauthorizedHttpResult>> LoginHandler(
