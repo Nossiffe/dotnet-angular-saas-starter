@@ -1,5 +1,5 @@
+using Dapper;
 using Mediator;
-using Microsoft.EntityFrameworkCore;
 using Saas.Application.Common.Interfaces;
 
 namespace Saas.Application.Auth.RefreshToken;
@@ -7,7 +7,7 @@ namespace Saas.Application.Auth.RefreshToken;
 public sealed class RefreshTokenHandler(
     IRefreshTokenStore refresh,
     IIdentityService identity,
-    IAppDbContext db,
+    IDbConnectionFactory connections,
     ITokenService tokens) : ICommandHandler<RefreshTokenCommand, AuthResult?>
 {
     public async ValueTask<AuthResult?> Handle(RefreshTokenCommand command, CancellationToken cancellationToken)
@@ -26,10 +26,15 @@ public sealed class RefreshTokenHandler(
             return null;
         }
 
-        var membership = await db.Memberships
-            .FirstOrDefaultAsync(
-                m => m.UserId == rotated.UserId && m.OrganizationId == rotated.TenantId,
-                cancellationToken);
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        var membership = await connection.QuerySingleOrDefaultAsync<MembershipRow>(new CommandDefinition(
+            """
+            SELECT "OrganizationId", "Role"
+            FROM "OrganizationMemberships"
+            WHERE "UserId" = @UserId AND "OrganizationId" = @TenantId
+            """,
+            new { rotated.UserId, rotated.TenantId },
+            cancellationToken: cancellationToken));
 
         var tenantRole = membership?.Role ?? "Member";
         var roles = await identity.GetRolesAsync(rotated.UserId, cancellationToken);

@@ -1,12 +1,12 @@
+using Dapper;
 using Mediator;
-using Microsoft.EntityFrameworkCore;
 using Saas.Application.Common.Interfaces;
 
 namespace Saas.Application.Auth.Login;
 
 public sealed class LoginHandler(
     IIdentityService identity,
-    IAppDbContext db,
+    IDbConnectionFactory connections,
     ITokenService tokens,
     IRefreshTokenStore refresh) : ICommandHandler<LoginCommand, AuthResult?>
 {
@@ -26,19 +26,25 @@ public sealed class LoginHandler(
             return null;
         }
 
-        var memberships = await db.Memberships
-            .Where(m => m.UserId == user.Id)
-            .ToListAsync(cancellationToken);
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        var rows = (await connection.QueryAsync<MembershipRow>(new CommandDefinition(
+            """
+            SELECT "OrganizationId", "Role"
+            FROM "OrganizationMemberships"
+            WHERE "UserId" = @UserId
+            """,
+            new { UserId = user.Id },
+            cancellationToken: cancellationToken))).ToList();
 
-        if (memberships.Count == 0)
+        if (rows.Count == 0)
         {
             return null;
         }
 
         var membership = command.TenantId is { } requested
-            && memberships.Exists(m => m.OrganizationId == requested)
-            ? memberships.First(m => m.OrganizationId == requested)
-            : memberships[0];
+            && rows.Exists(m => m.OrganizationId == requested)
+            ? rows.First(m => m.OrganizationId == requested)
+            : rows[0];
 
         var tenantId = membership.OrganizationId;
         var tenantRole = membership.Role;

@@ -464,7 +464,6 @@
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "Mediator.Abstractions": "[3.0.2, )",
-          "Microsoft.EntityFrameworkCore": "[10.0.8, )",
           "Saas.Domain": "[1.0.0, )"
         }
       },

@@ -14,6 +14,7 @@ using Saas.Infrastructure.Common;
 using Saas.Infrastructure.Identity;
 using Saas.Infrastructure.Persistence;
 using Saas.Infrastructure.Persistence.Interceptors;
+using Saas.Infrastructure.Persistence.Repositories;
 
 namespace Saas.Infrastructure;
 
@@ -42,6 +43,7 @@ public static class DependencyInjection
     private static void AddPersistence(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<AuditableEntityInterceptor>();
+        services.AddScoped<DomainEventsInterceptor>();
         services.AddDbContext<AppDbContext>((sp, options) =>
         {
             options.UseNpgsql(
@@ -50,10 +52,16 @@ public static class DependencyInjection
                     maxRetryCount: 5,
                     maxRetryDelay: TimeSpan.FromSeconds(10),
                     errorCodesToAdd: null));
-            options.AddInterceptors(sp.GetRequiredService<AuditableEntityInterceptor>());
+            options.AddInterceptors(
+                sp.GetRequiredService<AuditableEntityInterceptor>(),
+                sp.GetRequiredService<DomainEventsInterceptor>());
         });
-        services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped<IDbConnectionFactory, NpgsqlConnectionFactory>();
+
+        // Repositories (write) + Unit of Work — pas de DbSet exposé à l'Application.
+        services.AddScoped<IProductRepository, ProductRepository>();
+        services.AddScoped<IOrganizationRepository, OrganizationRepository>();
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
     }
 
     private static void AddIdentity(IServiceCollection services)
