@@ -30,6 +30,7 @@ export function ForgotPasswordPage() {
 
     const forgotMut = useMutation({
         ...postApiV1AuthForgotPasswordMutation(),
+        meta: { skipGlobalError: true },
         onSuccess: () => setSent(true),
         // Anti-enumeration: always show neutral message regardless of result
         onError: () => setSent(true),

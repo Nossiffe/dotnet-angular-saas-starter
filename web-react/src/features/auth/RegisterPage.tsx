@@ -30,6 +30,7 @@ export function RegisterPage() {
 
     const registerMut = useMutation({
         ...postApiV1AuthRegisterMutation(),
+        meta: { skipGlobalError: true },
         onSuccess: () => {
             void navigate({ to: '/login' });
         },

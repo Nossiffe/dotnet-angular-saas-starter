@@ -1,7 +1,14 @@
-import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { HttpContextToken, HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { throwError, catchError } from 'rxjs';
+
+/**
+ * When set to `true` on an HTTP request's context, the httpErrorInterceptor will
+ * NOT show a snackbar for that request's errors. Use this on calls that handle
+ * errors inline (e.g. register, forgot-password, reset-password, products mutations).
+ */
+export const SKIP_ERROR_TOAST = new HttpContextToken<boolean>(() => false);
 
 interface ProblemDetails {
   title?: string;
@@ -36,7 +43,7 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(req).pipe(
     catchError((err: unknown) => {
-      if (err instanceof HttpErrorResponse) {
+      if (err instanceof HttpErrorResponse && !req.context.get(SKIP_ERROR_TOAST)) {
         const msg = extractMessage(err);
         if (msg) {
           snackBar.open(msg, 'Fermer', { duration: 6000 });

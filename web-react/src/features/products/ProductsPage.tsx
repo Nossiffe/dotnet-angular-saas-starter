@@ -26,13 +26,18 @@ export function ProductsPage() {
     const invalidate = () => void qc.invalidateQueries({ queryKey: getApiV1ProductsQueryKey() });
     const create = useMutation({
         ...postApiV1ProductsMutation(),
+        meta: { skipGlobalError: true },
         onSuccess: () => {
             setName('');
             setPrice(0);
             invalidate();
         },
     });
-    const remove = useMutation({ ...deleteApiV1ProductsByIdMutation(), onSuccess: invalidate });
+    const remove = useMutation({
+        ...deleteApiV1ProductsByIdMutation(),
+        meta: { skipGlobalError: true },
+        onSuccess: invalidate,
+    });
 
     return (
         <div className="space-y-4">

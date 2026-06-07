@@ -47,11 +47,13 @@ function handleQueryError(error: unknown, queryKey?: unknown): void {
 export const queryClient = new QueryClient({
     queryCache: new QueryCache({
         onError: (error, query) => {
+            if (query.meta?.skipGlobalError) return;
             handleQueryError(error, query.queryKey);
         },
     }),
     mutationCache: new MutationCache({
-        onError: (error) => {
+        onError: (error, _variables, _context, mutation) => {
+            if (mutation.options.meta?.skipGlobalError) return;
             handleQueryError(error);
         },
     }),
