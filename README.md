@@ -59,7 +59,7 @@ docker compose up -d
 
 # 4. Démarrer l'API
 dotnet run --project src/Api
-# → http://localhost:5001  |  OpenAPI: http://localhost:5001/openapi/v1.json
+# → http://localhost:5123  |  OpenAPI: http://localhost:5123/openapi/v1.json
 
 # 5. Front Angular (dans un terminal séparé)
 cd web-angular && npm install && npm start
@@ -144,7 +144,7 @@ Remplacez ces valeurs après le scaffold. Si vous souhaitez open-sourcer le proj
 
 | Service | URL |
 |---|---|
-| API .NET | http://localhost:5001 |
+| API .NET | http://localhost:5123 |
 | Angular | http://localhost:4200 |
 | React | http://localhost:5173 |
 | Adminer (DB) | http://localhost:8080 |
