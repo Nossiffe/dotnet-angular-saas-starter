@@ -3,54 +3,51 @@ import { useAuthStore } from '@/stores/auth';
 
 // (a) Bearer on each request
 client.interceptors.request.use((request) => {
-  const token = useAuthStore.getState().accessToken;
-  if (token) request.headers.set('Authorization', `Bearer ${token}`);
-  return request;
+    const token = useAuthStore.getState().accessToken;
+    if (token) request.headers.set('Authorization', `Bearer ${token}`);
+    return request;
 });
 
 // (b) 401 → refresh single-flight → retry (read path; see caveat: POST/PUT body consumed)
 let refreshing: Promise<string | null> | null = null;
 
 client.interceptors.response.use(async (response, request) => {
-  if (response.status !== 401) return response;
-  if (
-    (request as Request).url.endsWith('/auth/refresh') ||
-    (request as Request).headers.get('x-retried')
-  ) {
-    useAuthStore.getState().logout();
-    return response;
-  }
-  refreshing ??= (async () => {
-    const { refreshToken, setTokens, logout } = useAuthStore.getState();
-    if (!refreshToken) {
-      logout();
-      return null;
+    if (response.status !== 401) return response;
+    if (request.url.endsWith('/auth/refresh') || request.headers.get('x-retried')) {
+        useAuthStore.getState().logout();
+        return response;
     }
-    const r = await fetch(`${import.meta.env.VITE_API_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    });
-    if (!r.ok) {
-      logout();
-      return null;
+    refreshing ??= (async () => {
+        const { refreshToken, setTokens, logout } = useAuthStore.getState();
+        if (!refreshToken) {
+            logout();
+            return null;
+        }
+        const r = await fetch(`${import.meta.env.VITE_API_URL}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
+        });
+        if (!r.ok) {
+            logout();
+            return null;
+        }
+        const d = (await r.json()) as { accessToken: string; refreshToken: string };
+        setTokens(d.accessToken, d.refreshToken);
+        return d.accessToken;
+    })();
+    let newToken: string | null;
+    try {
+        newToken = await refreshing;
+    } finally {
+        refreshing = null;
     }
-    const d = (await r.json()) as { accessToken: string; refreshToken: string };
-    setTokens(d.accessToken, d.refreshToken);
-    return d.accessToken;
-  })();
-  let newToken: string | null;
-  try {
-    newToken = await refreshing;
-  } finally {
-    refreshing = null;
-  }
-  if (!newToken) return response;
+    if (!newToken) return response;
 
-  const retried = new Request(request as Request, {
-    headers: new Headers((request as Request).headers),
-  });
-  retried.headers.set('Authorization', `Bearer ${newToken}`);
-  retried.headers.set('x-retried', '1');
-  return fetch(retried);
+    const retried = new Request(request, {
+        headers: new Headers(request.headers),
+    });
+    retried.headers.set('Authorization', `Bearer ${newToken}`);
+    retried.headers.set('x-retried', '1');
+    return fetch(retried);
 });

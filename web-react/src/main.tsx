@@ -8,13 +8,13 @@ import '@/setup-client';
 import '@/index.css';
 
 function App() {
-  const auth = useAuthStore();
-  return <RouterProvider router={router} context={{ auth }} />;
+    const auth = useAuthStore();
+    return <RouterProvider router={router} context={{ auth }} />;
 }
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
-  </StrictMode>,
+    <StrictMode>
+        <QueryClientProvider client={queryClient}>
+            <App />
+        </QueryClientProvider>
+    </StrictMode>,
 );
