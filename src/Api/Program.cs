@@ -110,7 +110,10 @@ static void AddRateLimiter(WebApplicationBuilder b)
                 : $"ip:{http.Connection.RemoteIpAddress}";
             return RateLimitPartition.GetSlidingWindowLimiter(key, _ => new SlidingWindowRateLimiterOptions
             {
-                PermitLimit = 100, Window = TimeSpan.FromMinutes(1), SegmentsPerWindow = 6, QueueLimit = 0,
+                PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 6,
+                QueueLimit = 0,
             });
         });
         options.AddPolicy("auth", http =>

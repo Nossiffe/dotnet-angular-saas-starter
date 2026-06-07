@@ -8,7 +8,7 @@ public sealed class IdentityService(
     UserManager<ApplicationUser> users,
     SignInManager<ApplicationUser> signIn) : IIdentityService
 {
-    private static readonly IReadOnlyDictionary<string, string[]> EmptyErrors =
+    private static readonly IReadOnlyDictionary<string, string[]> _emptyErrors =
         new Dictionary<string, string[]>(StringComparer.Ordinal);
 
     public async Task<CreateUserResult> CreateUserAsync(
@@ -27,7 +27,7 @@ public sealed class IdentityService(
             return new CreateUserResult(false, Guid.Empty, errors);
         }
 
-        return new CreateUserResult(true, user.Id, EmptyErrors);
+        return new CreateUserResult(true, user.Id, _emptyErrors);
     }
 
     public async Task<AppUser?> FindByEmailAsync(string email, CancellationToken cancellationToken)
