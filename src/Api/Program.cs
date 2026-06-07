@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using Hangfire;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
@@ -77,6 +78,15 @@ app.MapHealthChecks("/health/db", new HealthCheckOptions
 }).AllowAnonymous();
 
 app.MapEndpoints();
+
+// Dashboard Hangfire — servi par Hangfire (navigateur), auth via filtre dédié (pas la fallback JWT).
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = [new Saas.Api.Common.HangfireDashboardAuthFilter(app.Environment)],
+});
+
+// Recurring jobs (purge quotidienne des refresh tokens). Hangfire crée ses tables au 1er run.
+Saas.Infrastructure.DependencyInjection.RegisterRecurringJobs(app.Services);
 
 await app.RunAsync();
 

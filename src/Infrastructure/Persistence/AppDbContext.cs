@@ -6,6 +6,7 @@ using Saas.Domain.Identity;
 using Saas.Domain.Products;
 using Saas.Domain.Tenancy;
 using Saas.Infrastructure.Persistence.Converters;
+using Saas.Infrastructure.Persistence.Outbox;
 
 namespace Saas.Infrastructure.Persistence;
 
@@ -17,6 +18,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
     internal DbSet<Product> Products => Set<Product>();
     internal DbSet<Organization> Organizations => Set<Organization>();
     internal DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     public async Task ExecuteInTransactionAsync(Func<CancellationToken, Task> operation, CancellationToken cancellationToken)
     {

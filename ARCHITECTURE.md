@@ -46,7 +46,7 @@ Api → Infrastructure → Application → Domain
 - Constructeur privé (EF navigation).
 - Factory statique (`Product.Create(name, price)`) — valide les invariants, lève `ArgumentException` si violés.
 - Setters privés — mutations uniquement via méthodes de comportement (`Rename`, `ChangePrice`, `AddMember`).
-- Domain events : l'agrégat appelle `Raise(new XxxDomainEvent(...))`. Dispatch automatique après `SaveChanges` via `DomainEventsInterceptor`.
+- Domain events : l'agrégat appelle `Raise(new XxxDomainEvent(...))`. Persistés en transaction par `DomainEventsInterceptor` puis dispatchés de façon fiable par l'`OutboxProcessor` (voir « Robustesse » plus bas).
 
 ### Value objects
 
@@ -261,6 +261,38 @@ Sentry.init({ dsn: import.meta.env.VITE_SENTRY_DSN });
 ```
 
 > **Per-SaaS uniquement** : ne pas committer le DSN dans le code. Utiliser les secrets GitHub Actions (prod) et les variables d'env locales (dev). Ce branchement est volontairement absent du template pour ne pas coupler tous les projets générés à un compte Sentry spécifique.
+
+---
+
+## Robustesse (Outbox · Hangfire · HybridCache)
+
+### Transactional Outbox
+
+Les domain events ne sont plus dispatchés directement après `SaveChanges`. Le `DomainEventsInterceptor` les sérialise (STJ : `Type` = `AssemblyQualifiedName` + `Content` = JSON) en lignes `OutboxMessages` **pendant `SavingChanges`**, donc dans la **même transaction** que l'agrégat (atomicité : aucun event perdu sur crash, aucun event publié sans commit). Un `OutboxProcessor : BackgroundService` poll les lignes non traitées toutes les 5 s, désérialise sur le type concret, publie via `IPublisher.Publish` dans un scope DI, puis renseigne `ProcessedOn`. Retry borné via `Attempts < 5` (l'erreur est stockée dans `Error`).
+
+> Conséquence : les handlers de domain events (`ProductCreatedHandler`, etc.) s'exécutent désormais **de façon asynchrone** (au prochain tick du processor), plus de manière synchrone au `SaveChanges`.
+
+### Hangfire (jobs persistés)
+
+`Hangfire.AspNetCore` + `Hangfire.PostgreSql` — Hangfire crée ses **propres tables** Postgres au démarrage (pas de migration EF). API de config version-sensible : `UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connString))`.
+
+- **Dashboard** : `/hangfire`, sécurisé par `HangfireDashboardAuthFilter`. Dev : loopback uniquement. Prod : claim `platform_role=PlatformAdmin` obligatoire.
+- **Recurring job réel** : `PurgeExpiredRefreshTokensJob` (purge quotidienne des refresh tokens expirés/révoqués via `ExecuteDeleteAsync`).
+- **Fire-and-forget** : `BackgroundJob.Enqueue<PurgeExpiredRefreshTokensJob>(j => j.RunAsync())`.
+
+> **Sécurité dashboard** : le dashboard est **secure-by-default** — le claim `platform_role` n'est émis par aucun flow de login standard (ni par le claim `tenant_role=Owner`). Tout propriétaire de tenant aurait vu les jobs de TOUS les tenants s'il avait été utilisé. En prod, personne n'accède au dashboard tant qu'un opérateur infra n'est pas explicitement provisionné avec `platform_role=PlatformAdmin` (seed admin ou config IdP). Alternative : ne monter le dashboard que hors-production.
+
+> Durcissement complémentaire : placer `/hangfire` derrière un reverse-proxy/VPN ou une auth interactive dédiée.
+
+### HybridCache (.NET 10)
+
+`AddHybridCache()` — **L1 en mémoire** par défaut. Cache-aside sur `GetProductByIdHandler` (clé `product:{tenantId}:{id}`), invalidation explicite (`RemoveAsync`) dans `UpdateProductHandler` / `DeleteProductHandler` après le save. Les « miss » (produit absent) ne sont pas conservés en cache.
+
+**Passer en distribué (L2 Redis)** : ajouter `Microsoft.Extensions.Caching.StackExchangeRedis` puis :
+```csharp
+services.AddStackExchangeRedisCache(o => o.Configuration = configuration.GetConnectionString("Redis"));
+services.AddHybridCache(); // utilisera automatiquement Redis comme L2
+```
 
 ---
 

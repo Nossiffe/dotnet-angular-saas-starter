@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using System.Text;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -12,8 +14,10 @@ using Saas.Application.Common.Interfaces;
 using Saas.Domain.Identity;
 using Saas.Infrastructure.Common;
 using Saas.Infrastructure.Identity;
+using Saas.Infrastructure.Jobs;
 using Saas.Infrastructure.Persistence;
 using Saas.Infrastructure.Persistence.Interceptors;
+using Saas.Infrastructure.Persistence.Outbox;
 using Saas.Infrastructure.Persistence.Repositories;
 
 namespace Saas.Infrastructure;
@@ -36,8 +40,37 @@ public static class DependencyInjection
         AddIdentity(services);
         AddJwt(services, configuration);
         AddAuthorization(services);
+        AddBackgroundJobs(services, configuration);
 
         return services;
+    }
+
+    private static void AddBackgroundJobs(IServiceCollection services, IConfiguration configuration)
+    {
+        // Hangfire crée ses PROPRES tables Postgres au démarrage (pas de migration EF).
+        // API version-sensible (Hangfire.PostgreSql 1.20+) : UsePostgreSqlStorage(c => c.UseNpgsqlConnection(...)).
+        services.AddHangfire(config => config
+            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+            .UseSimpleAssemblyNameTypeSerializer()
+            .UseRecommendedSerializerSettings()
+            .UsePostgreSqlStorage(opt =>
+                opt.UseNpgsqlConnection(configuration.GetConnectionString("Default"))));
+        services.AddHangfireServer();
+
+        // Job résolu par DI (ctor : AppDbContext + IDateTimeProvider + logger).
+        services.AddScoped<PurgeExpiredRefreshTokensJob>();
+    }
+
+    // Enregistre les recurring jobs (référence le type interne PurgeExpiredRefreshTokensJob).
+    // Appelé depuis Program.cs après Build() — IRecurringJobManager n'existe qu'au runtime.
+    public static void RegisterRecurringJobs(IServiceProvider services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        var manager = services.GetRequiredService<IRecurringJobManager>();
+        manager.AddOrUpdate<PurgeExpiredRefreshTokensJob>(
+            "purge-expired-refresh-tokens",
+            job => job.RunAsync(),
+            Cron.Daily());
     }
 
     private static void AddPersistence(IServiceCollection services, IConfiguration configuration)
@@ -57,6 +90,9 @@ public static class DependencyInjection
                 sp.GetRequiredService<DomainEventsInterceptor>());
         });
         services.AddScoped<IDbConnectionFactory, NpgsqlConnectionFactory>();
+
+        // Transactional Outbox : dispatch fiable des domain events (remplace le dispatch direct).
+        services.AddHostedService<OutboxProcessor>();
 
         // Repositories (write) + Unit of Work — pas de DbSet exposé à l'Application.
         services.AddScoped<IProductRepository, ProductRepository>();
