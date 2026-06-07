@@ -21,5 +21,12 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         builder.HasIndex(p => p.TenantId);
         builder.Ignore(p => p.DomainEvents);
+
+        // Concurrence optimiste via la colonne système Postgres xmin (aucune colonne ajoutée).
+        builder.Property<uint>("Version")
+            .HasColumnName("xmin")
+            .HasColumnType("xid")
+            .ValueGeneratedOnAddOrUpdate()
+            .IsConcurrencyToken();
     }
 }

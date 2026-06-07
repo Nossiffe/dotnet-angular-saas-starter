@@ -15,6 +15,13 @@ public sealed class OrganizationConfiguration : IEntityTypeConfiguration<Organiz
         builder.HasIndex(o => o.Slug).IsUnique();
         builder.Ignore(o => o.DomainEvents);
 
+        // Concurrence optimiste via la colonne système Postgres xmin (aucune colonne ajoutée).
+        builder.Property<uint>("Version")
+            .HasColumnName("xmin")
+            .HasColumnType("xid")
+            .ValueGeneratedOnAddOrUpdate()
+            .IsConcurrencyToken();
+
         // Les memberships font partie de l'agrégat Organization (entités enfant, owned collection).
         builder.OwnsMany(o => o.Memberships, m =>
         {
