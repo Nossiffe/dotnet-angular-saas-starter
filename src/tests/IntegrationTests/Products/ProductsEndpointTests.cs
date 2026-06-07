@@ -15,15 +15,17 @@ public sealed class ProductsEndpointTests(PostgresApiFactory factory)
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
 
+        var name = $"Stylo-{Guid.NewGuid():N}";
+
         // Create
-        var create = await client.PostAsJsonAsync("/products", new { name = "Stylo", price = 2.5m }, ct);
+        var create = await client.PostAsJsonAsync("/products", new { name, price = 2.5m }, ct);
         create.StatusCode.ShouldBe(HttpStatusCode.Created);
 
         // List (Dapper)
         var list = await client.GetFromJsonAsync<List<ProductDto>>("/products", ct);
         list.ShouldNotBeNull();
-        list.ShouldContain(p => string.Equals(p.Name, "Stylo", StringComparison.Ordinal));
-        var id = list!.Single(p => string.Equals(p.Name, "Stylo", StringComparison.Ordinal)).Id;
+        list.ShouldContain(p => string.Equals(p.Name, name, StringComparison.Ordinal));
+        var id = list!.Single(p => string.Equals(p.Name, name, StringComparison.Ordinal)).Id;
 
         // Get by id
         var got = await client.GetFromJsonAsync<ProductDto>($"/products/{id}", ct);

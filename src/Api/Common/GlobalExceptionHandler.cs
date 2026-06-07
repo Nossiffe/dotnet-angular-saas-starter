@@ -23,7 +23,7 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
                 (object?)ve.Errors
                     .GroupBy(e => e.PropertyName, StringComparer.Ordinal)
                     .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray(), StringComparer.Ordinal)),
-            NotFoundException => (StatusCodes.Status404NotFound, exception.Message, (object?)null),
+            NotFoundException nfe => (StatusCodes.Status404NotFound, $"'{nfe.Entity}' introuvable.", (object?)null),
             _ => (StatusCodes.Status500InternalServerError, "Erreur interne du serveur", (object?)null),
         };
 

@@ -36,6 +36,16 @@ public sealed class AuditableEntityInterceptor(
             entry.Entity.TenantId = tenant.TenantId;
         }
 
+        // ISoftDeletable must run BEFORE IAuditable so that soft-deleted entities
+        // are promoted to Modified before IAuditable sets UpdatedAt/UpdatedBy on them.
+        foreach (EntityEntry<ISoftDeletable> entry in context.ChangeTracker.Entries<ISoftDeletable>()
+            .Where(e => e.State is EntityState.Deleted))
+        {
+            entry.State = EntityState.Modified;
+            entry.Entity.IsDeleted = true;
+            entry.Entity.DeletedAt = now;
+        }
+
         foreach (EntityEntry<IAuditable> entry in context.ChangeTracker.Entries<IAuditable>())
         {
             if (entry.State is EntityState.Added)
@@ -48,14 +58,6 @@ public sealed class AuditableEntityInterceptor(
                 entry.Entity.UpdatedAt = now;
                 entry.Entity.UpdatedBy = user;
             }
-        }
-
-        foreach (EntityEntry<ISoftDeletable> entry in context.ChangeTracker.Entries<ISoftDeletable>()
-            .Where(e => e.State is EntityState.Deleted))
-        {
-            entry.State = EntityState.Modified;
-            entry.Entity.IsDeleted = true;
-            entry.Entity.DeletedAt = now;
         }
     }
 }

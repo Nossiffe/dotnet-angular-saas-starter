@@ -29,4 +29,13 @@ public sealed class DependencyRuleTests
             .GetResult();
         result.IsSuccessful.ShouldBeTrue();
     }
+
+    [Fact]
+    public void Infrastructure_ne_depend_pas_de_Api()
+    {
+        var result = Types.InAssembly(typeof(Saas.Infrastructure.DependencyInjection).Assembly)
+            .Should().NotHaveDependencyOn(Api)
+            .GetResult();
+        result.IsSuccessful.ShouldBeTrue();
+    }
 }

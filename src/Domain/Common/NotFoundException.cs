@@ -1,33 +1,14 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Saas.Domain.Common;
 
-public sealed class NotFoundException : Exception
+[SuppressMessage("Design", "CA1032:Implement standard exception constructors",
+    Justification = "Domain exception is only ever thrown with (entity, key).")]
+[SuppressMessage("Roslynator", "RCS1194:Implement exception constructors",
+    Justification = "Domain exception is only ever thrown with (entity, key).")]
+public sealed class NotFoundException(string entity, object key)
+    : Exception($"'{entity}' ({key}) introuvable.")
 {
-    public string Entity { get; }
-    public object Key { get; }
-
-    public NotFoundException(string entity, object key)
-        : base($"'{entity}' ({key}) introuvable.")
-    {
-        Entity = entity;
-        Key = key;
-    }
-
-    public NotFoundException()
-        : this("Entity", "unknown")
-    {
-    }
-
-    public NotFoundException(string message)
-        : base(message)
-    {
-        Entity = string.Empty;
-        Key = string.Empty;
-    }
-
-    public NotFoundException(string message, Exception innerException)
-        : base(message, innerException)
-    {
-        Entity = string.Empty;
-        Key = string.Empty;
-    }
+    public string Entity { get; } = entity;
+    public object Key { get; } = key;
 }

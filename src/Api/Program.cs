@@ -54,9 +54,8 @@ app.MapProductEndpoints();
 
 await app.RunAsync();
 
-// Required for WebApplicationFactory<Program> in integration tests
+// Exposé pour WebApplicationFactory<Program> (tests d'intégration). Le ctor protégé satisfait S1118/CA1052.
 public partial class Program
 {
-    // Intentionally left empty - used as marker for WebApplicationFactory
     protected Program() { }
 }
