@@ -1,35 +1,49 @@
-using Mediator;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Saas.Application.Common.Interfaces;
 using Saas.Domain.Common;
+using Saas.Infrastructure.Persistence.Outbox;
 
 namespace Saas.Infrastructure.Persistence.Interceptors;
 
-// Après SaveChanges, collecte les domain events des AggregateRoot<> trackés et les publie via Mediator.
+// TRANSACTIONAL OUTBOX — remplace le dispatch direct (post-save) par une écriture intra-transaction.
 //
-// Contraintes à connaître (par conception) :
-//  - Un domain event n'est dispatché que lors d'un SaveChanges : lever un événement sans sauver = jamais publié.
-//  - Le dispatch passe par le générateur source de Mediator : l'assembly qui DÉFINIT le type d'événement
-//    doit figurer dans `options.AddMediator(... Assemblies ...)` (ici l'assembly Domain est inclus), sinon
-//    l'événement est silencieusement ignoré (pas de handler généré → no-op).
-public sealed class DomainEventsInterceptor(IPublisher publisher) : SaveChangesInterceptor
+// Pendant SavingChanges(Async), on collecte les domain events des agrégats trackés et on les
+// sérialise en lignes OutboxMessage AJOUTÉES au même DbContext : elles participent donc à la MÊME
+// transaction que l'agrégat → atomicité (aucun event perdu sur crash, aucun event publié sans commit).
+// Le dispatch effectif (IPublisher.Publish) est désormais propriété de l'OutboxProcessor.
+//
+// Contrainte conservée : le dispatch passe par le générateur Mediator → l'assembly qui DÉFINIT le
+// type d'événement doit figurer dans options.AddMediator(... Assemblies ...).
+public sealed class DomainEventsInterceptor(IDateTimeProvider clock) : SaveChangesInterceptor
 {
-    public override async ValueTask<int> SavedChangesAsync(
-        SaveChangesCompletedEventData eventData,
-        int result,
+    public override InterceptionResult<int> SavingChanges(
+        DbContextEventData eventData,
+        InterceptionResult<int> result)
+    {
+        ArgumentNullException.ThrowIfNull(eventData);
+        WriteOutboxMessages(eventData.Context);
+        return base.SavingChanges(eventData, result);
+    }
+
+    public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+        DbContextEventData eventData,
+        InterceptionResult<int> result,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(eventData);
-        if (eventData.Context is not null)
-        {
-            await DispatchAsync(eventData.Context, cancellationToken);
-        }
-
-        return await base.SavedChangesAsync(eventData, result, cancellationToken);
+        WriteOutboxMessages(eventData.Context);
+        return base.SavingChangesAsync(eventData, result, cancellationToken);
     }
 
-    private async Task DispatchAsync(DbContext context, CancellationToken cancellationToken)
+    private void WriteOutboxMessages(DbContext? context)
     {
+        if (context is null)
+        {
+            return;
+        }
+
         var aggregates = context.ChangeTracker
             .Entries()
             .Select(e => e.Entity)
@@ -37,17 +51,25 @@ public sealed class DomainEventsInterceptor(IPublisher publisher) : SaveChangesI
             .Where(a => a.DomainEvents.Count > 0)
             .ToList();
 
-        var events = aggregates.SelectMany(a => a.DomainEvents).ToList();
-        foreach (var aggregate in aggregates)
+        if (aggregates.Count == 0)
         {
-            aggregate.ClearDomainEvents();
+            return;
         }
 
-        foreach (var domainEvent in events)
+        var occurredOn = clock.UtcNow;
+        foreach (var aggregate in aggregates)
         {
-            // Cast en object pour forcer la résolution du handler sur le TYPE concret
-            // (ex. ProductCreatedDomainEvent) plutôt que sur IDomainEvent.
-            await publisher.Publish((object)domainEvent, cancellationToken);
+            foreach (var domainEvent in aggregate.DomainEvents)
+            {
+                context.Set<OutboxMessage>().Add(new OutboxMessage
+                {
+                    Type = domainEvent.GetType().AssemblyQualifiedName!,
+                    Content = JsonSerializer.Serialize(domainEvent, domainEvent.GetType(), OutboxJson.Options),
+                    OccurredOn = occurredOn,
+                });
+            }
+
+            aggregate.ClearDomainEvents();
         }
     }
 }
