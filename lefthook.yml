@@ -5,6 +5,16 @@ pre-commit:
       glob: "**/*.cs"
       run: dotnet format --include {staged_files} --verify-no-changes
       fail_text: "Code C# non formaté — lance: dotnet format"
+    web-prettier:
+      root: "web-angular/"
+      glob: "*.{ts,html,scss,json}"
+      run: npx prettier --write {staged_files}
+      stage_fixed: true
+    web-eslint:
+      root: "web-angular/"
+      glob: "*.ts"
+      run: npx eslint --fix {staged_files}
+      stage_fixed: true
 
 pre-push:
   commands:
