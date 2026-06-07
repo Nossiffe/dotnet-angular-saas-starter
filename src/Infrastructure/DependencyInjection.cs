@@ -1,7 +1,15 @@
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 using Saas.Application.Common.Interfaces;
+using Saas.Domain.Identity;
 using Saas.Infrastructure.Common;
 using Saas.Infrastructure.Identity;
 using Saas.Infrastructure.Persistence;
@@ -15,22 +23,81 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Providers (stubs Plan 2 — remplacés au Plan 3 par l'auth réelle)
-        services.AddScoped<ITenantProvider, StubTenantProvider>();
-        services.AddScoped<ICurrentUser, StubCurrentUser>();
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        services.AddHttpContextAccessor();
+        services.AddScoped<ITenantProvider, TenantProvider>();
+        services.AddScoped<ICurrentUser, CurrentUser>();
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
 
-        services.AddScoped<AuditableEntityInterceptor>();
+        AddPersistence(services, configuration);
+        AddIdentity(services);
+        AddJwt(services, configuration);
+        AddAuthorization(services);
 
+        return services;
+    }
+
+    private static void AddPersistence(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddScoped<AuditableEntityInterceptor>();
         services.AddDbContext<AppDbContext>((sp, options) =>
         {
             options.UseNpgsql(configuration.GetConnectionString("Default"));
             options.AddInterceptors(sp.GetRequiredService<AuditableEntityInterceptor>());
         });
-
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped<IDbConnectionFactory, NpgsqlConnectionFactory>();
+    }
 
-        return services;
+    private static void AddIdentity(IServiceCollection services)
+    {
+        services.AddIdentityCore<ApplicationUser>(options =>
+            {
+                options.User.RequireUniqueEmail = true;
+                options.Password.RequiredLength = 12;
+            })
+            .AddRoles<IdentityRole<Guid>>()
+            .AddEntityFrameworkStores<AppDbContext>()
+            .AddSignInManager();
+    }
+
+    private static void AddJwt(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection(JwtOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddScoped<ITokenService, JwtTokenService>();
+        services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();
+
+        var jwt = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()!;
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.MapInboundClaims = false;
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidateLifetime = true,
+                    ValidIssuer = jwt.Issuer,
+                    ValidAudience = jwt.Audience,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
+                    NameClaimType = JwtRegisteredClaimNames.Sub,
+                    RoleClaimType = ClaimTypes.Role,
+                    ClockSkew = TimeSpan.FromSeconds(30),
+                };
+            });
+    }
+
+    private static void AddAuthorization(IServiceCollection services)
+    {
+        services.AddAuthorizationBuilder()
+            .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            .AddPolicy("HasTenant", p => p.RequireClaim("tenant"))
+            .AddPolicy("TenantAdmin", p => p.RequireRole("Admin"));
     }
 }
