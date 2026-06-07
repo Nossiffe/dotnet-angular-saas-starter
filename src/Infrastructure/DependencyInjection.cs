@@ -66,6 +66,7 @@ public static class DependencyInjection
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<AppDbContext>()
             .AddSignInManager();
+        services.AddScoped<IIdentityService, IdentityService>();
     }
 
     private static void AddJwt(IServiceCollection services, IConfiguration configuration)
