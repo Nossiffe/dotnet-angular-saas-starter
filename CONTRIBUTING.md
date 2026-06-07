@@ -114,6 +114,45 @@ dotnet test --filter "Unit"    # unit seulement (sans Docker)
 
 ---
 
+## Mutation testing (Stryker.NET — on-demand)
+
+Le mutation testing mesure la **qualité réelle des tests** en introduisant des mutations dans le code et vérifiant si les tests les détectent.
+
+**Stryker.NET est un outil on-demand — il n'est PAS dans la gate CI** (trop lent pour bloquer les PRs).
+
+### Installation (locale, une seule fois)
+
+```bash
+dotnet tool install -g dotnet-stryker
+# ou en tool local dans le projet :
+dotnet tool install dotnet-stryker
+```
+
+### Lancer une analyse
+
+```bash
+# Depuis la racine du projet (lit stryker-config.json)
+dotnet stryker
+
+# Ou cibler uniquement le Domain :
+dotnet stryker --project Saas.Domain.csproj
+```
+
+Le rapport HTML s'ouvre dans `StrykerOutput/reports/mutation-report.html`.
+
+### Interpréter les résultats
+
+- **Mutation score ≥ 80 %** : bon niveau de couverture (seuil `high` configuré).
+- **60–80 %** : seuil `low` — des tests supplémentaires sont recommandés.
+- **< 60 %** : zone à risque — écrire des tests unitaires ciblés sur les cas limites.
+- Le seuil `break: 0` signifie que Stryker ne casse jamais la CI même si le score est faible.
+
+### Configuration
+
+Voir `stryker-config.json` à la racine. Cible `Domain` + `Application`, exclut les migrations et fichiers générés (`.g.cs`).
+
+---
+
 ## Review Claude en CI (optionnelle)
 
 Le fichier `REVIEW.md` à la racine calibre la review automatique (priorités, skips, must-checks).
