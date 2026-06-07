@@ -211,6 +211,59 @@ HTTP POST /products
 
 ---
 
+---
+
+## Error tracking (Sentry) — branchement optionnel
+
+L'observabilité de base est assurée par **OpenTelemetry** (traces, métriques, logs via OTLP). Pour l'agrégation d'erreurs, les alertes et le suivi des releases, Sentry peut être branché **optionnellement** — il n'est pas câblé par défaut dans le template.
+
+### Backend (`Sentry.AspNetCore`)
+
+```bash
+dotnet add src/Api package Sentry.AspNetCore
+```
+
+Dans `Program.cs`, avant `builder.Build()` :
+
+```csharp
+builder.WebHost.UseSentry(o =>
+{
+    o.Dsn = builder.Configuration["Sentry:Dsn"]; // env var SENTRY__DSN
+    o.TracesSampleRate = 0.2;
+    o.Environment = builder.Environment.EnvironmentName;
+});
+```
+
+Variable d'env à ajouter dans `.env` / secrets : `SENTRY__DSN=https://xxx@oyyy.ingest.sentry.io/zzz`.
+
+### Front Angular (`@sentry/angular`)
+
+```bash
+npm install @sentry/angular
+```
+
+Dans `main.ts` :
+```typescript
+import * as Sentry from '@sentry/angular';
+Sentry.init({ dsn: import.meta.env['VITE_SENTRY_DSN'] });
+```
+
+### Front React (`@sentry/react`)
+
+```bash
+npm install @sentry/react
+```
+
+Dans `main.tsx` :
+```typescript
+import * as Sentry from '@sentry/react';
+Sentry.init({ dsn: import.meta.env.VITE_SENTRY_DSN });
+```
+
+> **Per-SaaS uniquement** : ne pas committer le DSN dans le code. Utiliser les secrets GitHub Actions (prod) et les variables d'env locales (dev). Ce branchement est volontairement absent du template pour ne pas coupler tous les projets générés à un compte Sentry spécifique.
+
+---
+
 ## ADR
 
 - `docs/adr/0001` — Strongly-typed IDs & value objects via Vogen (STJ-only + converter EF manuel)
