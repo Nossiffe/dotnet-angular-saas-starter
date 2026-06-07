@@ -1,8 +1,12 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Saas.Infrastructure.Persistence;
+using Saas.IntegrationTests.Auth;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -20,6 +24,19 @@ public sealed class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncL
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.UseSetting("ConnectionStrings:Default", _db.GetConnectionString());
+
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddAuthentication(TestAuthHandler.SchemeName)
+                .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
+            services.AddAuthorizationBuilder()
+                .SetFallbackPolicy(
+                    new AuthorizationPolicyBuilder(TestAuthHandler.SchemeName).RequireAuthenticatedUser().Build())
+                .SetDefaultPolicy(
+                    new AuthorizationPolicyBuilder(TestAuthHandler.SchemeName).RequireAuthenticatedUser().Build())
+                .AddPolicy("HasTenant", p => p.RequireClaim("tenant"))
+                .AddPolicy("TenantAdmin", p => p.RequireRole("Admin"));
+        });
     }
 
     public async ValueTask InitializeAsync()
