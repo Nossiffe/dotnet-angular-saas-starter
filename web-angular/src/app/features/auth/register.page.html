@@ -1,0 +1,33 @@
+<h1>Inscription</h1>
+<form (submit)="onSubmit($event)">
+  <mat-form-field appearance="outline">
+    <mat-label>Email</mat-label>
+    <input matInput type="email" [formField]="registerForm.email" />
+    @if (registerForm.email().touched() && registerForm.email().invalid()) {
+      @for (e of registerForm.email().errors(); track e.kind) {
+        <mat-error>{{ e.message }}</mat-error>
+      }
+    }
+  </mat-form-field>
+  <mat-form-field appearance="outline">
+    <mat-label>Mot de passe</mat-label>
+    <input matInput type="password" [formField]="registerForm.password" />
+    @if (registerForm.password().touched() && registerForm.password().invalid()) {
+      @for (e of registerForm.password().errors(); track e.kind) {
+        <mat-error>{{ e.message }}</mat-error>
+      }
+    }
+  </mat-form-field>
+  @if (serverError()) {
+    <p class="error">{{ serverError() }}</p>
+  }
+  <button
+    mat-flat-button
+    color="primary"
+    type="submit"
+    [disabled]="registerForm().invalid() || submitting()"
+  >
+    Créer le compte
+  </button>
+</form>
+<p>Déjà un compte ? <a routerLink="/login">Se connecter</a></p>
