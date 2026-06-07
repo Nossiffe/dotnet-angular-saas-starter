@@ -1,6 +1,7 @@
 using FluentValidation;
 using FluentValidation.Results;
 using Mediator;
+using Microsoft.Extensions.Logging;
 using Saas.Application.Common.Interfaces;
 using Saas.Domain.Tenancy;
 
@@ -9,9 +10,18 @@ namespace Saas.Application.Auth.Register;
 public sealed class RegisterHandler(
     IOrganizationRepository organizations,
     IUnitOfWork uow,
-    IIdentityService identity)
+    IIdentityService identity,
+    IEmailSender email,
+    IEmailLinkBuilder links,
+    ILogger<RegisterHandler> logger)
     : ICommandHandler<RegisterCommand, Guid>
 {
+    private static readonly Action<ILogger, Guid, Exception?> _logConfirmEmailFailed =
+        LoggerMessage.Define<Guid>(
+            LogLevel.Error,
+            new EventId(1, "ConfirmEmailSendFailed"),
+            "Échec de l'envoi de l'email de confirmation pour {UserId}");
+
     public async ValueTask<Guid> Handle(RegisterCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -44,6 +54,33 @@ public sealed class RegisterHandler(
             await uow.SaveChangesAsync(ct2);
         }, cancellationToken);
 
+        // Hors transaction : génère le token de confirmation + envoie l'email.
+        // Ne doit jamais faire échouer l'inscription si SMTP est indisponible (try/catch + log).
+        await SendConfirmationEmailAsync(userId, command.Email, cancellationToken);
+
         return userId;
+    }
+
+    private async Task SendConfirmationEmailAsync(Guid userId, string recipient, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var token = await identity.GenerateEmailConfirmationTokenAsync(userId, cancellationToken);
+            if (token is null)
+            {
+                return;
+            }
+
+            var link = links.ConfirmEmailLink(userId, token);
+            var body = $"""
+                <p>Bienvenue ! Merci de confirmer votre adresse email pour activer votre compte.</p>
+                <p><a href="{link}">Confirmer mon email</a></p>
+                """;
+            await email.SendAsync(recipient, "Confirmez votre adresse email", body, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logConfirmEmailFailed(logger, userId, ex);
+        }
     }
 }

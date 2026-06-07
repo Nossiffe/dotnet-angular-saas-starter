@@ -45,4 +45,16 @@ public sealed class RealJwtFlowTests(RealJwtApiFactory factory)
         var resp = await client.GetAsync("/api/v1/products", ct);
         resp.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
+
+    [Fact]
+    public async Task Logout_sans_Authorization_retourne_401()
+    {
+        // Vérifie que le .RequireAuthorization() sur /logout fonctionne réellement
+        // avec le schéma JWT réel (le TestAuthHandler authentifie tout, donc ce cas
+        // ne peut être testé qu'avec RealJwtApiFactory).
+        var ct = TestContext.Current.CancellationToken;
+        var client = factory.CreateClient();
+        var resp = await client.PostAsync("/api/v1/auth/logout", content: null, ct);
+        resp.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
 }

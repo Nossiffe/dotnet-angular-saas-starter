@@ -78,6 +78,28 @@ public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> opti
         return new RotatedToken(existing.UserId, existing.TenantId, newRaw);
     }
 
+    public async Task RevokeAsync(string rawToken, CancellationToken cancellationToken)
+    {
+        var hash = Hash(rawToken);
+        var existing = await db.RefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == hash, cancellationToken);
+
+        // Idempotent : token inconnu ou déjà révoqué → rien à faire.
+        if (existing is null || existing.RevokedAt is not null)
+        {
+            return;
+        }
+
+        existing.RevokedAt = clock.UtcNow;
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Déjà révoqué par une requête concurrente — succès idempotent.
+        }
+    }
+
     private static string Hash(string raw)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
 }
