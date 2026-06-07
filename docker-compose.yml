@@ -31,6 +31,24 @@ services:
       - "${MAILPIT_SMTP_PORT:-1025}:1025" # SMTP
     networks: [devnet]
 
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-saas};Username=${POSTGRES_USER:-saas};Password=${POSTGRES_PASSWORD:-saas}"
+      ASPNETCORE_ENVIRONMENT: Development
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-dev-only-change-me-0123456789abcdef}"
+      App__BaseUrl: "${APP_BASEURL:-http://localhost:4200}"
+      Email__Host: mailpit
+      Email__Port: 1025
+    ports:
+      - "${API_PORT:-5123}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [devnet]
+
   aspire-dashboard:
     image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
     ports:
