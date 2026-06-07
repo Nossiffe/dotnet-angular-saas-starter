@@ -13,5 +13,20 @@ public sealed class OrganizationConfiguration : IEntityTypeConfiguration<Organiz
         builder.Property(o => o.Name).HasMaxLength(200).IsRequired();
         builder.Property(o => o.Slug).HasMaxLength(100).IsRequired();
         builder.HasIndex(o => o.Slug).IsUnique();
+        builder.Ignore(o => o.DomainEvents);
+
+        // Les memberships font partie de l'agrégat Organization (entités enfant, owned collection).
+        builder.OwnsMany(o => o.Memberships, m =>
+        {
+            m.ToTable("OrganizationMemberships");
+            m.WithOwner().HasForeignKey(x => x.OrganizationId);
+            m.HasKey(x => x.Id);
+            m.Property(x => x.Role).HasMaxLength(50).IsRequired();
+            m.HasIndex(x => new { x.UserId, x.OrganizationId }).IsUnique();
+            m.HasIndex(x => x.UserId);
+        });
+        builder.Navigation(o => o.Memberships)
+            .UsePropertyAccessMode(PropertyAccessMode.Field)
+            .HasField("_memberships");
     }
 }
