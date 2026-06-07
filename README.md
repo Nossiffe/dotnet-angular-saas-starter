@@ -134,6 +134,11 @@ Pour activer la review automatique Claude sur les PR :
 
 **Désactivée par défaut** (facturée à l'usage).
 
+## Licence
+
+Par défaut, ce template utilise une **licence propriétaire** (`LICENSE`) avec les placeholders `__YEAR__` et `__OWNER__`.
+Remplacez ces valeurs après le scaffold. Si vous souhaitez open-sourcer le projet, remplacez `LICENSE` par MIT, Apache-2.0 ou autre licence adaptée.
+
 ## Développement local — ports
 
 | Service | URL |
