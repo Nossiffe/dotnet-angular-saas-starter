@@ -34,7 +34,7 @@ public sealed class OutboxTests(PostgresApiFactory factory)
 
         // Création d'un produit → l'intercepteur écrit une ligne OutboxMessages dans la MÊME transaction.
         var name = $"Outbox-{Guid.NewGuid():N}";
-        var create = await client.PostAsJsonAsync("/products", new { name, price = 4.2m }, ct);
+        var create = await client.PostAsJsonAsync("/api/v1/products", new { name, price = 4.2m }, ct);
         create.StatusCode.ShouldBe(HttpStatusCode.Created);
 
         // Vérification 1 : la ligne outbox a bien été persistée.

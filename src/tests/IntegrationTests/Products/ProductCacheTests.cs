@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Saas.Application.Common;
 using Saas.Application.Products;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Auth;
@@ -27,14 +28,14 @@ public sealed class ProductCacheTests(PostgresApiFactory factory)
         var client = AuthedClient(factory);
 
         var name = $"Cache-{Guid.NewGuid():N}";
-        var create = await client.PostAsJsonAsync("/products", new { name, price = 10m }, ct);
+        var create = await client.PostAsJsonAsync("/api/v1/products", new { name, price = 10m }, ct);
         create.EnsureSuccessStatusCode();
 
-        var list = await client.GetFromJsonAsync<List<ProductDto>>("/products", ct);
-        var id = list!.Single(p => string.Equals(p.Name, name, StringComparison.Ordinal)).Id;
+        var page = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products", ct);
+        var id = page!.Items.Single(p => string.Equals(p.Name, name, StringComparison.Ordinal)).Id;
 
         // 1er GET → peuple le cache (clé product:{tenant}:{id}).
-        var first = await client.GetFromJsonAsync<ProductDto>($"/products/{id}", ct);
+        var first = await client.GetFromJsonAsync<ProductDto>($"/api/v1/products/{id}", ct);
         first!.Price.ShouldBe(10m);
 
         // On modifie le prix DIRECTEMENT en base, par-dessus la tête du cache (pas d'invalidation).
@@ -47,15 +48,15 @@ public sealed class ProductCacheTests(PostgresApiFactory factory)
         }
 
         // 2e GET → toujours servi par le CACHE → ancienne valeur.
-        var cached = await client.GetFromJsonAsync<ProductDto>($"/products/{id}", ct);
+        var cached = await client.GetFromJsonAsync<ProductDto>($"/api/v1/products/{id}", ct);
         cached!.Price.ShouldBe(10m);
 
         // Update via l'endpoint → invalidation (RemoveAsync).
-        var update = await client.PutAsJsonAsync($"/products/{id}", new { name, price = 42m }, ct);
+        var update = await client.PutAsJsonAsync($"/api/v1/products/{id}", new { name, price = 42m }, ct);
         update.EnsureSuccessStatusCode();
 
         // GET après invalidation → re-fetch depuis la base → nouvelle valeur.
-        var afterInvalidation = await client.GetFromJsonAsync<ProductDto>($"/products/{id}", ct);
+        var afterInvalidation = await client.GetFromJsonAsync<ProductDto>($"/api/v1/products/{id}", ct);
         afterInvalidation!.Price.ShouldBe(42m);
     }
 }

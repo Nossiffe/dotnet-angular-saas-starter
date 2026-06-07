@@ -47,18 +47,20 @@ public sealed class ListProductsHandler(IDbConnectionFactory factory, ITenantPro
                 """,
                 new { tenant.TenantId },
                 cancellationToken: cancellationToken);
-            totalCount = await connection.ExecuteScalarAsync<int>(countCommand);
+            // Postgres COUNT(*) returns bigint (long); safely cast to int.
+            totalCount = (int)(await connection.ExecuteScalarAsync<long>(countCommand));
             items = [];
         }
         else
         {
-            totalCount = rows[0].TotalCount;
+            totalCount = (int)rows[0].TotalCount;
             items = rows.ConvertAll(r => new ProductDto(r.Id, r.Name, r.Price));
         }
 
         return new PagedResult<ProductDto>(items, page, pageSize, totalCount);
     }
 
-    // Private projection type for Dapper (includes TotalCount from window function).
-    private sealed record ProductRow(Guid Id, string Name, decimal Price, int TotalCount);
+    // Internal projection type for Dapper (includes TotalCount from window function).
+    // TotalCount is long because Postgres COUNT(*) OVER() returns bigint.
+    internal sealed record ProductRow(Guid Id, string Name, decimal Price, long TotalCount);
 }
