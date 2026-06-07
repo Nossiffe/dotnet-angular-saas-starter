@@ -1,0 +1,21 @@
+{
+  "stryker-config": {
+    "solution": "Saas.slnx",
+    "project": "Saas.Application.csproj",
+    "test-projects": [
+      "src/tests/UnitTests/Saas.UnitTests.csproj"
+    ],
+    "mutate": [
+      "src/Domain/**/*.cs",
+      "src/Application/**/*.cs",
+      "!src/**/Migrations/**/*.cs",
+      "!src/**/*.g.cs"
+    ],
+    "reporters": ["html", "progress"],
+    "thresholds": {
+      "high": 80,
+      "low": 60,
+      "break": 0
+    }
+  }
+}

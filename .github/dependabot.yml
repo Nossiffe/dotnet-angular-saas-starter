@@ -1,0 +1,32 @@
+version: 2
+updates:
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      dotnet:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "npm"
+    directory: "/web-angular"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      angular:
+        patterns:
+          - "@angular*"
+
+  - package-ecosystem: "npm"
+    directory: "/web-react"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
