@@ -6,7 +6,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
-    { ignores: ['dist', 'src/routeTree.gen.ts', 'src/client/**'] },
+    { ignores: ['dist', 'src/routeTree.gen.ts', 'src/client/**', 'e2e/**'] },
     {
         extends: [js.configs.recommended, ...tseslint.configs.recommendedTypeChecked],
         files: ['**/*.{ts,tsx}'],
