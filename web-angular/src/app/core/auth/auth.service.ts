@@ -1,17 +1,23 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, of, tap } from 'rxjs';
+import type {
+  AuthResponse,
+  LoginCommand,
+  RegisterCommand,
+  PostApiV1AuthLoginData,
+  PostApiV1AuthRefreshData,
+  PostApiV1AuthRegisterData,
+  PostApiV1AuthLogoutData,
+  PostApiV1AuthForgotPasswordData,
+  PostApiV1AuthResetPasswordData,
+  PostApiV1AuthConfirmEmailData,
+} from '../../api/generated';
 
-export interface TokenResponse {
-  accessToken: string;
-  expiresAt: string;
-  refreshToken: string;
-}
-export interface Credentials {
-  email: string;
-  password: string;
-  tenantId?: string;
-}
+// Réponse jeton = DTO généré `AuthResponse` (Hey API). Pas d'interface à la main.
+export type TokenResponse = AuthResponse;
+// Identifiants de connexion = DTO généré `LoginCommand` (tenantId facultatif côté UI).
+export type Credentials = Omit<LoginCommand, 'tenantId'> & Partial<Pick<LoginCommand, 'tenantId'>>;
 export interface CurrentUser {
   email: string;
 }
@@ -37,19 +43,24 @@ export class AuthService {
     return this.refreshToken();
   }
 
-  register(body: Credentials): Observable<unknown> {
-    return this.http.post('/api/v1/auth/register', body);
+  register(body: RegisterCommand): Observable<unknown> {
+    const reqBody: PostApiV1AuthRegisterData['body'] = body;
+    return this.http.post('/api/v1/auth/register', reqBody);
   }
 
   login(body: Credentials): Observable<TokenResponse> {
+    const reqBody: PostApiV1AuthLoginData['body'] = { tenantId: null, ...body };
     return this.http
-      .post<TokenResponse>('/api/v1/auth/login', body)
+      .post<TokenResponse>('/api/v1/auth/login', reqBody)
       .pipe(tap((res) => this.applyTokens(res, body.email)));
   }
 
   refresh(): Observable<TokenResponse> {
+    const reqBody: PostApiV1AuthRefreshData['body'] = {
+      refreshToken: this.refreshToken() ?? '',
+    };
     return this.http
-      .post<TokenResponse>('/api/v1/auth/refresh', { refreshToken: this.refreshToken() })
+      .post<TokenResponse>('/api/v1/auth/refresh', reqBody)
       .pipe(tap((res) => this.applyTokens(res, this.user()?.email)));
   }
 
@@ -69,7 +80,8 @@ export class AuthService {
       clear();
       return of(undefined);
     }
-    return this.http.post<void>('/api/v1/auth/logout', { refreshToken: rt }).pipe(
+    const logoutBody: PostApiV1AuthLogoutData['body'] = { refreshToken: rt };
+    return this.http.post<void>('/api/v1/auth/logout', logoutBody).pipe(
       tap(() => clear()),
       catchError(() => {
         clear();
@@ -79,15 +91,18 @@ export class AuthService {
   }
 
   forgotPassword(email: string): Observable<unknown> {
-    return this.http.post('/api/v1/auth/forgot-password', { email });
+    const body: PostApiV1AuthForgotPasswordData['body'] = { email };
+    return this.http.post('/api/v1/auth/forgot-password', body);
   }
 
   resetPassword(userId: string, token: string, newPassword: string): Observable<unknown> {
-    return this.http.post('/api/v1/auth/reset-password', { userId, token, newPassword });
+    const body: PostApiV1AuthResetPasswordData['body'] = { userId, token, newPassword };
+    return this.http.post('/api/v1/auth/reset-password', body);
   }
 
   confirmEmail(userId: string, token: string): Observable<unknown> {
-    return this.http.post('/api/v1/auth/confirm-email', { userId, token });
+    const body: PostApiV1AuthConfirmEmailData['body'] = { userId, token };
+    return this.http.post('/api/v1/auth/confirm-email', body);
   }
 
   private applyTokens(res: TokenResponse, email?: string): void {
