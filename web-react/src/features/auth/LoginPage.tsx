@@ -98,6 +98,11 @@ export function LoginPage() {
                     {loginMut.isPending ? 'Connexion…' : 'Se connecter'}
                 </Button>
                 <p className="text-sm">
+                    <Link to="/forgot-password" className="underline">
+                        Mot de passe oublié ?
+                    </Link>
+                </p>
+                <p className="text-sm">
                     Pas de compte ?{' '}
                     <Link to="/register" className="underline">
                         Créer un compte
