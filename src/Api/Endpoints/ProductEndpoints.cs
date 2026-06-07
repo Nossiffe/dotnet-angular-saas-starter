@@ -1,5 +1,6 @@
 using Mediator;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Saas.Api.Contracts;
 using Saas.Application.Products;
 using Saas.Application.Products.CreateProduct;
 using Saas.Application.Products.DeleteProduct;
@@ -56,7 +57,4 @@ public static class ProductEndpoints
 
         return app;
     }
-
-    public sealed record UpdateProductBody(string Name, decimal Price);
-    public sealed record CreateProductResponse(Guid Id);
 }
