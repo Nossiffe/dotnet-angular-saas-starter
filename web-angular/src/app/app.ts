@@ -22,8 +22,9 @@ import { AuthService } from './core/auth/auth.service';
 export class App {
   protected readonly auth = inject(AuthService);
   private readonly router = inject(Router);
-  logout() {
-    this.auth.logout();
-    void this.router.navigateByUrl('/login');
+  logout(): void {
+    this.auth.logout().subscribe(() => {
+      void this.router.navigateByUrl('/login');
+    });
   }
 }

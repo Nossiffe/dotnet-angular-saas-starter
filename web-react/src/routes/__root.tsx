@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { createRootRouteWithContext, Outlet, Link } from '@tanstack/react-router';
-import { useRouter } from '@tanstack/react-router';
+import { createRootRouteWithContext, Outlet, Link, useRouter } from '@tanstack/react-router';
+import { Toaster } from '@/components/ui/sonner';
 import type { RouterContext } from '@/router';
 import { useAuthStore } from '@/stores/auth';
 
@@ -10,6 +10,11 @@ function Shell() {
     useEffect(() => {
         if (!isAuthenticated) void router.navigate({ to: '/login' });
     }, [isAuthenticated, router]);
+
+    const handleLogout = () => {
+        void logout().then(() => router.navigate({ to: '/login' }));
+    };
+
     return (
         <div>
             <header className="flex items-center justify-between border-b p-4">
@@ -17,7 +22,7 @@ function Shell() {
                     Saas
                 </Link>
                 {isAuthenticated && (
-                    <button onClick={logout} className="text-sm">
+                    <button onClick={handleLogout} className="text-sm">
                         Déconnexion
                     </button>
                 )}
@@ -25,6 +30,7 @@ function Shell() {
             <main className="p-4">
                 <Outlet />
             </main>
+            <Toaster />
         </div>
     );
 }

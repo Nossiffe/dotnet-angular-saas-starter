@@ -12,12 +12,25 @@ export interface AuthState {
     isAuthenticated: boolean;
     login: (accessToken: string, refreshToken: string, user: User) => void;
     setTokens: (accessToken: string, refreshToken: string) => void;
-    logout: () => void;
+    /** Clear local auth state immediately (without server revocation). */
+    clearAuth: () => void;
+    /**
+     * Revoke the refresh token server-side then clear local state.
+     * Clears local state even if the server call fails.
+     */
+    logout: () => Promise<void>;
 }
+
+const clearState = {
+    accessToken: null,
+    refreshToken: null,
+    user: null,
+    isAuthenticated: false,
+};
 
 export const useAuthStore = create<AuthState>()(
     persist(
-        (set) => ({
+        (set, get) => ({
             accessToken: null,
             refreshToken: null,
             user: null,
@@ -26,8 +39,22 @@ export const useAuthStore = create<AuthState>()(
                 set({ accessToken, refreshToken, user, isAuthenticated: true }),
             setTokens: (accessToken, refreshToken) =>
                 set({ accessToken, refreshToken, isAuthenticated: true }),
-            logout: () =>
-                set({ accessToken: null, refreshToken: null, user: null, isAuthenticated: false }),
+            clearAuth: () => set(clearState),
+            logout: async () => {
+                const rt = get().refreshToken;
+                if (rt) {
+                    try {
+                        await fetch(`${import.meta.env.VITE_API_URL ?? ''}/api/v1/auth/logout`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ refreshToken: rt }),
+                        });
+                    } catch {
+                        // Network failure — still clear local state
+                    }
+                }
+                set(clearState);
+            },
         }),
         {
             name: 'auth',

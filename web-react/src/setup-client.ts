@@ -15,13 +15,13 @@ client.interceptors.response.use(async (response, request) => {
     if (response.status !== 401) return response;
     // Guard against refresh loop (the /api/v1/auth/refresh call itself returns 401)
     if (request.url.endsWith('/api/v1/auth/refresh')) {
-        useAuthStore.getState().logout();
+        useAuthStore.getState().clearAuth();
         return response;
     }
     refreshing ??= (async () => {
-        const { refreshToken, setTokens, logout } = useAuthStore.getState();
+        const { refreshToken, setTokens, clearAuth } = useAuthStore.getState();
         if (!refreshToken) {
-            logout();
+            clearAuth();
             return null;
         }
         const r = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/auth/refresh`, {
@@ -30,7 +30,7 @@ client.interceptors.response.use(async (response, request) => {
             body: JSON.stringify({ refreshToken }),
         });
         if (!r.ok) {
-            logout();
+            clearAuth();
             return null;
         }
         const d = (await r.json()) as { accessToken: string; refreshToken: string };
