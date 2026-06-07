@@ -1,6 +1,5 @@
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.RateLimiting;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -111,10 +110,10 @@ static void AddRateLimiter(WebApplicationBuilder b)
                 PermitLimit = 100, Window = TimeSpan.FromMinutes(1), SegmentsPerWindow = 6, QueueLimit = 0,
             });
         });
-        options.AddFixedWindowLimiter("auth", o =>
-        {
-            o.PermitLimit = 10; o.Window = TimeSpan.FromSeconds(30); o.QueueLimit = 0;
-        });
+        options.AddPolicy("auth", http =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromSeconds(30), QueueLimit = 0 }));
     });
 }
 
