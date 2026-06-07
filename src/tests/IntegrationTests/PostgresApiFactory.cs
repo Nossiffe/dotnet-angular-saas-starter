@@ -33,6 +33,9 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         ArgumentNullException.ThrowIfNull(builder);
         builder.UseSetting("ConnectionStrings:Default", _db.GetConnectionString());
         builder.UseSetting("Jwt:SigningKey", "integration-tests-signing-key-0123456789abcdef");
+        // La factory migre elle-même via InitializeAsync — désactiver l'auto-migration au démarrage
+        // pour éviter un double-migrate et un conflit avec le Testcontainer déjà prêt.
+        builder.UseSetting("Database:MigrateOnStartup", "false");
 
         // Neutralise le rate-limiter "auth" (clé par IP "unknown" partagée par tous les appels
         // TestServer → 429 parasites sur les flux auth multi-appels). Flag lu par Program.cs.

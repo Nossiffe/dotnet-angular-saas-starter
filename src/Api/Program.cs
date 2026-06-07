@@ -2,6 +2,7 @@ using System.Threading.RateLimiting;
 using Asp.Versioning;
 using Hangfire;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -64,6 +65,18 @@ AddRateLimiter(builder);
 AddOpenTelemetry(builder);
 
 var app = builder.Build();
+
+// Auto-migration au démarrage UNIQUEMENT en Development (confort dotnet run).
+// En prod : utiliser le migration bundle (pas d'auto-migrate en multi-instance).
+// Guard double : IsDevelopment() + Database:MigrateOnStartup (les tests le désactivent via UseSetting).
+if (app.Environment.IsDevelopment()
+    && app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var strategy = db.Database.CreateExecutionStrategy();
+    await strategy.ExecuteAsync(async () => await db.Database.MigrateAsync());
+}
 
 app.UseExceptionHandler();
 app.UseSecurityHeaders(new HeaderPolicyCollection().AddDefaultApiSecurityHeaders());
