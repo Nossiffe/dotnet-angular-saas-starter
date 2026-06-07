@@ -13,8 +13,8 @@ let refreshing: Promise<string | null> | null = null;
 
 client.interceptors.response.use(async (response, request) => {
     if (response.status !== 401) return response;
-    // Guard against refresh loop (the /auth/refresh call itself returns 401)
-    if (request.url.endsWith('/auth/refresh')) {
+    // Guard against refresh loop (the /api/v1/auth/refresh call itself returns 401)
+    if (request.url.endsWith('/api/v1/auth/refresh')) {
         useAuthStore.getState().logout();
         return response;
     }
@@ -24,7 +24,7 @@ client.interceptors.response.use(async (response, request) => {
             logout();
             return null;
         }
-        const r = await fetch(`${import.meta.env.VITE_API_URL}/auth/refresh`, {
+        const r = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/auth/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refreshToken }),

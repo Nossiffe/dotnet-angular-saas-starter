@@ -14,7 +14,9 @@ const SKIP_AUTH_RETRY = new HttpContextToken(() => false);
 let refresh$: Observable<TokenResponse> | null = null;
 
 const isAuthCall = (url: string): boolean =>
-  url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh');
+  url.includes('/api/v1/auth/login') ||
+  url.includes('/api/v1/auth/register') ||
+  url.includes('/api/v1/auth/refresh');
 
 const isSameOrigin = (url: string): boolean =>
   url.startsWith('/') || url.startsWith(window.location.origin);

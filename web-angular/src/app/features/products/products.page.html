@@ -24,7 +24,8 @@
 } @else if (svc.products.error()) {
   <p>Échec du chargement.</p>
 } @else if (svc.products.hasValue()) {
-  <table mat-table [dataSource]="svc.products.value()!">
+  <p>{{ svc.products.value()!.totalCount }} produit(s) au total</p>
+  <table mat-table [dataSource]="svc.products.value()!.items">
     <ng-container matColumnDef="name">
       <th mat-header-cell *matHeaderCellDef>Nom</th>
       <td mat-cell *matCellDef="let p">{{ p.name }}</td>

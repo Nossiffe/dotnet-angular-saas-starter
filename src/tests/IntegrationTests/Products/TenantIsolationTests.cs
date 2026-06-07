@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using Saas.Application.Common;
 using Saas.Application.Products;
 using Saas.IntegrationTests.Auth;
 using Shouldly;
@@ -22,14 +23,14 @@ public sealed class TenantIsolationTests(PostgresApiFactory factory)
         clientB.DefaultRequestHeaders.Add(TestAuthHandler.TenantHeader, tenantB.ToString());
 
         var name = $"Secret-{Guid.NewGuid():N}";
-        (await clientA.PostAsJsonAsync("/products", new { name, price = 1m }, ct)).EnsureSuccessStatusCode();
+        (await clientA.PostAsJsonAsync("/api/v1/products", new { name, price = 1m }, ct)).EnsureSuccessStatusCode();
 
-        var listB = await clientB.GetFromJsonAsync<List<ProductDto>>("/products", ct);
+        var listB = await clientB.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products", ct);
         listB.ShouldNotBeNull();
-        listB!.ShouldNotContain(p => p.Name == name);
+        listB!.Items.ShouldNotContain(p => p.Name == name);
 
-        var listA = await clientA.GetFromJsonAsync<List<ProductDto>>("/products", ct);
+        var listA = await clientA.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products", ct);
         listA.ShouldNotBeNull();
-        listA!.ShouldContain(p => p.Name == name);
+        listA!.Items.ShouldContain(p => p.Name == name);
     }
 }

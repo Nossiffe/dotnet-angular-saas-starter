@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, Link } from '@tanstack/react-router';
-import { postAuthRegisterMutation } from '@/client/@tanstack/react-query.gen';
+import { postApiV1AuthRegisterMutation } from '@/client/@tanstack/react-query.gen';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -29,7 +29,7 @@ export function RegisterPage() {
     });
 
     const registerMut = useMutation({
-        ...postAuthRegisterMutation(),
+        ...postApiV1AuthRegisterMutation(),
         onSuccess: () => {
             void navigate({ to: '/login' });
         },

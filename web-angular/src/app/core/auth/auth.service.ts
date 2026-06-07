@@ -34,18 +34,18 @@ export class AuthService {
   }
 
   register(body: Credentials): Observable<unknown> {
-    return this.http.post('/auth/register', body);
+    return this.http.post('/api/v1/auth/register', body);
   }
 
   login(body: Credentials): Observable<TokenResponse> {
     return this.http
-      .post<TokenResponse>('/auth/login', body)
+      .post<TokenResponse>('/api/v1/auth/login', body)
       .pipe(tap((res) => this.applyTokens(res, body.email)));
   }
 
   refresh(): Observable<TokenResponse> {
     return this.http
-      .post<TokenResponse>('/auth/refresh', { refreshToken: this.refreshToken() })
+      .post<TokenResponse>('/api/v1/auth/refresh', { refreshToken: this.refreshToken() })
       .pipe(tap((res) => this.applyTokens(res, this.user()?.email)));
   }
 

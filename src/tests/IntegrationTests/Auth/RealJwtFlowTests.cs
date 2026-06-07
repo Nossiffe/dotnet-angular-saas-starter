@@ -20,20 +20,20 @@ public sealed class RealJwtFlowTests(RealJwtApiFactory factory)
         const string password = "Sup3rSecret!!42";
 
         // Register
-        var register = await client.PostAsJsonAsync("/auth/register", new { email, password }, ct);
+        var register = await client.PostAsJsonAsync("/api/v1/auth/register", new { email, password }, ct);
         register.StatusCode.ShouldBe(HttpStatusCode.Created);
 
         // Login → real JWT
-        var login = await client.PostAsJsonAsync("/auth/login", new { email, password }, ct);
+        var login = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password }, ct);
         login.EnsureSuccessStatusCode();
         var auth = await login.Content.ReadFromJsonAsync<AuthResponse>(ct);
         auth.ShouldNotBeNull();
         auth!.AccessToken.ShouldNotBeNullOrWhiteSpace();
 
-        // GET /products with valid Bearer token → 200
+        // GET /api/v1/products with valid Bearer token → 200
         var authed = factory.CreateClient();
         authed.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
-        var listResp = await authed.GetAsync("/products", ct);
+        var listResp = await authed.GetAsync("/api/v1/products", ct);
         listResp.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
@@ -42,7 +42,7 @@ public sealed class RealJwtFlowTests(RealJwtApiFactory factory)
     {
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
-        var resp = await client.GetAsync("/products", ct);
+        var resp = await client.GetAsync("/api/v1/products", ct);
         resp.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 }

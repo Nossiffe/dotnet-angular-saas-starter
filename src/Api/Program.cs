@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using Asp.Versioning;
 using Hangfire;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using OpenTelemetry;
@@ -37,6 +38,18 @@ builder.Services.AddMediator(options =>
         typeof(LoggingBehavior<,>),
         typeof(ValidationBehavior<,>),
     ];
+});
+
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+    options.ApiVersionReader = new UrlSegmentApiVersionReader();
+}).AddApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV";
+    options.SubstituteApiVersionInUrl = true;
 });
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
