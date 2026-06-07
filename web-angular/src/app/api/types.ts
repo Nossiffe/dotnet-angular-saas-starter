@@ -2,8 +2,8 @@
 export type {
   ProductDto,
   CreateProductCommand,
-  LoginRequest,
-  RegisterRequest,
+  LoginCommand,
+  RegisterCommand,
   AuthResponse,
   RegisterResponse,
 } from './generated/types.gen';
