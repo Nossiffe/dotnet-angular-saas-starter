@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Generated files
+/src/client/
+/src/routeTree.gen.ts
+
+# Test/coverage
+/test-results/
+/playwright-report/
+/coverage/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
