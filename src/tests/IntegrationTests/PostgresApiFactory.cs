@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Saas.Application.Common.Interfaces;
+using Saas.Infrastructure.Jobs;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Auth;
 using Testcontainers.PostgreSql;
@@ -38,10 +39,17 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("RateLimiting:DisableAuthPolicy", "true");
 
         // Remplace l'envoi SMTP réel par un fake capturant (recipient + corps/lien).
+        // Remplace aussi IPasswordResetEnqueuer par un exécutant synchrone : le job
+        // ProcessPasswordResetJob est résolu et exécuté inline, garantissant que
+        // CapturingEmailSender a capturé le mail avant la vérification dans le test.
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IEmailSender>();
             services.AddSingleton<IEmailSender>(Emails);
+
+            services.AddScoped<ProcessPasswordResetJob>();
+            services.RemoveAll<IPasswordResetEnqueuer>();
+            services.AddScoped<IPasswordResetEnqueuer, SynchronousPasswordResetEnqueuer>();
         });
 
         if (UseTestAuth)
