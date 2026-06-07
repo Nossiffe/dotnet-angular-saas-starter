@@ -1,23 +1,29 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Saas.Application.Common.Interfaces;
+using Saas.Domain.Identity;
 using Saas.Domain.Products;
+using Saas.Domain.Tenancy;
 
 namespace Saas.Infrastructure.Persistence;
 
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenantProvider tenant)
-    : DbContext(options), IAppDbContext
+    : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options), IAppDbContext
 {
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<Organization> Organizations => Set<Organization>();
+    public DbSet<OrganizationMembership> Memberships => Set<OrganizationMembership>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    protected override void OnModelCreating(ModelBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(modelBuilder);
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+        ArgumentNullException.ThrowIfNull(builder);
+        base.OnModelCreating(builder); // REQUIS en premier : mappe les tables Identity
+        builder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
-        // Filtre global : isolation tenant + soft-delete (Product).
-        modelBuilder.Entity<Product>().HasQueryFilter(
+        // Seul Product est filtré par tenant (+ soft-delete). Identity/Org/Membership = cross-tenant.
+        builder.Entity<Product>().HasQueryFilter(
             p => p.TenantId == tenant.TenantId && !p.IsDeleted);
-
-        base.OnModelCreating(modelBuilder);
     }
 }
