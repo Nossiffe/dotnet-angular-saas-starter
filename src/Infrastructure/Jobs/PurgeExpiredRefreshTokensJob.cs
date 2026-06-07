@@ -5,9 +5,17 @@ using Saas.Infrastructure.Persistence;
 
 namespace Saas.Infrastructure.Jobs;
 
-// Job Hangfire RÉEL : purge quotidienne des refresh tokens expirés ou révoqués.
+// Job Hangfire RÉEL : purge quotidienne des refresh tokens expirés.
 // Set-based via ExecuteDeleteAsync (pas de tracking). Enregistré comme recurring (Cron.Daily)
 // dans Program.cs ; peut aussi être enfilé à la demande : BackgroundJob.Enqueue<PurgeExpiredRefreshTokensJob>(j => j.RunAsync()).
+//
+// IMPORTANT : on ne purge que les tokens dont ExpiresAt < now (expirés), même s'ils sont révoqués.
+// Les tokens révoqués mais encore dans leur fenêtre de vie sont conservés intentionnellement :
+// RefreshTokenStore.ValidateAndRotateAsync les détecte comme signal de vol (reuse detection)
+// et révoque toute la famille active. Purger prématurément un token révoqué le ferait disparaître
+// de la base → un replay de l'ancien token serait traité comme "non trouvé" (401 ordinaire)
+// au lieu de déclencher la révocation famille. Fenêtre de rétention = durée de vie du refresh
+// (RefreshTokenDays, 7 jours par défaut).
 internal sealed partial class PurgeExpiredRefreshTokensJob(
     AppDbContext db,
     IDateTimeProvider clock,
@@ -17,7 +25,7 @@ internal sealed partial class PurgeExpiredRefreshTokensJob(
     {
         var cutoff = clock.UtcNow;
         var deleted = await db.RefreshTokens
-            .Where(t => t.ExpiresAt < cutoff || t.RevokedAt != null)
+            .Where(t => t.ExpiresAt < cutoff)
             .ExecuteDeleteAsync()
             .ConfigureAwait(false);
         LogPurged(logger, deleted);

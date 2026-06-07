@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { createRootRouteWithContext, Outlet, Link, useRouter } from '@tanstack/react-router';
 import { Toaster } from '@/components/ui/sonner';
 import type { RouterContext } from '@/router';
@@ -7,9 +6,6 @@ import { useAuthStore } from '@/stores/auth';
 function Shell() {
     const { isAuthenticated, logout } = useAuthStore();
     const router = useRouter();
-    useEffect(() => {
-        if (!isAuthenticated) void router.navigate({ to: '/login' });
-    }, [isAuthenticated, router]);
 
     const handleLogout = () => {
         void logout().then(() => router.navigate({ to: '/login' }));

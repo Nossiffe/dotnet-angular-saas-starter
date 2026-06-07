@@ -69,8 +69,8 @@ Toujours relire le fichier généré avant de commiter. Détail : `.claude/skill
 ### Regénérer les clients API (skill `/sync-api-client`)
 
 ```bash
-curl http://localhost:5001/openapi/v1.json -o web-angular/openapi.json
-curl http://localhost:5001/openapi/v1.json -o web-react/openapi.json
+curl http://localhost:5123/openapi/v1.json -o web-angular/openapi.json
+curl http://localhost:5123/openapi/v1.json -o web-react/openapi.json
 cd web-angular && npm run api:gen
 cd web-react && npm run gen:api
 ```
@@ -170,7 +170,7 @@ Pour activer :
 # Démarrage complet
 docker network create devnet 2>/dev/null || true
 docker compose up -d
-dotnet run --project src/Api      # API sur http://localhost:5001
+dotnet run --project src/Api      # API sur http://localhost:5123
 cd web-angular && npm start        # Angular sur http://localhost:4200
 cd web-react && npm run dev        # React sur http://localhost:5173
 

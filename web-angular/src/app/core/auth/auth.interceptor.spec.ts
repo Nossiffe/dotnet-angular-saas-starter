@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors, HttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { authInterceptor } from './auth.interceptor';
 import { AuthService } from './auth.service';
 
@@ -49,6 +49,32 @@ describe('authInterceptor', () => {
     const req = httpMock.expectOne('/api/v1/auth/login');
     expect(req.request.headers.has('Authorization')).toBe(false);
     req.flush(TOKEN_RESP);
+  });
+
+  it('(d) échec du refresh appelle clearLocalState() (pas logout())', () => {
+    // Log in first
+    auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
+    httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);
+
+    const clearSpy = vi.spyOn(auth, 'clearLocalState');
+    const logoutSpy = vi.spyOn(auth, 'logout');
+
+    // Make a request that returns 401
+    http.get('/api/v1/products').subscribe({ error: () => undefined });
+
+    // Return 401
+    httpMock.expectOne('/api/v1/products').flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    // Interceptor should call refresh — return failure
+    httpMock
+      .expectOne('/api/v1/auth/refresh')
+      .flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+    expect(logoutSpy).not.toHaveBeenCalled();
+
+    clearSpy.mockRestore();
+    logoutSpy.mockRestore();
   });
 
   it('(c) un 401 déclenche un refresh puis retentetive avec le nouveau token', () => {

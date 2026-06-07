@@ -1,5 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Observable, catchError, of, tap } from 'rxjs';
 import type {
   AuthResponse,
@@ -13,6 +13,7 @@ import type {
   PostApiV1AuthResetPasswordData,
   PostApiV1AuthConfirmEmailData,
 } from '../../api/generated';
+import { SKIP_ERROR_TOAST } from '../error/http-error.interceptor';
 
 // Réponse jeton = DTO généré `AuthResponse` (Hey API). Pas d'interface à la main.
 export type TokenResponse = AuthResponse;
@@ -45,7 +46,9 @@ export class AuthService {
 
   register(body: RegisterCommand): Observable<unknown> {
     const reqBody: PostApiV1AuthRegisterData['body'] = body;
-    return this.http.post('/api/v1/auth/register', reqBody);
+    return this.http.post('/api/v1/auth/register', reqBody, {
+      context: new HttpContext().set(SKIP_ERROR_TOAST, true),
+    });
   }
 
   login(body: Credentials): Observable<TokenResponse> {
@@ -65,26 +68,32 @@ export class AuthService {
   }
 
   /**
+   * Synchronously clears all local auth state (signals + localStorage).
+   * Does NOT make any HTTP call. Call this when the server revocation is
+   * impossible or inappropriate (e.g. refresh failure in the interceptor).
+   */
+  clearLocalState(): void {
+    this.accessToken.set(null);
+    this.refreshToken.set(null);
+    this.user.set(null);
+    localStorage.removeItem(REFRESH_KEY);
+  }
+
+  /**
    * Revoke the refresh token server-side, then clear local state.
    * Local state is cleared even if the server call fails.
    */
   logout(): Observable<void> {
     const rt = this.refreshToken();
-    const clear = (): void => {
-      this.accessToken.set(null);
-      this.refreshToken.set(null);
-      this.user.set(null);
-      localStorage.removeItem(REFRESH_KEY);
-    };
     if (!rt) {
-      clear();
+      this.clearLocalState();
       return of(undefined);
     }
     const logoutBody: PostApiV1AuthLogoutData['body'] = { refreshToken: rt };
     return this.http.post<void>('/api/v1/auth/logout', logoutBody).pipe(
-      tap(() => clear()),
+      tap(() => this.clearLocalState()),
       catchError(() => {
-        clear();
+        this.clearLocalState();
         return of(undefined);
       }),
     );
@@ -92,17 +101,23 @@ export class AuthService {
 
   forgotPassword(email: string): Observable<unknown> {
     const body: PostApiV1AuthForgotPasswordData['body'] = { email };
-    return this.http.post('/api/v1/auth/forgot-password', body);
+    return this.http.post('/api/v1/auth/forgot-password', body, {
+      context: new HttpContext().set(SKIP_ERROR_TOAST, true),
+    });
   }
 
   resetPassword(userId: string, token: string, newPassword: string): Observable<unknown> {
     const body: PostApiV1AuthResetPasswordData['body'] = { userId, token, newPassword };
-    return this.http.post('/api/v1/auth/reset-password', body);
+    return this.http.post('/api/v1/auth/reset-password', body, {
+      context: new HttpContext().set(SKIP_ERROR_TOAST, true),
+    });
   }
 
   confirmEmail(userId: string, token: string): Observable<unknown> {
     const body: PostApiV1AuthConfirmEmailData['body'] = { userId, token };
-    return this.http.post('/api/v1/auth/confirm-email', body);
+    return this.http.post('/api/v1/auth/confirm-email', body, {
+      context: new HttpContext().set(SKIP_ERROR_TOAST, true),
+    });
   }
 
   private applyTokens(res: TokenResponse, email?: string): void {

@@ -35,6 +35,7 @@ export function ResetPasswordPage() {
         unknown,
         { userId: string; token: string; newPassword: string }
     >({
+        meta: { skipGlobalError: true },
         mutationFn: async (vars) => {
             const { data } = await postApiV1AuthResetPassword({
                 body: vars,

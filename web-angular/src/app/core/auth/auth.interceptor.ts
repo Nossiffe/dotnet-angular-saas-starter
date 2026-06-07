@@ -47,7 +47,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         }),
         catchError((refreshErr: unknown) => {
           refresh$ = null;
-          auth.logout();
+          auth.clearLocalState();
           return throwError(() => refreshErr);
         }),
       );
