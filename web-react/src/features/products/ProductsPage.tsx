@@ -49,7 +49,7 @@ export function ProductsPage() {
                 className="flex items-end gap-2"
                 onSubmit={(e) => {
                     e.preventDefault();
-                    if (!name || price <= 0 || create.isPending) return;
+                    if (!name || !Number.isFinite(price) || price <= 0 || create.isPending) return;
                     create.mutate({ body: { name, price } });
                 }}
             >
@@ -64,6 +64,9 @@ export function ProductsPage() {
                     Ajouter
                 </Button>
             </form>
+            {(create.isError || remove.isError) && (
+                <p className="text-sm text-destructive">Opération échouée.</p>
+            )}
 
             {isPending ? (
                 <p>Chargement…</p>
@@ -86,6 +89,7 @@ export function ProductsPage() {
                                 <TableCell>
                                     <Button
                                         variant="ghost"
+                                        disabled={remove.isPending}
                                         onClick={() => remove.mutate({ path: { id: p.id } })}
                                     >
                                         Supprimer

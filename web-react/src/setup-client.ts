@@ -8,12 +8,13 @@ client.interceptors.request.use((request) => {
     return request;
 });
 
-// (b) 401 → refresh single-flight → retry (read path; see caveat: POST/PUT body consumed)
+// (b) 401 → refresh single-flight → retry (GET/DELETE safe; POST/PUT/PATCH skipped when body consumed)
 let refreshing: Promise<string | null> | null = null;
 
 client.interceptors.response.use(async (response, request) => {
     if (response.status !== 401) return response;
-    if (request.url.endsWith('/auth/refresh') || request.headers.get('x-retried')) {
+    // Guard against refresh loop (the /auth/refresh call itself returns 401)
+    if (request.url.endsWith('/auth/refresh')) {
         useAuthStore.getState().logout();
         return response;
     }
@@ -43,11 +44,9 @@ client.interceptors.response.use(async (response, request) => {
         refreshing = null;
     }
     if (!newToken) return response;
-
-    const retried = new Request(request, {
-        headers: new Headers(request.headers),
-    });
+    // POST/PUT/PATCH body can't be replayed once consumed → let the mutation's onError handle the 401
+    if (request.bodyUsed) return response;
+    const retried = new Request(request, { headers: new Headers(request.headers) });
     retried.headers.set('Authorization', `Bearer ${newToken}`);
-    retried.headers.set('x-retried', '1');
     return fetch(retried);
 });

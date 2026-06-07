@@ -43,7 +43,11 @@ export function LoginPage() {
             login(resp.accessToken, resp.refreshToken, {
                 email: (vars.body as { email: string }).email,
             });
-            void navigate({ to: search.redirect ?? '/products' });
+            const safeTo =
+                typeof search.redirect === 'string' && /^\/(?![/\\])/.test(search.redirect)
+                    ? search.redirect
+                    : '/products';
+            void navigate({ to: safeTo });
         },
         onError: () => form.setError('root', { message: 'Identifiants invalides' }),
     });
