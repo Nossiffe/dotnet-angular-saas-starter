@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
+#pragma warning disable MA0051 // Method is too long (generated migration)
+#pragma warning disable CA1861 // Prefer static readonly (generated migration)
 
 namespace Saas.Infrastructure.Persistence.Migrations
 {

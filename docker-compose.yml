@@ -31,6 +31,13 @@ services:
       - "${MAILPIT_SMTP_PORT:-1025}:1025" # SMTP
     networks: [devnet]
 
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    ports:
+      - "${ASPIRE_UI_PORT:-18888}:18888"
+      - "${OTLP_PORT:-4317}:18889"
+    networks: [devnet]
+
 volumes:
   db-data:
 
