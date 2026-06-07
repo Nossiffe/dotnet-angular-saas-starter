@@ -30,7 +30,24 @@ public sealed class RefreshTokenStore(IAppDbContext db, IOptions<JwtOptions> opt
     {
         var hash = Hash(rawToken);
         var existing = await db.RefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == hash, cancellationToken);
-        if (existing is null || !existing.IsActive)
+
+        // Reuse detection: already-revoked token presented → theft signal → revoke all active tokens for user
+        if (existing is not null && existing.RevokedAt is not null)
+        {
+            var activeTokens = await db.RefreshTokens
+                .Where(t => t.UserId == existing.UserId && t.RevokedAt == null)
+                .ToListAsync(cancellationToken);
+            foreach (var active in activeTokens)
+            {
+                active.RevokedAt = clock.UtcNow;
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+            return null;
+        }
+
+        // Token not found or expired
+        if (existing is null || clock.UtcNow >= existing.ExpiresAt)
         {
             return null;
         }
@@ -48,7 +65,15 @@ public sealed class RefreshTokenStore(IAppDbContext db, IOptions<JwtOptions> opt
         existing.RevokedAt = clock.UtcNow;
         existing.ReplacedByTokenId = replacement.Id;
 
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+        {
+            return null;
+        }
+
         return new RotatedToken(existing.UserId, existing.TenantId, newRaw);
     }
 

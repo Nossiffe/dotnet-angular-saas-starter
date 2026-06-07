@@ -11,5 +11,6 @@ public sealed class RefreshToken : BaseEntity
     public DateTimeOffset? RevokedAt { get; set; }
     public Guid? ReplacedByTokenId { get; set; }
 
-    public bool IsActive => RevokedAt is null && DateTimeOffset.UtcNow < ExpiresAt;
+    /// <summary>Postgres xmin system column — used as optimistic concurrency token.</summary>
+    public uint Version { get; set; }
 }

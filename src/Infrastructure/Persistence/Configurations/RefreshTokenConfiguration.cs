@@ -13,6 +13,14 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
         builder.Property(t => t.TokenHash).HasMaxLength(128).IsRequired();
         builder.HasIndex(t => t.TokenHash).IsUnique();
         builder.HasIndex(t => t.UserId);
-        builder.Ignore(t => t.IsActive);
+        // Postgres xmin column as optimistic concurrency token
+        builder.Property(t => t.Version)
+            .HasColumnName("xmin")
+            .HasColumnType("xid")
+            .IsRowVersion();
+        builder.HasOne<Saas.Domain.Identity.ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(t => t.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
