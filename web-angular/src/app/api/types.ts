@@ -1,6 +1,7 @@
 // Re-export all generated types
 export type {
   ProductDto,
+  PagedResultOfProductDto,
   CreateProductCommand,
   LoginCommand,
   RegisterCommand,
@@ -10,3 +11,4 @@ export type {
 
 // Alias for backward-compat with components using the `Product` name
 export type { ProductDto as Product } from './generated/types.gen';
+export type { PagedResultOfProductDto as ProductsPage } from './generated/types.gen';

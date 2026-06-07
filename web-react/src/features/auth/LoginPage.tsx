@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useSearch, Link } from '@tanstack/react-router';
-import { postAuthLoginMutation } from '@/client/@tanstack/react-query.gen';
+import { postApiV1AuthLoginMutation } from '@/client/@tanstack/react-query.gen';
 import { useAuthStore } from '@/stores/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,7 +37,7 @@ export function LoginPage() {
     });
 
     const loginMut = useMutation({
-        ...postAuthLoginMutation(),
+        ...postApiV1AuthLoginMutation(),
         onSuccess: (data, vars) => {
             const resp = data as AuthResponse;
             login(resp.accessToken, resp.refreshToken, {

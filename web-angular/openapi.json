@@ -10,7 +10,7 @@
     }
   ],
   "paths": {
-    "/auth/register": {
+    "/api/v1/auth/register": {
       "post": {
         "tags": ["Auth"],
         "requestBody": {
@@ -40,7 +40,7 @@
         }
       }
     },
-    "/auth/login": {
+    "/api/v1/auth/login": {
       "post": {
         "tags": ["Auth"],
         "requestBody": {
@@ -70,7 +70,7 @@
         }
       }
     },
-    "/auth/refresh": {
+    "/api/v1/auth/refresh": {
       "post": {
         "tags": ["Auth"],
         "requestBody": {
@@ -100,7 +100,7 @@
         }
       }
     },
-    "/products": {
+    "/api/v1/products": {
       "post": {
         "tags": ["Products"],
         "requestBody": {
@@ -131,16 +131,35 @@
       },
       "get": {
         "tags": ["Products"],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": ["integer", "string"],
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": ["integer", "string"],
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ProductDto"
-                  }
+                  "$ref": "#/components/schemas/PagedResultOfProductDto"
                 }
               }
             }
@@ -148,7 +167,7 @@
         }
       }
     },
-    "/products/{id}": {
+    "/api/v1/products/{id}": {
       "get": {
         "tags": ["Products"],
         "parameters": [
@@ -289,6 +308,38 @@
           "tenantId": {
             "type": ["null", "string"],
             "format": "uuid"
+          }
+        }
+      },
+      "PagedResultOfProductDto": {
+        "required": ["items", "page", "pageSize", "totalCount"],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductDto"
+            }
+          },
+          "page": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": ["integer", "string"],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": ["integer", "string"],
+            "format": "int32"
+          },
+          "totalCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": ["integer", "string"],
+            "format": "int32"
+          },
+          "totalPages": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": ["integer", "string"],
+            "format": "int32"
           }
         }
       },

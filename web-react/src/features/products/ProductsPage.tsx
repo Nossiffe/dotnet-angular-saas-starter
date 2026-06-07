@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-    getProductsOptions,
-    getProductsQueryKey,
-    postProductsMutation,
-    deleteProductsByIdMutation,
+    getApiV1ProductsOptions,
+    getApiV1ProductsQueryKey,
+    postApiV1ProductsMutation,
+    deleteApiV1ProductsByIdMutation,
 } from '@/client/@tanstack/react-query.gen';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,20 +19,20 @@ import {
 
 export function ProductsPage() {
     const qc = useQueryClient();
-    const { data: products, isPending, error } = useQuery({ ...getProductsOptions() });
+    const { data: products, isPending, error } = useQuery({ ...getApiV1ProductsOptions() });
     const [name, setName] = useState('');
     const [price, setPrice] = useState(0);
 
-    const invalidate = () => void qc.invalidateQueries({ queryKey: getProductsQueryKey() });
+    const invalidate = () => void qc.invalidateQueries({ queryKey: getApiV1ProductsQueryKey() });
     const create = useMutation({
-        ...postProductsMutation(),
+        ...postApiV1ProductsMutation(),
         onSuccess: () => {
             setName('');
             setPrice(0);
             invalidate();
         },
     });
-    const remove = useMutation({ ...deleteProductsByIdMutation(), onSuccess: invalidate });
+    const remove = useMutation({ ...deleteApiV1ProductsByIdMutation(), onSuccess: invalidate });
 
     return (
         <div className="space-y-4">
@@ -65,32 +65,39 @@ export function ProductsPage() {
             ) : error ? (
                 <p>Échec du chargement.</p>
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Nom</TableHead>
-                            <TableHead>Prix</TableHead>
-                            <TableHead />
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {products?.map((p) => (
-                            <TableRow key={p.id}>
-                                <TableCell>{p.name}</TableCell>
-                                <TableCell>{p.price}</TableCell>
-                                <TableCell>
-                                    <Button
-                                        variant="ghost"
-                                        disabled={remove.isPending}
-                                        onClick={() => remove.mutate({ path: { id: p.id } })}
-                                    >
-                                        Supprimer
-                                    </Button>
-                                </TableCell>
+                <>
+                    {products && (
+                        <p className="text-sm text-muted-foreground">
+                            {String(products.totalCount)} produit(s) au total
+                        </p>
+                    )}
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Nom</TableHead>
+                                <TableHead>Prix</TableHead>
+                                <TableHead />
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {products?.items.map((p) => (
+                                <TableRow key={p.id}>
+                                    <TableCell>{p.name}</TableCell>
+                                    <TableCell>{p.price}</TableCell>
+                                    <TableCell>
+                                        <Button
+                                            variant="ghost"
+                                            disabled={remove.isPending}
+                                            onClick={() => remove.mutate({ path: { id: p.id } })}
+                                        >
+                                            Supprimer
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </>
             )}
         </div>
     );

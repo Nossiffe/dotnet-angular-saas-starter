@@ -1,5 +1,4 @@
 {
-  "/auth": { "target": "http://localhost:5123", "secure": false },
-  "/products": { "target": "http://localhost:5123", "secure": false },
+  "/api": { "target": "http://localhost:5123", "secure": false },
   "/openapi": { "target": "http://localhost:5123", "secure": false }
 }
