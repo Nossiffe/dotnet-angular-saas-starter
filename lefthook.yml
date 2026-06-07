@@ -1,6 +1,9 @@
 pre-commit:
   parallel: true
   commands:
+    gitleaks:
+      run: command -v gitleaks >/dev/null 2>&1 && gitleaks protect --staged --redact --no-banner --config .gitleaks.toml || true
+      fail_text: "Secret détecté par gitleaks — supprimer la valeur sensible avant de commiter"
     dotnet-format:
       glob: "**/*.cs"
       run: dotnet format --include {staged_files} --verify-no-changes

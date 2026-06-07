@@ -1,0 +1,554 @@
+#!/usr/bin/env bash
+# =============================================================================
+# new-saas : copieur/tokenizer — génère un SaaS depuis le template
+# Usage :
+#   new-saas <nom> [--front=angular|react] [--public|--private]
+#                  [--dest=<path>] [--no-ports] [--no-install] [--no-git] [--no-repo]
+# Exemples :
+#   new-saas facturation                      # Angular + repo GitHub privé + push
+#   new-saas crm --front=react --public       # React/Vite + repo GitHub public
+#   new-saas demo --no-repo                   # pas de création de repo distant
+#   new-saas test --dest=/tmp/test --no-ports --no-install --no-git --no-repo  # CI
+# =============================================================================
+set -euo pipefail
+
+GREEN='\033[0;32m'; BLUE='\033[0;34m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
+log()  { echo -e "${BLUE}==>${NC} ${GREEN}$1${NC}"; }
+warn() { echo -e "${YELLOW}!!${NC} $1"; }
+die()  { echo -e "${RED}xx${NC} $1" >&2; exit 1; }
+
+# TEMPLATE default = the repo root relative to this script (overridable by env)
+TEMPLATE="${TEMPLATE:-$(cd "$(dirname "$0")/.." && pwd)}"
+DEV_ROOT="$HOME/dev"
+REGISTRY="$DEV_ROOT/.saas-ports.tsv"
+MISE="$HOME/.local/bin/mise"
+[ -x "$MISE" ] || MISE="mise"
+
+# --- 1. Parse args -----------------------------------------------------------
+NAME=""; FRONT="angular"; DO_INSTALL=1; DO_GIT=1; DO_REPO=1; REPO_VIS="private"
+DEST_OVERRIDE=""; NO_PORTS="${SAAS_NO_PORTS:-0}"
+for arg in "$@"; do
+  case "$arg" in
+    --front=*)    FRONT="${arg#*=}" ;;
+    --dest=*)     DEST_OVERRIDE="${arg#*=}" ;;
+    --no-ports)   NO_PORTS=1 ;;
+    --no-install) DO_INSTALL=0 ;;
+    --no-git)     DO_GIT=0 ;;
+    --no-repo)    DO_REPO=0 ;;
+    --public)     REPO_VIS="public" ;;
+    --private)    REPO_VIS="private" ;;
+    --*)          die "Option inconnue : $arg" ;;
+    *)            [ -z "$NAME" ] && NAME="$arg" || die "Trop d'arguments : $arg" ;;
+  esac
+done
+
+[ -n "$NAME" ] || die "Usage : new-saas <nom> [--front=angular|react] [--public|--private] [--dest=<path>] [--no-ports] [--no-install] [--no-git] [--no-repo]"
+[[ "$NAME" =~ ^[a-z][a-z0-9-]*$ ]] || die "Nom invalide '$NAME' : minuscules, chiffres et tirets, commence par une lettre."
+[ "$FRONT" = "angular" ] || [ "$FRONT" = "react" ] || die "--front doit valoir 'angular' ou 'react'."
+
+if [ -n "$DEST_OVERRIDE" ]; then
+  DEST="$DEST_OVERRIDE"
+else
+  DEST="$DEV_ROOT/$NAME"
+fi
+[ ! -e "$DEST" ] || { [ -d "$DEST" ] && [ -z "$(ls -A "$DEST" 2>/dev/null)" ] || die "$DEST existe déjà et n'est pas vide."; }
+
+[ -d "$TEMPLATE" ] || die "Template introuvable : $TEMPLATE — clone-le d'abord."
+
+# Nom Pascal : my-app -> MyApp
+PASCAL=$(echo "$NAME" | awk -F'-' '{out=""; for(i=1;i<=NF;i++){out=out toupper(substr($i,1,1)) substr($i,2)}; print out}')
+# Nom lowercase (déjà garanti par la validation)
+LOWER="$NAME"
+# Clé NuGet dans packages.lock.json : NuGet lowercases l'assembly name (ex. MyApp → myapp)
+# Ne PAS utiliser $LOWER (kebab) car "my-app" ≠ "myapp"
+LOCKKEY=$(echo "$PASCAL" | tr '[:upper:]' '[:lower:]')
+
+# --- 2. Allouer un bloc de 10 ports ------------------------------------------
+if [ "$NO_PORTS" = "1" ]; then
+  # Mode CI/test : ports déterministes, pas de registre ni mise ni docker
+  BASE=6000
+  API_PORT=$BASE
+  FRONT_PORT=$((BASE+1))
+  PG_PORT=$((BASE+2))
+  ADMINER_PORT=$((BASE+3))
+  MAILPIT_UI_PORT=$((BASE+4))
+  MAILPIT_SMTP_PORT=$((BASE+5))
+  ASPIRE_PORT=$((BASE+6))
+  OTLP_PORT=$((BASE+7))
+else
+  touch "$REGISTRY"
+  EXISTING=$(awk -F'\t' -v n="$NAME" '$1==n{print $2}' "$REGISTRY" | head -1)
+  if [ -n "$EXISTING" ]; then
+    BASE="$EXISTING"
+    warn "Nom '$NAME' déjà dans le registre, réutilisation du bloc base=$BASE"
+  else
+    BASE=$(awk -F'\t' 'BEGIN{max=5390} $2+0>max{max=$2+0} END{print max+10}' "$REGISTRY")
+    printf '%s\t%s\n' "$NAME" "$BASE" >> "$REGISTRY"
+  fi
+
+  API_PORT=$BASE
+  FRONT_PORT=$((BASE+1))
+  PG_PORT=$((BASE+2))
+  ADMINER_PORT=$((BASE+3))
+  MAILPIT_UI_PORT=$((BASE+4))
+  MAILPIT_SMTP_PORT=$((BASE+5))
+  ASPIRE_PORT=$((BASE+6))
+  OTLP_PORT=$((BASE+7))
+fi
+
+log "Création du SaaS '$NAME' (front=$FRONT, Pascal=$PASCAL)"
+log "Ports : API=$API_PORT  front=$FRONT_PORT  pg=$PG_PORT  adminer=$ADMINER_PORT  mailpit=$MAILPIT_UI_PORT  aspire=$ASPIRE_PORT"
+
+# --- 3. Copier le template (avec exclusions via rsync) -----------------------
+log "Copie du template vers $DEST"
+mkdir -p "$DEST"
+rsync -a \
+  --exclude='.git' \
+  --exclude='bin/' \
+  --exclude='obj/' \
+  --exclude='node_modules/' \
+  --exclude='dist/' \
+  --exclude='.angular/' \
+  --exclude='.env' \
+  --exclude='.env.local' \
+  --exclude='src/app/api/generated' \
+  --exclude='src/client' \
+  --exclude='coverage/' \
+  --exclude='test-results/' \
+  --exclude='playwright-report/' \
+  --exclude='docs/superpowers/' \
+  --exclude='*.user' \
+  --exclude='*.log' \
+  "$TEMPLATE/" "$DEST/"
+
+# --- 4. Tokeniser : Saas/saas → Pascal/Lower (PASSE LARGE sur tous fichiers texte) ---
+log "Tokenisation : Saas → $PASCAL  /  saas → $LOWER (passe large)"
+
+# B1 — Broad pass: grep ALL text files (skip binaries with -I), skip dirs
+# Replace both 'Saas' and 'saas' in one pass per file.
+# Excluded: .git, node_modules, bin, obj, dist (rsync already excluded most, but belt+suspenders)
+grep -rlIZ -e 'Saas' -e 'saas' "$DEST" \
+  --exclude-dir='.git' \
+  --exclude-dir='node_modules' \
+  --exclude-dir='bin' \
+  --exclude-dir='obj' \
+  --exclude-dir='dist' \
+  2>/dev/null \
+  | xargs -0 -r sed -i "s/Saas/$PASCAL/g; s/saas/$LOWER/g"
+
+# Dockerfile (no extension — grep -rl covers it, but handle explicitly if missed)
+[ -f "$DEST/Dockerfile" ] && grep -qI 'Saas\|saas' "$DEST/Dockerfile" 2>/dev/null && \
+  sed -i "s/Saas/$PASCAL/g; s/saas/$LOWER/g" "$DEST/Dockerfile" || true
+
+# packages.lock.json : les clés de projet-référence sont en minuscules NuGet
+# (ex. "saas.domain" → "<lockkey>.domain" où lockkey = lowercase du Pascal)
+# Run AFTER broad pass to ensure lock keys are correct (broad pass may have set $LOWER.domain
+# which is correct only when NAME==LOCKKEY; override with LOCKKEY to be safe)
+find "$DEST" -name packages.lock.json \
+  -not -path '*/bin/*' -not -path '*/obj/*' \
+  -exec sed -i "s/\"$LOWER\./\"$LOCKKEY./g; s/\"saas\./\"$LOCKKEY./g" {} +
+
+# Renommage des fichiers contenant 'Saas' dans leur nom (profondeur décroissante)
+while IFS= read -r -d '' p; do
+  dir="$(dirname "$p")"
+  base="$(basename "$p")"
+  newbase="${base//Saas/$PASCAL}"
+  if [ "$base" != "$newbase" ]; then
+    mv "$p" "$dir/$newbase"
+  fi
+done < <(find "$DEST" -depth -name "*Saas*" \
+           -not -path '*/bin/*' -not -path '*/obj/*' -print0)
+
+# --- 5. Tokeniser : ports hardcodés -----------------------------------------
+log "Tokenisation : ports template → ports alloués"
+
+# launchSettings.json : 5123 → API_PORT
+LAUNCH="$DEST/src/Api/Properties/launchSettings.json"
+[ -f "$LAUNCH" ] && sed -i \
+  -e "s/5123/$API_PORT/g" \
+  "$LAUNCH" || true
+
+# appsettings.json : 5432 → PG_PORT, 4200 → FRONT_PORT (ng), 5173 → FRONT_PORT (react)
+APPSETTINGS="$DEST/src/Api/appsettings.json"
+[ -f "$APPSETTINGS" ] && sed -i \
+  -e "s/Port=5432/Port=$PG_PORT/g" \
+  -e "s/localhost:4200/localhost:$FRONT_PORT/g" \
+  -e "s/localhost:5173/localhost:$FRONT_PORT/g" \
+  "$APPSETTINGS" || true
+
+# AppDbContextFactory.cs : fallback connection string
+DBFACTORY="$DEST/src/Infrastructure/Persistence/AppDbContextFactory.cs"
+[ -f "$DBFACTORY" ] && sed -i \
+  -e "s/Port=5432/Port=$PG_PORT/g" \
+  "$DBFACTORY" || true
+
+# docker-compose.yml : ports par défaut (les fallbacks après :-)
+# B2 — also fix the missing API_PORT and FRONT_PORT fallbacks in compose
+COMPOSE="$DEST/docker-compose.yml"
+[ -f "$COMPOSE" ] && sed -i \
+  -e "s/:-5432}/:-$PG_PORT}/g" \
+  -e "s/:-8080}/:-$ADMINER_PORT}/g" \
+  -e "s/:-8025}/:-$MAILPIT_UI_PORT}/g" \
+  -e "s/:-1025}/:-$MAILPIT_SMTP_PORT}/g" \
+  -e "s/:-18888}/:-$ASPIRE_PORT}/g" \
+  -e "s/:-4317}/:-$OTLP_PORT}/g" \
+  -e "s/:-5123}/:-$API_PORT}/g" \
+  -e "s|:-http://localhost:4200}|:-http://localhost:$FRONT_PORT}|g" \
+  -e "s|:-http://localhost:5173}|:-http://localhost:$FRONT_PORT}|g" \
+  "$COMPOSE" || true
+
+# .env.example : remplacer valeurs de ports
+# B2 — also fix API_PORT=5123 line (was missing from original)
+ENVEX="$DEST/.env.example"
+[ -f "$ENVEX" ] && sed -i \
+  -e "s/^POSTGRES_PORT=5432$/POSTGRES_PORT=$PG_PORT/" \
+  -e "s/^ADMINER_PORT=8080$/ADMINER_PORT=$ADMINER_PORT/" \
+  -e "s/^MAILPIT_UI_PORT=8025$/MAILPIT_UI_PORT=$MAILPIT_UI_PORT/" \
+  -e "s/^MAILPIT_SMTP_PORT=1025$/MAILPIT_SMTP_PORT=$MAILPIT_SMTP_PORT/" \
+  -e "s/^ASPIRE_UI_PORT=18888$/ASPIRE_UI_PORT=$ASPIRE_PORT/" \
+  -e "s/^OTLP_PORT=4317$/OTLP_PORT=$OTLP_PORT/" \
+  -e "s/localhost:4317/localhost:$OTLP_PORT/g" \
+  -e "s/Port=5432/Port=$PG_PORT/g" \
+  -e "s#localhost:4200#localhost:$FRONT_PORT#g" \
+  -e "s#localhost:5173#localhost:$FRONT_PORT#g" \
+  -e "s/^API_PORT=5123$/API_PORT=$API_PORT/" \
+  -e "s/^APP_BASEURL=http:\/\/localhost:4200$/APP_BASEURL=http:\/\/localhost:$FRONT_PORT/" \
+  -e "s/^APP_BASEURL=http:\/\/localhost:5173$/APP_BASEURL=http:\/\/localhost:$FRONT_PORT/" \
+  "$ENVEX" || true
+
+# smoke.sh : PORT default 5123 → API_PORT
+SMOKE="$DEST/scripts/smoke.sh"
+[ -f "$SMOKE" ] && sed -i \
+  -e "s/PORT=\"\${1:-5123}\"/PORT=\"\${1:-$API_PORT}\"/" \
+  "$SMOKE" || true
+
+# Angular proxy.conf.json : 5123 → API_PORT
+PROXY="$DEST/web-angular/src/proxy.conf.json"
+[ -f "$PROXY" ] && sed -i \
+  -e "s/localhost:5123/localhost:$API_PORT/g" \
+  "$PROXY" || true
+
+# React vite.config.ts : 5173 → FRONT_PORT
+VITE="$DEST/web-react/vite.config.ts"
+[ -f "$VITE" ] && sed -i \
+  -e "s/port: 5173/port: $FRONT_PORT/" \
+  "$VITE" || true
+
+# React .env.example : VITE_API_URL
+REACT_ENVEX="$DEST/web-react/.env.example"
+[ -f "$REACT_ENVEX" ] && sed -i \
+  -e "s/localhost:5123/localhost:$API_PORT/g" \
+  "$REACT_ENVEX" || true
+
+# README.md : 5123 → API_PORT (port references in quickstart / ports table)
+README_PORTS="$DEST/README.md"
+[ -f "$README_PORTS" ] && sed -i \
+  -e "s/localhost:5123/localhost:$API_PORT/g" \
+  -e "s|http://localhost:5123|http://localhost:$API_PORT|g" \
+  -e "s/5123/$API_PORT/g" \
+  "$README_PORTS" || true
+
+# CONTRIBUTING.md : 5001 (wrong port) → API_PORT ; 5123 → API_PORT
+CONTRIB_PORTS="$DEST/CONTRIBUTING.md"
+[ -f "$CONTRIB_PORTS" ] && sed -i \
+  -e "s/localhost:5001/localhost:$API_PORT/g" \
+  -e "s/localhost:5123/localhost:$API_PORT/g" \
+  -e "s|http://localhost:5001|http://localhost:$API_PORT|g" \
+  "$CONTRIB_PORTS" || true
+
+# sync-api-client SKILL.md : 5123 → API_PORT
+SKILL_PORTS="$DEST/.claude/skills/sync-api-client/SKILL.md"
+[ -f "$SKILL_PORTS" ] && sed -i \
+  -e "s/localhost:5123/localhost:$API_PORT/g" \
+  -e "s|http://localhost:5123|http://localhost:$API_PORT|g" \
+  "$SKILL_PORTS" || true
+
+# openapi.json snapshots (both fronts) : 5123 → API_PORT
+for openapi in "$DEST/web-angular/openapi.json" "$DEST/web-react/openapi.json"; do
+  [ -f "$openapi" ] && sed -i \
+    -e "s/localhost:5123/localhost:$API_PORT/g" \
+    "$openapi" || true
+done
+
+# B2 — devcontainer.json: fix forwardPorts (remove bogus 5001, use allocated ports)
+DEVCONTAINER="$DEST/.devcontainer/devcontainer.json"
+if [ -f "$DEVCONTAINER" ]; then
+  # Replace forwardPorts array with the 3 allocated ports (API, front, pg)
+  python3 -c "
+import json, sys
+with open('$DEVCONTAINER') as f:
+    d = json.load(f)
+d['forwardPorts'] = [$API_PORT, $FRONT_PORT, $PG_PORT]
+with open('$DEVCONTAINER', 'w') as f:
+    json.dump(d, f, indent=2, ensure_ascii=False)
+    f.write('\n')
+"
+fi
+
+# --- 6. Générer .env depuis .env.example -------------------------------------
+log "Génération du .env"
+cp "$DEST/.env.example" "$DEST/.env"
+
+# --- 7. Retirer le front non choisi ------------------------------------------
+if [ "$FRONT" = "angular" ]; then
+  REMOVE="web-react"
+  KEEP="web-angular"
+  FRONT_TOKEN_OLD="5173"
+  OTHER_FRONT_RULE="react.md"
+  CI_JOB_MARKER="web-react:"
+else
+  REMOVE="web-angular"
+  KEEP="web-react"
+  FRONT_TOKEN_OLD="4200"
+  OTHER_FRONT_RULE="angular.md"
+  CI_JOB_MARKER="web-angular:"
+fi
+
+log "Suppression du front non choisi : $REMOVE"
+rm -rf "$DEST/$REMOVE"
+
+# Nettoyer .github/workflows/ci.yml — supprimer le job du front retiré
+CI_FILE="$DEST/.github/workflows/ci.yml"
+if [ -f "$CI_FILE" ]; then
+  # Supprimer le bloc job "web-angular:" ou "web-react:" jusqu'au prochain job ou fin de fichier
+  # Stratégie : awk — on imprime tout sauf les lignes entre le marqueur de job et le prochain job à même niveau
+  if [ "$FRONT" = "angular" ]; then
+    # Supprimer les jobs web-react ET e2e-react (et conserver web-angular/e2e-angular)
+    awk '
+      /^  web-react:/ { skip=1; next }
+      /^  e2e-react:/ { skip=1; next }
+      skip && /^  [a-z]/ { skip=0 }
+      !skip { print }
+    ' "$CI_FILE" > "$CI_FILE.tmp" && mv "$CI_FILE.tmp" "$CI_FILE"
+  else
+    # Supprimer les jobs web-angular ET e2e-angular (et conserver web-react/e2e-react)
+    awk '
+      /^  web-angular:/ { skip=1; next }
+      /^  e2e-angular:/ { skip=1; next }
+      skip && /^  [a-z]/ { skip=0 }
+      !skip { print }
+    ' "$CI_FILE" > "$CI_FILE.tmp" && mv "$CI_FILE.tmp" "$CI_FILE"
+  fi
+fi
+
+# Nettoyer .github/dependabot.yml — retirer l'entrée npm du front retiré
+DEPENDABOT="$DEST/.github/dependabot.yml"
+if [ -f "$DEPENDABOT" ]; then
+  # Chaque entrée commence à "  - package-ecosystem" ; on droppe le bloc dont la directory = front retiré
+  awk -v rm="/$REMOVE" '
+    /^  - package-ecosystem/ {
+      if (prev != "" && prev !~ ("\"" rm "\"")) printf "%s", prev
+      prev = ""
+    }
+    { prev = prev $0 ORS }
+    END { if (prev !~ ("\"" rm "\"")) printf "%s", prev }
+  ' "$DEPENDABOT" > "$DEPENDABOT.tmp" && mv "$DEPENDABOT.tmp" "$DEPENDABOT"
+fi
+
+# Nettoyer lefthook.yml — supprimer les commandes du front retiré
+LEFTHOOK="$DEST/lefthook.yml"
+if [ -f "$LEFTHOOK" ]; then
+  if [ "$FRONT" = "angular" ]; then
+    # Supprimer react-prettier et react-eslint blocks
+    awk '
+      /^    react-prettier:/ { skip=1; next }
+      /^    react-eslint:/ { skip=1; next }
+      skip && /^    [a-z]/ { skip=0 }
+      skip && /^  [a-z]/ { skip=0 }
+      skip && /^[a-z]/ { skip=0 }
+      !skip { print }
+    ' "$LEFTHOOK" > "$LEFTHOOK.tmp" && mv "$LEFTHOOK.tmp" "$LEFTHOOK"
+  else
+    # Supprimer web-prettier et web-eslint blocks (Angular ones)
+    awk '
+      /^    web-prettier:/ { skip=1; next }
+      /^    web-eslint:/ { skip=1; next }
+      skip && /^    [a-z]/ { skip=0 }
+      skip && /^  [a-z]/ { skip=0 }
+      skip && /^[a-z]/ { skip=0 }
+      !skip { print }
+    ' "$LEFTHOOK" > "$LEFTHOOK.tmp" && mv "$LEFTHOOK.tmp" "$LEFTHOOK"
+  fi
+fi
+
+# Nettoyer .claude/rules — supprimer la règle du front retiré
+RULE_FILE="$DEST/.claude/rules/$OTHER_FRONT_RULE"
+[ -f "$RULE_FILE" ] && rm -f "$RULE_FILE"
+
+# Nettoyer CLAUDE.md racine — retirer la ligne de la zone du front retiré
+CLAUDE_MD="$DEST/CLAUDE.md"
+if [ -f "$CLAUDE_MD" ]; then
+  if [ "$FRONT" = "angular" ]; then
+    sed -i '/web-react.*React/d' "$CLAUDE_MD"
+    sed -i '/npm run gen:api/d' "$CLAUDE_MD"
+    sed -i 's#`web-angular/` ou `web-react/`#`web-angular/`#; s#des 2 fronts#du front#g' "$CLAUDE_MD"
+  else
+    sed -i '/web-angular.*Angular/d' "$CLAUDE_MD"
+    sed -i '/npm run api:gen.*Angular/d' "$CLAUDE_MD"
+    sed -i 's#`web-angular/` ou `web-react/`#`web-react/`#; s#des 2 fronts#du front#g' "$CLAUDE_MD"
+  fi
+fi
+
+# --- B3 — Nettoyage exhaustif des références au front retiré ($REMOVE) ------
+log "Nettoyage exhaustif des références à $REMOVE"
+
+# .claude/settings.json (racine) — via jq
+ROOT_SETTINGS="$DEST/.claude/settings.json"
+if [ -f "$ROOT_SETTINGS" ] && command -v jq >/dev/null 2>&1; then
+  jq --arg rm "$REMOVE" '
+    .permissions.allow      = [.permissions.allow[]      | select(test($rm) | not)] |
+    .permissions.deny       = [.permissions.deny[]       | select(test($rm) | not)] |
+    .worktree.sparsePaths   = [.worktree.sparsePaths[]   | select(. != $rm)] |
+    .hooks.PostToolUse      = [
+      .hooks.PostToolUse[] |
+      .hooks = [
+        .hooks[] |
+        select(.command | test($rm) | not)
+      ] |
+      select(.hooks | length > 0)
+    ]
+  ' "$ROOT_SETTINGS" > "$ROOT_SETTINGS.tmp" && mv "$ROOT_SETTINGS.tmp" "$ROOT_SETTINGS"
+fi
+
+# src/.claude/settings.json — remove additionalDirectories entries for $REMOVE
+SRC_SETTINGS="$DEST/src/.claude/settings.json"
+if [ -f "$SRC_SETTINGS" ] && command -v jq >/dev/null 2>&1; then
+  jq --arg rm "$REMOVE" '
+    .permissions.additionalDirectories = [
+      .permissions.additionalDirectories[] |
+      select(test($rm) | not)
+    ]
+  ' "$SRC_SETTINGS" > "$SRC_SETTINGS.tmp" && mv "$SRC_SETTINGS.tmp" "$SRC_SETTINGS"
+fi
+
+# .devcontainer/devcontainer.json — remove $REMOVE from postCreateCommand
+# (forwardPorts already fixed in B2 above)
+DEVCONTAINER="$DEST/.devcontainer/devcontainer.json"
+if [ -f "$DEVCONTAINER" ] && command -v jq >/dev/null 2>&1; then
+  jq --arg rm "$REMOVE" '
+    .postCreateCommand = (
+      .postCreateCommand |
+      # Remove the "(cd $REMOVE && npm ci) ;" segment (with optional surrounding spaces/semicolons)
+      gsub("\\s*;?\\s*\\(cd " + $rm + " && npm ci\\)\\s*;?\\s*"; " ") |
+      gsub("\\s*\\(cd " + $rm + " && npm ci\\)\\s*;?"; "") |
+      # Collapse multiple spaces/semicolons
+      gsub("; ;"; ";") |
+      gsub("  +"; " ") |
+      ltrimstr(" ") |
+      rtrimstr(" ") |
+      rtrimstr(";") |
+      ltrimstr(";") |
+      ltrimstr(" ") |
+      rtrimstr(" ")
+    )
+  ' "$DEVCONTAINER" > "$DEVCONTAINER.tmp" && mv "$DEVCONTAINER.tmp" "$DEVCONTAINER"
+fi
+
+# ARCHITECTURE.md — remove lines/rows referencing $REMOVE
+ARCH_MD="$DEST/ARCHITECTURE.md"
+if [ -f "$ARCH_MD" ]; then
+  # Remove table rows and diagram lines referencing the removed front
+  grep -v "$REMOVE" "$ARCH_MD" > "$ARCH_MD.tmp" && mv "$ARCH_MD.tmp" "$ARCH_MD"
+fi
+
+# REVIEW.md — remove lines referencing $REMOVE
+REVIEW_MD="$DEST/REVIEW.md"
+if [ -f "$REVIEW_MD" ]; then
+  grep -v "$REMOVE" "$REVIEW_MD" > "$REVIEW_MD.tmp" && mv "$REVIEW_MD.tmp" "$REVIEW_MD"
+fi
+
+# CONTRIBUTING.md — remove lines referencing $REMOVE
+CONTRIB_MD="$DEST/CONTRIBUTING.md"
+if [ -f "$CONTRIB_MD" ]; then
+  grep -v "$REMOVE" "$CONTRIB_MD" > "$CONTRIB_MD.tmp" && mv "$CONTRIB_MD.tmp" "$CONTRIB_MD"
+fi
+
+# README.md — remove lines referencing $REMOVE
+README_MD="$DEST/README.md"
+if [ -f "$README_MD" ]; then
+  grep -v "$REMOVE" "$README_MD" > "$README_MD.tmp" && mv "$README_MD.tmp" "$README_MD"
+fi
+
+# .claude/commands/check.md — "des 2 fronts" → "du front"
+CHECK_MD="$DEST/.claude/commands/check.md"
+if [ -f "$CHECK_MD" ]; then
+  sed -i "s/des 2 fronts/du front/g; /$REMOVE/d" "$CHECK_MD"
+fi
+
+# .claude/skills/sync-api-client/SKILL.md — drop $REMOVE curl/gen lines + path rows
+SKILL_MD="$DEST/.claude/skills/sync-api-client/SKILL.md"
+if [ -f "$SKILL_MD" ]; then
+  grep -v "$REMOVE" "$SKILL_MD" > "$SKILL_MD.tmp" && mv "$SKILL_MD.tmp" "$SKILL_MD"
+fi
+
+# .dockerignore — remove the $REMOVE line
+DOCKERIGNORE="$DEST/.dockerignore"
+if [ -f "$DOCKERIGNORE" ]; then
+  grep -v "^$REMOVE$" "$DOCKERIGNORE" > "$DOCKERIGNORE.tmp" && mv "$DOCKERIGNORE.tmp" "$DOCKERIGNORE"
+fi
+
+# .gitleaks.toml — remove the $REMOVE allowlist path entry
+GITLEAKS="$DEST/.gitleaks.toml"
+if [ -f "$GITLEAKS" ]; then
+  grep -v "$REMOVE" "$GITLEAKS" > "$GITLEAKS.tmp" && mv "$GITLEAKS.tmp" "$GITLEAKS"
+fi
+
+# .worktreeinclude — remove the $REMOVE/.env.local line
+WORKTREE_INC="$DEST/.worktreeinclude"
+if [ -f "$WORKTREE_INC" ]; then
+  grep -v "^$REMOVE/" "$WORKTREE_INC" > "$WORKTREE_INC.tmp" && mv "$WORKTREE_INC.tmp" "$WORKTREE_INC"
+fi
+
+# .claude/hooks/check.sh — fix the loop to only include the kept front
+CHECK_SH="$DEST/.claude/hooks/check.sh"
+if [ -f "$CHECK_SH" ]; then
+  sed -i "s/for web in web-angular web-react;/for web in $KEEP;/" "$CHECK_SH"
+fi
+
+# --- 8. npm install du front choisi (si --no-install pas demandé) -----------
+if [ "$DO_INSTALL" -eq 1 ]; then
+  log "Installation des dépendances npm ($KEEP)"
+  ( cd "$DEST/$KEEP" && "$MISE" exec node@lts -- npm ci 2>/dev/null || "$MISE" exec node@lts -- npm install ) || warn "npm install a échoué — relancer à la main : cd $DEST/$KEEP && npm install"
+fi
+
+# --- 9. git init + commit initial + gh repo create --------------------------
+if [ "$DO_GIT" -eq 1 ]; then
+  log "Initialisation du dépôt git"
+  ( cd "$DEST" && git init -q && git branch -M main && git add -A && \
+    git commit -qm "chore: scaffold $NAME depuis le template SaaS (front=$FRONT)" ) || \
+    warn "git commit a échoué (continuer manuellement)"
+
+  if [ "$DO_REPO" -eq 1 ]; then
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+      log "Création du repo GitHub ($REPO_VIS) + push"
+      if ( cd "$DEST" && gh repo create "$NAME" "--$REPO_VIS" --source=. --remote=origin --push ); then
+        warn "Repo créé : $(cd "$DEST" && gh repo view "$NAME" --json url -q .url 2>/dev/null || true)"
+      else
+        warn "gh repo create a échoué (nom déjà pris ?). Crée-le manuellement : cd $DEST && gh repo create $NAME --$REPO_VIS --source=. --push"
+      fi
+    else
+      warn "gh non authentifié : repo GitHub non créé. Lance 'gh auth login' puis 'gh repo create $NAME --$REPO_VIS --source=. --push'"
+    fi
+  fi
+fi
+
+# --- 10. Réseau devnet (seulement hors mode --no-ports) ---------------------
+if [ "$NO_PORTS" != "1" ]; then
+  # S'assurer que le réseau devnet existe
+  docker network create devnet >/dev/null 2>&1 || true
+fi
+
+log "SaaS '$NAME' créé !"
+cat <<EOF
+
+  Prochaines étapes :
+    saas $NAME                              # cd ~/dev/$NAME
+    direnv allow                            # autoriser le .envrc (1ère fois)
+    docker compose up -d                    # démarrer Postgres + Adminer + Mailpit
+    mise exec -- dotnet run --project src/Api
+    cd $KEEP && npm start                   # Angular : npm start  /  React : npm run dev
+
+  Ports : API=$API_PORT  front=$FRONT_PORT  pg=$PG_PORT  adminer=$ADMINER_PORT
+  Aspire dashboard : http://localhost:$ASPIRE_PORT
+  Mailpit UI : http://localhost:$MAILPIT_UI_PORT
+EOF
