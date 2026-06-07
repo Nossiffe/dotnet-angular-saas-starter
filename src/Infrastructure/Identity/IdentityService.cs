@@ -35,13 +35,13 @@ public sealed class IdentityService(
     public async Task<AppUser?> FindByEmailAsync(string email, CancellationToken cancellationToken)
     {
         var user = await users.FindByEmailAsync(email);
-        return user is null ? null : new AppUser(user.Id, user.Email!);
+        return user is null ? null : new AppUser(user.Id, user.Email!, user.EmailConfirmed);
     }
 
     public async Task<AppUser?> FindByIdAsync(Guid userId, CancellationToken cancellationToken)
     {
         var user = await users.FindByIdAsync(userId.ToString());
-        return user is null ? null : new AppUser(user.Id, user.Email!);
+        return user is null ? null : new AppUser(user.Id, user.Email!, user.EmailConfirmed);
     }
 
     public async Task<bool> CheckPasswordAsync(Guid userId, string password, CancellationToken cancellationToken)

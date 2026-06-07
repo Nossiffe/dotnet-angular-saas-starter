@@ -48,8 +48,8 @@ public sealed class AuthEmailFlowTests(PostgresApiFactory factory)
         const string oldPassword = "Sup3rSecret!!42";
         const string newPassword = "BrandNewPass!!99";
 
-        var register = await client.PostAsJsonAsync("/api/v1/auth/register", new { email, password = oldPassword }, ct);
-        register.StatusCode.ShouldBe(HttpStatusCode.Created);
+        // Register + confirmation d'email (requise pour pouvoir se connecter ensuite).
+        await AuthTestFlow.RegisterAndConfirmAsync(client, factory, email, oldPassword, ct);
 
         // Forgot (email connu) → 200 + email capturé
         var forgot = await client.PostAsJsonAsync("/api/v1/auth/forgot-password", new { email }, ct);
@@ -96,8 +96,7 @@ public sealed class AuthEmailFlowTests(PostgresApiFactory factory)
         var email = $"logout-{Guid.NewGuid():N}@saas.local";
         const string password = "Sup3rSecret!!42";
 
-        var register = await client.PostAsJsonAsync("/api/v1/auth/register", new { email, password }, ct);
-        register.StatusCode.ShouldBe(HttpStatusCode.Created);
+        await AuthTestFlow.RegisterAndConfirmAsync(client, factory, email, password, ct);
 
         var login = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password }, ct);
         login.EnsureSuccessStatusCode();

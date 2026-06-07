@@ -1,4 +1,6 @@
 using Dapper;
+using FluentValidation;
+using FluentValidation.Results;
 using Mediator;
 using Saas.Application.Common.Interfaces;
 
@@ -24,6 +26,15 @@ public sealed class LoginHandler(
         if (!passwordOk)
         {
             return null;
+        }
+
+        // Mot de passe valide mais email non confirmé → refus explicite (400) avec un message clair.
+        // Le mot de passe ayant déjà été validé, l'existence du compte n'est pas un secret supplémentaire
+        // (le login révèle déjà la validité via le mauvais mot de passe) — message borné à « email non confirmé ».
+        if (!user.EmailConfirmed)
+        {
+            throw new ValidationException(
+                [new ValidationFailure("email", "Veuillez confirmer votre adresse email avant de vous connecter.")]);
         }
 
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);
