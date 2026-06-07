@@ -45,7 +45,7 @@ public sealed class ProductEndpoints : IEndpoint
     {
         ArgumentNullException.ThrowIfNull(command);
         var id = await sender.Send(command, ct);
-        return TypedResults.Created($"/products/{id}", new CreateProductResponse(id));
+        return TypedResults.Created($"/api/v1/products/{id}", new CreateProductResponse(id));
     }
 
     private static async Task<Ok<IReadOnlyList<ProductDto>>> ListProducts(

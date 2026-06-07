@@ -1,4 +1,5 @@
 using System.Reflection;
+using Asp.Versioning;
 
 namespace Saas.Api.Common;
 
@@ -25,9 +26,21 @@ public static class EndpointExtensions
     public static void MapEndpoints(this WebApplication app)
     {
         ArgumentNullException.ThrowIfNull(app);
+
+        // Groupe versionné racine : /api/v{version:apiVersion}
+        var versionSet = app.NewApiVersionSet()
+            .HasApiVersion(new ApiVersion(1, 0))
+            .ReportApiVersions()
+            .Build();
+
+        var api = app
+            .MapGroup("/api/v{version:apiVersion}")
+            .WithApiVersionSet(versionSet)
+            .HasApiVersion(new ApiVersion(1, 0));
+
         foreach (var endpoint in app.Services.GetServices<IEndpoint>())
         {
-            endpoint.MapEndpoint(app);
+            endpoint.MapEndpoint(api);
         }
     }
 }
