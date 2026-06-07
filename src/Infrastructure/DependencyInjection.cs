@@ -14,6 +14,7 @@ using Saas.Infrastructure.Common;
 using Saas.Infrastructure.Identity;
 using Saas.Infrastructure.Persistence;
 using Saas.Infrastructure.Persistence.Interceptors;
+using Saas.Infrastructure.Persistence.Outbox;
 using Saas.Infrastructure.Persistence.Repositories;
 
 namespace Saas.Infrastructure;
@@ -57,6 +58,9 @@ public static class DependencyInjection
                 sp.GetRequiredService<DomainEventsInterceptor>());
         });
         services.AddScoped<IDbConnectionFactory, NpgsqlConnectionFactory>();
+
+        // Transactional Outbox : dispatch fiable des domain events (remplace le dispatch direct).
+        services.AddHostedService<OutboxProcessor>();
 
         // Repositories (write) + Unit of Work — pas de DbSet exposé à l'Application.
         services.AddScoped<IProductRepository, ProductRepository>();
