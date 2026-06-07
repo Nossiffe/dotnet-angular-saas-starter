@@ -16,6 +16,7 @@
 
   <!-- Runtime / framework -->
   <ItemGroup>
+    <PackageVersion Include="Vogen" Version="8.0.5" />
     <PackageVersion Include="Mediator.Abstractions" Version="3.0.2" />
     <PackageVersion Include="Mediator.SourceGenerator" Version="3.0.2" />
     <PackageVersion Include="FluentValidation" Version="12.1.1" />

@@ -198,7 +198,9 @@
       "saas.domain": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Extensions.Identity.Stores": "[10.0.8, )"
+          "Mediator.Abstractions": "[3.0.2, )",
+          "Microsoft.Extensions.Identity.Stores": "[10.0.8, )",
+          "Vogen": "[8.0.5, )"
         }
       },
       "Microsoft.Extensions.Configuration.Abstractions": {
@@ -245,6 +247,12 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.8",
           "Microsoft.Extensions.Primitives": "10.0.8"
         }
+      },
+      "Vogen": {
+        "type": "CentralTransitive",
+        "requested": "[8.0.5, )",
+        "resolved": "8.0.5",
+        "contentHash": "hUGafk0LpUn3ooZNOOczByhVSGqBaI96bCn0DkreSd2bwHGrMfdRoCqNrB4w0/y5bufyYaABqQ8wWBPgx5QdNw=="
       }
     }
   }
