@@ -57,3 +57,9 @@ Angular CLI does not come with an end-to-end testing framework by default. You c
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+
+## Dépendances — note temporaire
+
+Le fichier `.npmrc` active `legacy-peer-deps=true` temporairement : Angular 22 est sorti le 2026-06-03 et `angular-eslint` n'a pas encore publié de version compatible (`>= 22`). Le flag n'est pas nécessaire pour `@hey-api/openapi-ts` (déjà compatible TS 6).
+
+**Condition de retrait :** supprimer la ligne `legacy-peer-deps=true` dès que `angular-eslint@22` est publié. Vérifier avec `npm outdated angular-eslint`.
