@@ -6,7 +6,9 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "api:gen": "openapi-typescript ./openapi.json -o ./src/app/api/generated/schema.ts",
+    "prebuild": "npm run api:gen"
   },
   "private": true,
   "packageManager": "npm@11.13.0",
@@ -27,6 +29,7 @@
     "@angular/cli": "^22.0.0",
     "@angular/compiler-cli": "^22.0.0",
     "jsdom": "^28.0.0",
+    "openapi-typescript": "^7.13.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",
     "vitest": "^4.0.8"

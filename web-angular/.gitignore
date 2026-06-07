@@ -42,3 +42,11 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Generated OpenAPI types
+/src/app/api/generated/
+
+# Test results
+/test-results/
+/playwright-report/
+/.playwright/
