@@ -5,7 +5,6 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Saas.Api.Common;
-using Saas.Api.Endpoints;
 using Saas.Application;
 using Saas.Application.Common.Behaviors;
 using Saas.Infrastructure;
@@ -22,6 +21,7 @@ builder.WebHost.ConfigureKestrel(o => o.AddServerHeader = false);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddEndpoints();
 
 builder.Services.AddMediator(options =>
 {
@@ -72,8 +72,7 @@ app.MapHealthChecks("/health/db", new HealthCheckOptions
     Predicate = check => string.Equals(check.Name, "db", StringComparison.Ordinal),
 }).AllowAnonymous();
 
-app.MapAuthEndpoints();
-app.MapProductEndpoints();
+app.MapEndpoints();
 
 await app.RunAsync();
 
