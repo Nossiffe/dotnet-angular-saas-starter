@@ -54,6 +54,8 @@ ng e2e
 
 Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
 
+> **Tests note:** Playwright e2e (`npm run e2e`) is local-only and not run in CI (needs the dev server / backend).
+
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.

@@ -33,7 +33,10 @@ export class LoginPage {
     this.submitting.set(true);
     this.serverError.set(null);
     this.auth.login(this.model()).subscribe({
-      next: () => void this.router.navigateByUrl('/products'),
+      next: () => {
+        this.submitting.set(false);
+        void this.router.navigateByUrl('/products');
+      },
       error: () => {
         this.serverError.set('Identifiants invalides');
         this.submitting.set(false);

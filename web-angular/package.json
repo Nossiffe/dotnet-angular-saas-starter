@@ -15,7 +15,7 @@
     "lint:styles": "stylelint \"src/**/*.scss\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "fix": "prettier --write . && ng lint --fix && stylelint \"src/**/*.scss\" --fix",
-    "check": "prettier --check . && ng lint && stylelint \"src/**/*.scss\" && tsc -p tsconfig.json --noEmit",
+    "check": "npm run api:gen && prettier --check . && ng lint && stylelint \"src/**/*.scss\" && tsc -p tsconfig.json --noEmit",
     "e2e": "playwright test"
   },
   "private": true,

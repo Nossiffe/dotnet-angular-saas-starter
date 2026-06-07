@@ -16,7 +16,7 @@
       (input)="price.set(+$any($event.target).value)"
     />
   </mat-form-field>
-  <button mat-flat-button color="primary" type="submit">Ajouter</button>
+  <button mat-flat-button color="primary" type="submit" [disabled]="creating()">Ajouter</button>
 </form>
 
 @if (svc.products.isLoading()) {

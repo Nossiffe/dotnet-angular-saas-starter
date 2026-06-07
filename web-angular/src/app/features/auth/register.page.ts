@@ -33,7 +33,10 @@ export class RegisterPage {
     this.submitting.set(true);
     this.serverError.set(null);
     this.auth.register(this.model()).subscribe({
-      next: () => void this.router.navigateByUrl('/login'),
+      next: () => {
+        this.submitting.set(false);
+        void this.router.navigateByUrl('/login');
+      },
       error: () => {
         this.serverError.set("Échec de l'inscription");
         this.submitting.set(false);
