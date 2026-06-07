@@ -13,7 +13,8 @@ public static class ProductEndpoints
     public static IEndpointRouteBuilder MapProductEndpoints(this IEndpointRouteBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
-        var group = app.MapGroup("/products").WithTags("Products");
+        var group = app.MapGroup("/products").WithTags("Products")
+            .RequireAuthorization("HasTenant");
 
         group.MapPost("/", async (CreateProductCommand command, ISender sender, CancellationToken ct) =>
         {
@@ -40,7 +41,7 @@ public static class ProductEndpoints
         {
             await sender.Send(new DeleteProductCommand(id), ct);
             return Results.NoContent();
-        });
+        }).RequireAuthorization("TenantAdmin");
 
         return app;
     }

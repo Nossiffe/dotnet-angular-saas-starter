@@ -38,18 +38,22 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseSerilogRequestLogging();
+app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
 }
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 app.MapHealthChecks("/health/db", new HealthCheckOptions
 {
     Predicate = check => string.Equals(check.Name, "db", StringComparison.Ordinal),
-});
+}).AllowAnonymous();
 
+app.MapAuthEndpoints();
 app.MapProductEndpoints();
 
 await app.RunAsync();
