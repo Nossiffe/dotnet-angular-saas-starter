@@ -774,14 +774,16 @@
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "Mediator.Abstractions": "[3.0.2, )",
-          "Microsoft.EntityFrameworkCore": "[10.0.8, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.8, )",
           "Saas.Domain": "[1.0.0, )"
         }
       },
       "saas.domain": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Extensions.Identity.Stores": "[10.0.8, )"
+          "Mediator.Abstractions": "[3.0.2, )",
+          "Microsoft.Extensions.Identity.Stores": "[10.0.8, )",
+          "Vogen": "[8.0.5, )"
         }
       },
       "saas.infrastructure": {
@@ -1026,6 +1028,12 @@
           "Serilog.Sinks.Debug": "3.0.0",
           "Serilog.Sinks.File": "7.0.0"
         }
+      },
+      "Vogen": {
+        "type": "CentralTransitive",
+        "requested": "[8.0.5, )",
+        "resolved": "8.0.5",
+        "contentHash": "hUGafk0LpUn3ooZNOOczByhVSGqBaI96bCn0DkreSd2bwHGrMfdRoCqNrB4w0/y5bufyYaABqQ8wWBPgx5QdNw=="
       }
     }
   }

@@ -3,8 +3,6 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
-#pragma warning disable MA0051 // Method is too long (generated migration)
-#pragma warning disable CA1861 // Prefer static readonly (generated migration)
 
 namespace Saas.Infrastructure.Persistence.Migrations
 {
@@ -77,7 +75,8 @@ namespace Saas.Infrastructure.Persistence.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    Price = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
+                    Price_Amount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
+                    Price_Currency = table.Column<string>(type: "character varying(3)", maxLength: 3, nullable: false),
                     TenantId = table.Column<Guid>(type: "uuid", nullable: false),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     CreatedBy = table.Column<string>(type: "text", nullable: true),
@@ -222,7 +221,7 @@ namespace Saas.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Memberships",
+                name: "OrganizationMemberships",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -232,15 +231,9 @@ namespace Saas.Infrastructure.Persistence.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Memberships", x => x.Id);
+                    table.PrimaryKey("PK_OrganizationMemberships", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Memberships_AspNetUsers_UserId",
-                        column: x => x.UserId,
-                        principalTable: "AspNetUsers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_Memberships_Organizations_OrganizationId",
+                        name: "FK_OrganizationMemberships_Organizations_OrganizationId",
                         column: x => x.OrganizationId,
                         principalTable: "Organizations",
                         principalColumn: "Id",
@@ -285,13 +278,18 @@ namespace Saas.Infrastructure.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Memberships_OrganizationId",
-                table: "Memberships",
+                name: "IX_OrganizationMemberships_OrganizationId",
+                table: "OrganizationMemberships",
                 column: "OrganizationId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Memberships_UserId_OrganizationId",
-                table: "Memberships",
+                name: "IX_OrganizationMemberships_UserId",
+                table: "OrganizationMemberships",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OrganizationMemberships_UserId_OrganizationId",
+                table: "OrganizationMemberships",
                 columns: new[] { "UserId", "OrganizationId" },
                 unique: true);
 
@@ -337,7 +335,7 @@ namespace Saas.Infrastructure.Persistence.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
-                name: "Memberships");
+                name: "OrganizationMemberships");
 
             migrationBuilder.DropTable(
                 name: "Products");

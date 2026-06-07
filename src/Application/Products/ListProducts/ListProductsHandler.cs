@@ -12,7 +12,7 @@ public sealed class ListProductsHandler(IDbConnectionFactory factory, ITenantPro
         await using var connection = await factory.OpenConnectionAsync(cancellationToken);
         var command = new CommandDefinition(
             """
-            SELECT "Id", "Name", "Price"
+            SELECT "Id", "Name", "Price_Amount" AS "Price"
             FROM "Products"
             WHERE "TenantId" = @TenantId AND "IsDeleted" = FALSE
             ORDER BY "Name"

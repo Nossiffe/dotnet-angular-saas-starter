@@ -4,10 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Saas.Application.Common.Interfaces;
 using Saas.Domain.Identity;
+using Saas.Infrastructure.Persistence;
 
 namespace Saas.Infrastructure.Identity;
 
-public sealed class RefreshTokenStore(IAppDbContext db, IOptions<JwtOptions> options, IDateTimeProvider clock)
+public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> options, IDateTimeProvider clock)
     : IRefreshTokenStore
 {
     private readonly JwtOptions _o = options.Value;

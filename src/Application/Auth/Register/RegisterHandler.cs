@@ -6,7 +6,10 @@ using Saas.Domain.Tenancy;
 
 namespace Saas.Application.Auth.Register;
 
-public sealed class RegisterHandler(IAppDbContext db, IIdentityService identity)
+public sealed class RegisterHandler(
+    IOrganizationRepository organizations,
+    IUnitOfWork uow,
+    IIdentityService identity)
     : ICommandHandler<RegisterCommand, Guid>
 {
     public async ValueTask<Guid> Handle(RegisterCommand command, CancellationToken cancellationToken)
@@ -15,7 +18,12 @@ public sealed class RegisterHandler(IAppDbContext db, IIdentityService identity)
 
         Guid userId = Guid.Empty;
 
-        await db.ExecuteInTransactionAsync(async ct2 =>
+        // Choix délibéré : user Identity + Organization + membership Owner dans UNE seule transaction
+        // (all-or-nothing → pas d'utilisateur orphelin sans organisation). En cas de perte d'ACK très rare
+        // pendant le commit, l'execution strategy peut rejouer le délégué et l'email déjà pris renvoie une
+        // erreur de validation trompeuse — mais les données restent cohérentes (compte fonctionnel). C'est
+        // l'« Option 1 » documentée par EF sur l'idempotence au commit, acceptable ici (cf. ADR persistance).
+        await uow.ExecuteInTransactionAsync(async ct2 =>
         {
             var result = await identity.CreateUserAsync(command.Email, command.Password, ct2);
             if (!result.Succeeded)
@@ -27,16 +35,13 @@ public sealed class RegisterHandler(IAppDbContext db, IIdentityService identity)
 
             userId = result.UserId;
 
-            var org = new Organization { Name = command.Email, Slug = $"org-{userId:N}" };
-            db.Organizations.Add(org);
-            db.Memberships.Add(new OrganizationMembership
-            {
-                OrganizationId = org.Id,
-                UserId = userId,
-                Role = "Owner",
-            });
+            var organization = Organization.Create(
+                command.Email,
+                Slug.From($"org-{userId:N}"),
+                userId);
+            organizations.Add(organization);
 
-            await db.SaveChangesAsync(ct2);
+            await uow.SaveChangesAsync(ct2);
         }, cancellationToken);
 
         return userId;

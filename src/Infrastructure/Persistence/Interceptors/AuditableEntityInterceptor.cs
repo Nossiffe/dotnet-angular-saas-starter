@@ -44,6 +44,17 @@ public sealed class AuditableEntityInterceptor(
             entry.State = EntityState.Modified;
             entry.Entity.IsDeleted = true;
             entry.Entity.DeletedAt = now;
+
+            // EF a marqué les owned dependents (ex. Money/Price) en Deleted en cascade.
+            // On les remet en Unchanged pour ne pas supprimer physiquement les colonnes owned.
+            foreach (var reference in entry.References)
+            {
+                if (reference.TargetEntry is { State: EntityState.Deleted } owned
+                    && owned.Metadata.IsOwned())
+                {
+                    owned.State = EntityState.Unchanged;
+                }
+            }
         }
 
         foreach (EntityEntry<IAuditable> entry in context.ChangeTracker.Entries<IAuditable>())

@@ -1,16 +1,25 @@
+using Dapper;
 using Mediator;
-using Microsoft.EntityFrameworkCore;
 using Saas.Application.Common.Interfaces;
 
 namespace Saas.Application.Products.GetProductById;
 
-public sealed class GetProductByIdHandler(IAppDbContext db) : IQueryHandler<GetProductByIdQuery, ProductDto?>
+public sealed class GetProductByIdHandler(IDbConnectionFactory factory, ITenantProvider tenant)
+    : IQueryHandler<GetProductByIdQuery, ProductDto?>
 {
     public async ValueTask<ProductDto?> Handle(GetProductByIdQuery query, CancellationToken cancellationToken)
     {
-        return await db.Products
-            .Where(p => p.Id == query.Id)
-            .Select(p => new ProductDto(p.Id, p.Name, p.Price))
-            .FirstOrDefaultAsync(cancellationToken);
+        ArgumentNullException.ThrowIfNull(query);
+        await using var connection = await factory.OpenConnectionAsync(cancellationToken);
+        var command = new CommandDefinition(
+            """
+            SELECT "Id", "Name", "Price_Amount" AS "Price"
+            FROM "Products"
+            WHERE "Id" = @Id AND "TenantId" = @TenantId AND "IsDeleted" = FALSE
+            """,
+            new { query.Id, tenant.TenantId },
+            cancellationToken: cancellationToken);
+
+        return await connection.QuerySingleOrDefaultAsync<ProductDto>(command);
     }
 }

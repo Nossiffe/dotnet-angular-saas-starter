@@ -11,7 +11,15 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
         ArgumentNullException.ThrowIfNull(builder);
         builder.HasKey(p => p.Id);
         builder.Property(p => p.Name).HasMaxLength(200).IsRequired();
-        builder.Property(p => p.Price).HasPrecision(18, 2);
+
+        builder.OwnsOne(p => p.Price, price =>
+        {
+            price.Property(m => m.Amount).HasColumnName("Price_Amount").HasPrecision(18, 2);
+            price.Property(m => m.Currency).HasColumnName("Price_Currency").HasMaxLength(3);
+        });
+        builder.Navigation(p => p.Price).IsRequired();
+
         builder.HasIndex(p => p.TenantId);
+        builder.Ignore(p => p.DomainEvents);
     }
 }
