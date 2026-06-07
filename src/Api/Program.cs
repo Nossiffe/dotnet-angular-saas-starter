@@ -139,10 +139,16 @@ static void AddRateLimiter(WebApplicationBuilder b)
                 QueueLimit = 0,
             });
         });
+        // En tests d'intégration, tous les appels partagent la même IP ("unknown") → la fenêtre fixe
+        // de 10/30s déclenche des 429 parasites sur les flux auth multi-appels. Un flag de config
+        // (RateLimiting:DisableAuthPolicy=true, posé uniquement par la factory de test) neutralise la limite.
+        var disableAuthLimit = b.Configuration.GetValue<bool>("RateLimiting:DisableAuthPolicy");
         options.AddPolicy("auth", http =>
-            RateLimitPartition.GetFixedWindowLimiter(
-                http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromSeconds(30), QueueLimit = 0 }));
+            disableAuthLimit
+                ? RateLimitPartition.GetNoLimiter("auth-disabled")
+                : RateLimitPartition.GetFixedWindowLimiter(
+                    http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromSeconds(30), QueueLimit = 0 }));
     });
 }
 

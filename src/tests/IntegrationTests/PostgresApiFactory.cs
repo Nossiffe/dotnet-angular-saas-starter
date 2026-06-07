@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Saas.Application.Common.Interfaces;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Auth;
 using Testcontainers.PostgreSql;
@@ -22,11 +24,25 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     protected virtual bool UseTestAuth => true;
 
+    /// <summary>Fake IEmailSender capturant les emails envoyés — utilisé pour extraire userId/token en test.</summary>
+    public CapturingEmailSender Emails { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.UseSetting("ConnectionStrings:Default", _db.GetConnectionString());
         builder.UseSetting("Jwt:SigningKey", "integration-tests-signing-key-0123456789abcdef");
+
+        // Neutralise le rate-limiter "auth" (clé par IP "unknown" partagée par tous les appels
+        // TestServer → 429 parasites sur les flux auth multi-appels). Flag lu par Program.cs.
+        builder.UseSetting("RateLimiting:DisableAuthPolicy", "true");
+
+        // Remplace l'envoi SMTP réel par un fake capturant (recipient + corps/lien).
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<IEmailSender>(Emails);
+        });
 
         if (UseTestAuth)
         {
