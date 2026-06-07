@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
@@ -6,6 +6,7 @@ import { AuthService } from './core/auth/auth.service';
 
 @Component({
   selector: 'app-root',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterOutlet, MatToolbarModule, MatButtonModule],
   template: `
     <mat-toolbar color="primary">
@@ -21,5 +22,8 @@ import { AuthService } from './core/auth/auth.service';
 export class App {
   protected readonly auth = inject(AuthService);
   private readonly router = inject(Router);
-  logout() { this.auth.logout(); void this.router.navigateByUrl('/login'); }
+  logout() {
+    this.auth.logout();
+    void this.router.navigateByUrl('/login');
+  }
 }

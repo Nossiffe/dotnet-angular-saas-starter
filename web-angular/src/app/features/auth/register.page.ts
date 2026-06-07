@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { form, FormField, required, email, minLength } from '@angular/forms/signals';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -8,6 +8,7 @@ import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
   selector: 'app-register',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormField, RouterLink, MatFormFieldModule, MatInputModule, MatButtonModule],
   templateUrl: './register.page.html',
 })
@@ -33,7 +34,10 @@ export class RegisterPage {
     this.serverError.set(null);
     this.auth.register(this.model()).subscribe({
       next: () => void this.router.navigateByUrl('/login'),
-      error: () => { this.serverError.set("Échec de l'inscription"); this.submitting.set(false); },
+      error: () => {
+        this.serverError.set("Échec de l'inscription");
+        this.submitting.set(false);
+      },
     });
   }
 }

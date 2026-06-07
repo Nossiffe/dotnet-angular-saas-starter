@@ -24,8 +24,15 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       if (err.status !== 401 || !auth.token()) return throwError(() => err);
       refresh$ ??= auth.refresh().pipe(shareReplay(1));
       return refresh$.pipe(
-        switchMap((res) => { refresh$ = null; return next(withBearer(req, res.accessToken)); }),
-        catchError((refreshErr) => { refresh$ = null; auth.logout(); return throwError(() => refreshErr); }),
+        switchMap((res) => {
+          refresh$ = null;
+          return next(withBearer(req, res.accessToken));
+        }),
+        catchError((refreshErr: unknown) => {
+          refresh$ = null;
+          auth.logout();
+          return throwError(() => refreshErr);
+        }),
       );
     }),
   );

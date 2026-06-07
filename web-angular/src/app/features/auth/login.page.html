@@ -18,7 +18,16 @@
       }
     }
   </mat-form-field>
-  @if (serverError()) { <p class="error">{{ serverError() }}</p> }
-  <button mat-flat-button color="primary" type="submit" [disabled]="loginForm().invalid() || submitting()">Se connecter</button>
+  @if (serverError()) {
+    <p class="error">{{ serverError() }}</p>
+  }
+  <button
+    mat-flat-button
+    color="primary"
+    type="submit"
+    [disabled]="loginForm().invalid() || submitting()"
+  >
+    Se connecter
+  </button>
 </form>
 <p>Pas de compte ? <a routerLink="/register">Créer un compte</a></p>

@@ -12,9 +12,7 @@
   "paths": {
     "/auth/register": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "requestBody": {
           "content": {
             "application/json": {
@@ -34,9 +32,7 @@
     },
     "/auth/login": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "requestBody": {
           "content": {
             "application/json": {
@@ -56,9 +52,7 @@
     },
     "/auth/refresh": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "requestBody": {
           "content": {
             "application/json": {
@@ -78,9 +72,7 @@
     },
     "/products": {
       "post": {
-        "tags": [
-          "Products"
-        ],
+        "tags": ["Products"],
         "requestBody": {
           "content": {
             "application/json": {
@@ -98,9 +90,7 @@
         }
       },
       "get": {
-        "tags": [
-          "Products"
-        ],
+        "tags": ["Products"],
         "responses": {
           "200": {
             "description": "OK"
@@ -110,9 +100,7 @@
     },
     "/products/{id}": {
       "get": {
-        "tags": [
-          "Products"
-        ],
+        "tags": ["Products"],
         "parameters": [
           {
             "name": "id",
@@ -131,9 +119,7 @@
         }
       },
       "put": {
-        "tags": [
-          "Products"
-        ],
+        "tags": ["Products"],
         "parameters": [
           {
             "name": "id",
@@ -162,9 +148,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Products"
-        ],
+        "tags": ["Products"],
         "parameters": [
           {
             "name": "id",
@@ -187,10 +171,7 @@
   "components": {
     "schemas": {
       "CreateProductCommand": {
-        "required": [
-          "name",
-          "price"
-        ],
+        "required": ["name", "price"],
         "type": "object",
         "properties": {
           "name": {
@@ -198,20 +179,13 @@
           },
           "price": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
+            "type": ["number", "string"],
             "format": "double"
           }
         }
       },
       "LoginRequest": {
-        "required": [
-          "email",
-          "password",
-          "tenantId"
-        ],
+        "required": ["email", "password", "tenantId"],
         "type": "object",
         "properties": {
           "email": {
@@ -221,18 +195,13 @@
             "type": "string"
           },
           "tenantId": {
-            "type": [
-              "null",
-              "string"
-            ],
+            "type": ["null", "string"],
             "format": "uuid"
           }
         }
       },
       "RefreshRequest": {
-        "required": [
-          "refreshToken"
-        ],
+        "required": ["refreshToken"],
         "type": "object",
         "properties": {
           "refreshToken": {
@@ -241,10 +210,7 @@
         }
       },
       "RegisterRequest": {
-        "required": [
-          "email",
-          "password"
-        ],
+        "required": ["email", "password"],
         "type": "object",
         "properties": {
           "email": {
@@ -256,10 +222,7 @@
         }
       },
       "UpdateProductBody": {
-        "required": [
-          "name",
-          "price"
-        ],
+        "required": ["name", "price"],
         "type": "object",
         "properties": {
           "name": {
@@ -267,10 +230,7 @@
           },
           "price": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
+            "type": ["number", "string"],
             "format": "double"
           }
         }
