@@ -35,11 +35,11 @@ public sealed class Organization : AggregateRoot<OrganizationId>, IAuditable
             Name = name.Trim(),
             Slug = slug,
         };
-        organization.AddMember(ownerUserId, "Owner");
+        organization.AddMember(ownerUserId, OrganizationRole.Owner); // intentionnel : émet MemberJoinedDomainEvent pour le Owner à la création
         return organization;
     }
 
-    public void AddMember(Guid userId, string role)
+    public void AddMember(Guid userId, OrganizationRole role)
     {
         if (_memberships.Exists(m => m.UserId == userId))
         {
@@ -47,5 +47,28 @@ public sealed class Organization : AggregateRoot<OrganizationId>, IAuditable
         }
 
         _memberships.Add(OrganizationMembership.Create(Id, userId, role));
+        Raise(new MemberJoinedDomainEvent(Id, userId, role));
+    }
+
+    public void ChangeMemberRole(Guid userId, OrganizationRole newRole)
+    {
+        var membership = _memberships.Find(m => m.UserId == userId)
+            ?? throw new NotFoundException(nameof(OrganizationMembership), userId);
+
+        var oldRole = membership.Role;
+        if (oldRole == newRole)
+        {
+            return;
+        }
+
+        // Garde du dernier Owner : ne jamais rétrograder le seul Owner (laisserait 0 Owner).
+        if (oldRole == OrganizationRole.Owner
+            && _memberships.Count(m => m.Role == OrganizationRole.Owner) == 1)
+        {
+            throw new DomainException("Impossible de rétrograder le dernier Owner de l'organisation.");
+        }
+
+        membership.UpdateRole(newRole);
+        Raise(new MemberRoleChangedDomainEvent(Id, userId, oldRole, newRole));
     }
 }

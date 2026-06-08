@@ -11,9 +11,9 @@ public sealed class OrganizationMembership : Entity<Guid>
 
     public OrganizationId OrganizationId { get; private set; }
     public Guid UserId { get; private set; }
-    public string Role { get; private set; } = "Member";
+    public OrganizationRole Role { get; private set; }
 
-    internal static OrganizationMembership Create(OrganizationId organizationId, Guid userId, string role) =>
+    internal static OrganizationMembership Create(OrganizationId organizationId, Guid userId, OrganizationRole role) =>
         new()
         {
             Id = Guid.CreateVersion7(),
@@ -21,4 +21,6 @@ public sealed class OrganizationMembership : Entity<Guid>
             UserId = userId,
             Role = role,
         };
+
+    internal void UpdateRole(OrganizationRole role) => Role = role;
 }

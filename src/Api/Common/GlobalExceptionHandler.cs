@@ -25,6 +25,11 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
                     .GroupBy(e => e.PropertyName, StringComparer.Ordinal)
                     .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray(), StringComparer.Ordinal)),
             NotFoundException nfe => (StatusCodes.Status404NotFound, $"'{nfe.Entity}' introuvable.", (object?)null),
+            DomainException de => (StatusCodes.Status400BadRequest, de.Message, (object?)null),
+            Microsoft.EntityFrameworkCore.DbUpdateException due when IsUniqueViolation(due) => (
+                StatusCodes.Status409Conflict,
+                "Une invitation est déjà en attente pour cet email.",
+                (object?)null),
             Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException => (
                 StatusCodes.Status409Conflict,
                 "La ressource a été modifiée par une autre opération, réessayez.",
@@ -55,4 +60,9 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
             ProblemDetails = problem,
         });
     }
+
+    // Détecte une violation de contrainte d'unicité Postgres (SQLSTATE 23505),
+    // p. ex. l'index unique partiel sur les invitations en attente.
+    private static bool IsUniqueViolation(Microsoft.EntityFrameworkCore.DbUpdateException exception)
+        => exception.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation };
 }
