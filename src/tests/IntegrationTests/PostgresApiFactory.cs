@@ -10,6 +10,7 @@ using Saas.Application.Common.Interfaces;
 using Saas.Infrastructure.Jobs;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Auth;
+using Saas.IntegrationTests.Invitations;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -53,6 +54,10 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddScoped<ProcessPasswordResetJob>();
             services.RemoveAll<IPasswordResetEnqueuer>();
             services.AddScoped<IPasswordResetEnqueuer, SynchronousPasswordResetEnqueuer>();
+
+            services.AddScoped<ProcessInvitationEmailJob>();
+            services.RemoveAll<IInvitationEmailEnqueuer>();
+            services.AddScoped<IInvitationEmailEnqueuer, SynchronousInvitationEmailEnqueuer>();
         });
 
         if (UseTestAuth)

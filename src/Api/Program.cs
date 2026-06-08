@@ -149,9 +149,16 @@ static void AddRateLimiter(WebApplicationBuilder b)
             context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
             return ValueTask.CompletedTask;
         };
+        // En tests d'intégration, tous les appels passent par TestServer avec une IP nulle (non loopback)
+        // → ils tombent tous dans la MÊME partition globale et la fenêtre de 100/min finit par déclencher
+        // des 429 parasites quand la suite grossit. Le flag de config (posé uniquement par la factory de
+        // test) neutralise aussi le limiteur global, comme la politique "auth" ci-dessous.
+        var disableGlobalLimit = b.Environment.IsDevelopment()
+            && b.Configuration.GetValue<bool>("RateLimiting:DisableAuthPolicy");
         options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
         {
-            if (http.Connection.RemoteIpAddress is { } ip && System.Net.IPAddress.IsLoopback(ip))
+            if (disableGlobalLimit
+                || (http.Connection.RemoteIpAddress is { } ip && System.Net.IPAddress.IsLoopback(ip)))
             {
                 return RateLimitPartition.GetNoLimiter("loopback");
             }

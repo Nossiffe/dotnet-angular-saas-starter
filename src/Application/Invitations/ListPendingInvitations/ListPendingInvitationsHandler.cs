@@ -14,7 +14,10 @@ public sealed class ListPendingInvitationsHandler(IDbConnectionFactory connectio
         ArgumentNullException.ThrowIfNull(query);
 
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);
-        var rows = await connection.QueryAsync<InvitationDto>(new CommandDefinition(
+        // Npgsql matérialise les colonnes `timestamptz` en DateTime (Kind=Utc) via le data reader de
+        // Dapper : on lit donc un row intermédiaire en DateTime puis on projette en DateTimeOffset
+        // (offset zéro = UTC) pour respecter le contrat InvitationDto sans dépendre du mapping implicite.
+        var rows = await connection.QueryAsync<Row>(new CommandDefinition(
             """
             SELECT "Id", "InviteeEmail" AS "Email", "Role", "ExpiresAt", "CreatedAt"
             FROM "Invitations"
@@ -24,6 +27,15 @@ public sealed class ListPendingInvitationsHandler(IDbConnectionFactory connectio
             new { OrgId = query.OrganizationId },
             cancellationToken: cancellationToken));
 
-        return rows.ToList();
+        return rows
+            .Select(r => new InvitationDto(
+                r.Id,
+                r.Email,
+                r.Role,
+                new DateTimeOffset(r.ExpiresAt, TimeSpan.Zero),
+                new DateTimeOffset(r.CreatedAt, TimeSpan.Zero)))
+            .ToList();
     }
+
+    private sealed record Row(Guid Id, string Email, string Role, DateTime ExpiresAt, DateTime CreatedAt);
 }
