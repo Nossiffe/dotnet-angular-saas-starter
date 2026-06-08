@@ -17,6 +17,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
     // Le read passe par Dapper. L'Application ne voit plus de DbSet (pas d'IAppDbContext).
     internal DbSet<Product> Products => Set<Product>();
     internal DbSet<Organization> Organizations => Set<Organization>();
+    internal DbSet<Invitation> Invitations => Set<Invitation>();
     internal DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 

@@ -76,9 +76,11 @@ public static class DependencyInjection
         // Jobs résolus par DI.
         services.AddScoped<PurgeExpiredRefreshTokensJob>();
         services.AddScoped<ProcessPasswordResetJob>();
+        services.AddScoped<ProcessInvitationEmailJob>();
 
         // Queue d'enfilement Hangfire (abstraction Application-pure).
         services.AddScoped<IPasswordResetEnqueuer, PasswordResetRequestQueue>();
+        services.AddScoped<IInvitationEmailEnqueuer, HangfireInvitationEmailEnqueuer>();
     }
 
     // Enregistre les recurring jobs (référence le type interne PurgeExpiredRefreshTokensJob).
@@ -117,6 +119,7 @@ public static class DependencyInjection
         // Repositories (write) + Unit of Work — pas de DbSet exposé à l'Application.
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IOrganizationRepository, OrganizationRepository>();
+        services.AddScoped<IInvitationRepository, InvitationRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
     }
 
@@ -132,6 +135,8 @@ public static class DependencyInjection
             .AddSignInManager()
             .AddDefaultTokenProviders(); // requis pour GenerateEmailConfirmationToken / GeneratePasswordResetToken
         services.AddScoped<IIdentityService, IdentityService>();
+        // Service stateless de tokens d'invitation (raw base64url + hash SHA-256).
+        services.AddSingleton<IInvitationTokenService, InvitationTokenService>();
     }
 
     private static void AddJwt(IServiceCollection services, IConfiguration configuration)
