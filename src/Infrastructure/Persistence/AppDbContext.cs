@@ -37,6 +37,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
         ArgumentNullException.ThrowIfNull(configurationBuilder);
         configurationBuilder.Properties<ProductId>().HaveConversion<ProductIdConverter>();
         configurationBuilder.Properties<OrganizationId>().HaveConversion<OrganizationIdConverter>();
+        configurationBuilder.Properties<InvitationId>().HaveConversion<InvitationIdConverter>();
         configurationBuilder.Properties<Slug>().HaveConversion<SlugConverter>().HaveMaxLength(100);
     }
 

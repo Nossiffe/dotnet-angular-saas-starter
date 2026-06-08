@@ -28,7 +28,7 @@ public sealed class OrganizationConfiguration : IEntityTypeConfiguration<Organiz
             m.ToTable("OrganizationMemberships");
             m.WithOwner().HasForeignKey(x => x.OrganizationId);
             m.HasKey(x => x.Id);
-            m.Property(x => x.Role).HasMaxLength(50).IsRequired();
+            m.Property(x => x.Role).HasConversion<string>().HasMaxLength(50).IsRequired();
             m.HasIndex(x => new { x.UserId, x.OrganizationId }).IsUnique();
             m.HasIndex(x => x.UserId);
         });
