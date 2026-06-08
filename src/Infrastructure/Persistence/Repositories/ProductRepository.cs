@@ -4,7 +4,7 @@ using Saas.Domain.Products;
 
 namespace Saas.Infrastructure.Persistence.Repositories;
 
-public sealed class ProductRepository(AppDbContext db) : IProductRepository
+internal sealed class ProductRepository(AppDbContext db) : IProductRepository
 {
     public Task<Product?> GetByIdAsync(ProductId id, CancellationToken cancellationToken) =>
         db.Products.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);

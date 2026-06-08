@@ -24,6 +24,7 @@ public sealed class Invitation : AggregateRoot<InvitationId>
         OrganizationRole role,
         Guid invitedBy,
         string tokenHash,
+        DateTimeOffset createdAt,
         DateTimeOffset expiresAt)
     {
         if (string.IsNullOrWhiteSpace(email))
@@ -51,7 +52,7 @@ public sealed class Invitation : AggregateRoot<InvitationId>
             TokenHash = tokenHash,
             ExpiresAt = expiresAt,
             InvitedByUserId = invitedBy,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = createdAt,
         };
         invitation.Raise(new MemberInvitedDomainEvent(invitation.Id, orgId, invitation.InviteeEmail));
         return invitation;

@@ -4,7 +4,7 @@ using Saas.Domain.Tenancy;
 
 namespace Saas.Infrastructure.Persistence.Repositories;
 
-public sealed class OrganizationRepository(AppDbContext db) : IOrganizationRepository
+internal sealed class OrganizationRepository(AppDbContext db) : IOrganizationRepository
 {
     public Task<Organization?> GetByIdAsync(OrganizationId id, CancellationToken cancellationToken) =>
         db.Organizations

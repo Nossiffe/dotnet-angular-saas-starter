@@ -35,7 +35,7 @@ public sealed class Organization : AggregateRoot<OrganizationId>, IAuditable
             Name = name.Trim(),
             Slug = slug,
         };
-        organization.AddMember(ownerUserId, OrganizationRole.Owner);
+        organization.AddMember(ownerUserId, OrganizationRole.Owner); // intentionnel : émet MemberJoinedDomainEvent pour le Owner à la création
         return organization;
     }
 

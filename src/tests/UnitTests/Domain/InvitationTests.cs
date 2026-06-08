@@ -16,6 +16,7 @@ public sealed class InvitationTests
             role,
             Guid.CreateVersion7(),
             "deadbeef",
+            DateTimeOffset.UtcNow,
             expiresAt ?? DateTimeOffset.UtcNow.AddDays(7));
 
     [Fact]

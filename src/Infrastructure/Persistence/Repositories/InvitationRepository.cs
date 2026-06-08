@@ -9,9 +9,6 @@ internal sealed class InvitationRepository(AppDbContext db) : IInvitationReposit
     public Task<Invitation?> GetByIdAsync(InvitationId id, CancellationToken cancellationToken) =>
         db.Invitations.FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
 
-    public Task<Invitation?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken) =>
-        db.Invitations.FirstOrDefaultAsync(i => i.TokenHash == tokenHash, cancellationToken);
-
     public Task<bool> HasPendingInvitationAsync(OrganizationId organizationId, string email, CancellationToken cancellationToken) =>
         db.Invitations.AnyAsync(
             i => i.OrganizationId == organizationId

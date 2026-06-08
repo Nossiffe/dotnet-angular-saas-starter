@@ -27,8 +27,7 @@ public sealed class InviteMemberHandler(
         _ = await organizations.GetByIdAsync(orgId, cancellationToken)
             ?? throw new NotFoundException(nameof(Organization), command.OrganizationId);
 
-        var email = command.Email.Trim().ToLowerInvariant();
-        var normalizedEmail = email.ToUpperInvariant();
+        var normalizedEmail = command.Email.Trim().ToUpperInvariant();
 
         await using (var connection = await connections.OpenConnectionAsync(cancellationToken))
         {
@@ -48,7 +47,7 @@ public sealed class InviteMemberHandler(
             }
         }
 
-        if (await invitations.HasPendingInvitationAsync(orgId, email, cancellationToken))
+        if (await invitations.HasPendingInvitationAsync(orgId, command.Email.Trim().ToLowerInvariant(), cancellationToken))
         {
             throw new ValidationException([new ValidationFailure("Email", "Une invitation en attente existe déjà pour cet email.")]);
         }
@@ -59,16 +58,17 @@ public sealed class InviteMemberHandler(
         var invitedBy = Guid.Parse(currentUser.UserId!);
         var invitation = Invitation.Create(
             orgId,
-            email,
+            command.Email,
             command.Role,
             invitedBy,
             tokenHash,
+            clock.UtcNow,
             clock.UtcNow.AddDays(7));
 
         invitations.Add(invitation);
         await uow.SaveChangesAsync(cancellationToken);
 
-        enqueuer.Enqueue(invitation.Id.Value, rawToken, email);
+        enqueuer.Enqueue(invitation.Id.Value, rawToken, invitation.InviteeEmail);
 
         return invitation.Id.Value;
     }

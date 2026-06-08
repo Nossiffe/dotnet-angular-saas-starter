@@ -4,6 +4,7 @@ using Saas.Domain.Tenancy;
 
 namespace Saas.Application.Tenancy.MemberRoleChanged;
 
+// Hook d'audit/extensibilité outbox : Mediator exige un handler par INotification — intentionnel.
 public sealed partial class MemberRoleChangedHandler(ILogger<MemberRoleChangedHandler> logger)
     : INotificationHandler<MemberRoleChangedDomainEvent>
 {

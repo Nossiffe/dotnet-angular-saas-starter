@@ -4,6 +4,7 @@ using Saas.Domain.Tenancy;
 
 namespace Saas.Application.Tenancy.MemberJoined;
 
+// Hook d'audit/extensibilité outbox : Mediator exige un handler par INotification — intentionnel.
 public sealed partial class MemberJoinedHandler(ILogger<MemberJoinedHandler> logger)
     : INotificationHandler<MemberJoinedDomainEvent>
 {

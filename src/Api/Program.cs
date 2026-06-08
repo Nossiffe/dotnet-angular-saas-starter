@@ -151,10 +151,10 @@ static void AddRateLimiter(WebApplicationBuilder b)
         };
         // En tests d'intégration, tous les appels passent par TestServer avec une IP nulle (non loopback)
         // → ils tombent tous dans la MÊME partition globale et la fenêtre de 100/min finit par déclencher
-        // des 429 parasites quand la suite grossit. Le flag de config (posé uniquement par la factory de
-        // test) neutralise aussi le limiteur global, comme la politique "auth" ci-dessous.
+        // des 429 parasites quand la suite grossit. RateLimiting:DisableGlobalLimiter (posé uniquement par
+        // la factory de test) neutralise le limiteur global.
         var disableGlobalLimit = b.Environment.IsDevelopment()
-            && b.Configuration.GetValue<bool>("RateLimiting:DisableAuthPolicy");
+            && b.Configuration.GetValue<bool>("RateLimiting:DisableGlobalLimiter");
         options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
         {
             if (disableGlobalLimit
@@ -175,8 +175,8 @@ static void AddRateLimiter(WebApplicationBuilder b)
             });
         });
         // En tests d'intégration, tous les appels partagent la même IP ("unknown") → la fenêtre fixe
-        // de 10/30s déclenche des 429 parasites sur les flux auth multi-appels. Un flag de config
-        // (RateLimiting:DisableAuthPolicy=true, posé uniquement par la factory de test) neutralise la limite.
+        // de 10/30s déclenche des 429 parasites sur les flux auth multi-appels. RateLimiting:DisableAuthPolicy
+        // (posé uniquement par la factory de test) neutralise la politique "auth" uniquement.
         var disableAuthLimit = b.Environment.IsDevelopment()
             && b.Configuration.GetValue<bool>("RateLimiting:DisableAuthPolicy");
         options.AddPolicy("auth", http =>

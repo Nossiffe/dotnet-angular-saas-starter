@@ -41,6 +41,8 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         // Neutralise le rate-limiter "auth" (clé par IP "unknown" partagée par tous les appels
         // TestServer → 429 parasites sur les flux auth multi-appels). Flag lu par Program.cs.
         builder.UseSetting("RateLimiting:DisableAuthPolicy", "true");
+        // Neutralise le limiteur global (IP nulle sur TestServer → même partition → 429 parasites).
+        builder.UseSetting("RateLimiting:DisableGlobalLimiter", "true");
 
         // Remplace l'envoi SMTP réel par un fake capturant (recipient + corps/lien).
         // Remplace aussi IPasswordResetEnqueuer par un exécutant synchrone : le job

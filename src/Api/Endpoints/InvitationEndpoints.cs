@@ -1,5 +1,3 @@
-using FluentValidation;
-using FluentValidation.Results;
 using Mediator;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Saas.Api.Common;
@@ -11,7 +9,6 @@ using Saas.Application.Invitations.InviteMember;
 using Saas.Application.Invitations.ListPendingInvitations;
 using Saas.Application.Invitations.ResendInvitation;
 using Saas.Application.Invitations.RevokeInvitation;
-using Saas.Domain.Tenancy;
 
 namespace Saas.Api.Endpoints;
 
@@ -60,8 +57,8 @@ public sealed class InvitationEndpoints : IEndpoint
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(req);
-        EnforceTenantScope(orgId, tenant);
-        var role = ParseRole(req.Role);
+        EndpointHelpers.EnforceTenantScope(orgId, tenant);
+        var role = EndpointHelpers.ParseRole(req.Role);
         var id = await sender.Send(new InviteMemberCommand(orgId, req.Email, role), ct);
         return TypedResults.Created($"/api/v1/organizations/{orgId}/invitations/{id}", new InviteResponse(id));
     }
@@ -72,7 +69,7 @@ public sealed class InvitationEndpoints : IEndpoint
         ITenantProvider tenant,
         CancellationToken ct)
     {
-        EnforceTenantScope(orgId, tenant);
+        EndpointHelpers.EnforceTenantScope(orgId, tenant);
         var result = await sender.Send(new ListPendingInvitationsQuery(orgId), ct);
         return TypedResults.Ok(result);
     }
@@ -84,7 +81,7 @@ public sealed class InvitationEndpoints : IEndpoint
         ITenantProvider tenant,
         CancellationToken ct)
     {
-        EnforceTenantScope(orgId, tenant);
+        EndpointHelpers.EnforceTenantScope(orgId, tenant);
         await sender.Send(new ResendInvitationCommand(orgId, id), ct);
         return TypedResults.NoContent();
     }
@@ -96,7 +93,7 @@ public sealed class InvitationEndpoints : IEndpoint
         ITenantProvider tenant,
         CancellationToken ct)
     {
-        EnforceTenantScope(orgId, tenant);
+        EndpointHelpers.EnforceTenantScope(orgId, tenant);
         await sender.Send(new RevokeInvitationCommand(orgId, id), ct);
         return TypedResults.NoContent();
     }
@@ -111,23 +108,4 @@ public sealed class InvitationEndpoints : IEndpoint
         return TypedResults.Ok(new AcceptInvitationResponse(result.IsNewUser));
     }
 
-    private static void EnforceTenantScope(Guid orgId, ITenantProvider tenant)
-    {
-        if (orgId != tenant.TenantId)
-        {
-            throw new ValidationException(
-                [new ValidationFailure("orgId", "L'organisation demandée ne correspond pas au tenant du token.")]);
-        }
-    }
-
-    private static OrganizationRole ParseRole(string role)
-    {
-        if (!Enum.TryParse<OrganizationRole>(role, ignoreCase: true, out var parsed))
-        {
-            throw new ValidationException(
-                [new ValidationFailure("Role", $"Rôle invalide : '{role}'. Valeurs acceptées : Member, Admin.")]);
-        }
-
-        return parsed;
-    }
 }

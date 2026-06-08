@@ -56,7 +56,11 @@ public sealed class AcceptInvitationHandler(
                 }
 
                 userId = result.UserId;
-                await identity.ConfirmEmailDirectlyAsync(userId, ct);
+                var emailConfirmed = await identity.ConfirmEmailDirectlyAsync(userId, ct);
+                if (!emailConfirmed)
+                {
+                    throw new InvalidOperationException("Échec de la confirmation de l'email du nouvel utilisateur.");
+                }
             }
             else
             {
