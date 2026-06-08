@@ -15,6 +15,16 @@ public sealed class EmailLinkBuilder(IOptions<AppOptions> options) : IEmailLinkB
     public string ResetPasswordLink(Guid userId, string token)
         => Build("reset-password", userId, token);
 
+    public string AcceptInvitationLink(Guid invitationId, string token)
+    {
+        var query = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["invitationId"] = invitationId.ToString(),
+            ["token"] = token,
+        };
+        return QueryHelpers.AddQueryString($"{_baseUrl}/accept-invitation", query);
+    }
+
     private string Build(string path, Guid userId, string token)
     {
         var query = new Dictionary<string, string?>(StringComparer.Ordinal)

@@ -91,6 +91,21 @@ public sealed class IdentityService(
         return result.Succeeded;
     }
 
+    public async Task<bool> ConfirmEmailDirectlyAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var user = await users.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            return false;
+        }
+
+        // L'invité prouve la possession de l'email via le token d'invitation (lien tokenisé) → on confirme
+        // directement, en générant puis consommant un token de confirmation en interne (jamais exposé).
+        var token = await users.GenerateEmailConfirmationTokenAsync(user);
+        var result = await users.ConfirmEmailAsync(user, token);
+        return result.Succeeded;
+    }
+
     public async Task<(Guid UserId, string Token)?> GeneratePasswordResetTokenAsync(
         string email, CancellationToken cancellationToken)
     {

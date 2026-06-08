@@ -14,6 +14,9 @@ public interface IIdentityService
     /// <summary>Confirme l'email avec un token Base64Url-encodé. Renvoie false si l'user ou le token est invalide.</summary>
     Task<bool> ConfirmEmailAsync(Guid userId, string token, CancellationToken cancellationToken);
 
+    /// <summary>Confirme directement l'email d'un user (sans transport de token), p.ex. invité acceptant via lien tokenisé. Renvoie false si l'user est introuvable.</summary>
+    Task<bool> ConfirmEmailDirectlyAsync(Guid userId, CancellationToken cancellationToken);
+
     /// <summary>Génère un token de reset de mot de passe. Renvoie null si l'email est inconnu (anti-énumération).</summary>
     Task<(Guid UserId, string Token)?> GeneratePasswordResetTokenAsync(string email, CancellationToken cancellationToken);
 

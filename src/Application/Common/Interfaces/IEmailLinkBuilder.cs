@@ -5,4 +5,5 @@ public interface IEmailLinkBuilder
 {
     string ConfirmEmailLink(Guid userId, string token);
     string ResetPasswordLink(Guid userId, string token);
+    string AcceptInvitationLink(Guid invitationId, string token);
 }

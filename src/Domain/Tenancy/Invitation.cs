@@ -80,6 +80,7 @@ public sealed class Invitation : AggregateRoot<InvitationId>
         }
 
         Status = InvitationStatus.Accepted;
+        Raise(new InvitationAcceptedDomainEvent(Id, OrganizationId, InviteeEmail, Role));
     }
 
     public void Refresh(string newTokenHash, DateTimeOffset newExpiresAt)
