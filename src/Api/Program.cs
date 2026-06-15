@@ -31,14 +31,24 @@ builder.WebHost.ConfigureKestrel(o => o.AddServerHeader = false);
 // serveur mock, donc tout le démarrage s'exécute. Sans DB ni config réelle au build, on
 // fournit une DSN factice (enregistrement DbContext paresseux, aucune connexion ouverte) et
 // on désactive l'auto-migration. No-op en `dotnet run`/`dotnet test` (entry assembly ≠ outil).
-if (string.Equals(
-        System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name,
-        "GetDocument.Insider",
-        System.StringComparison.Ordinal))
+// True quand le build génère le document OpenAPI (l'outil GetDocument.Insider lance ce Program.cs).
+var isBuildTimeOpenApi = string.Equals(
+    System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name,
+    "GetDocument.Insider",
+    System.StringComparison.Ordinal);
+if (isBuildTimeOpenApi)
 {
-    // DSN sans mot de passe : suffit pour enregistrer le DbContext (paresseux, aucune connexion).
+    // Le générateur de doc exécute le démarrage complet (dont ValidateOnStart). On fournit des
+    // valeurs placeholder pour que les options requises valident, sans config ni DB réelles.
+    // DSN sans mot de passe : enregistrement DbContext paresseux, aucune connexion ouverte.
     builder.Configuration["ConnectionStrings:Default"] = "Host=build;Database=build;Username=build";
     builder.Configuration["Database:MigrateOnStartup"] = "false";
+    builder.Configuration["Jwt:Issuer"] = "build";
+    builder.Configuration["Jwt:Audience"] = "build";
+    builder.Configuration["Jwt:SigningKey"] = new string('x', 32); // satisfait [MinLength(32)] sans littéral « secret »
+    builder.Configuration["App:BaseUrl"] = "http://build.local";
+    builder.Configuration["Email:Host"] = "build";
+    builder.Configuration["Email:FromAddress"] = "build@build.local";
 }
 
 builder.Services.AddApplication();
@@ -141,7 +151,11 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 });
 
 // Recurring jobs (purge quotidienne des refresh tokens). Hangfire crée ses tables au 1er run.
-Saas.Infrastructure.DependencyInjection.RegisterRecurringJobs(app.Services);
+// Sauté pendant la génération OpenAPI au build (sinon AddOrUpdate ouvre une connexion Postgres).
+if (!isBuildTimeOpenApi)
+{
+    Saas.Infrastructure.DependencyInjection.RegisterRecurringJobs(app.Services);
+}
 
 await app.RunAsync();
 
