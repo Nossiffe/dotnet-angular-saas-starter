@@ -27,6 +27,20 @@ builder.Host.UseSerilog((context, config) =>
 
 builder.WebHost.ConfigureKestrel(o => o.AddServerHeader = false);
 
+// Génération OpenAPI au BUILD (outil GetDocument.Insider) : il lance ce Program.cs avec un
+// serveur mock, donc tout le démarrage s'exécute. Sans DB ni config réelle au build, on
+// fournit une DSN factice (enregistrement DbContext paresseux, aucune connexion ouverte) et
+// on désactive l'auto-migration. No-op en `dotnet run`/`dotnet test` (entry assembly ≠ outil).
+if (string.Equals(
+        System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name,
+        "GetDocument.Insider",
+        System.StringComparison.Ordinal))
+{
+    // DSN sans mot de passe : suffit pour enregistrer le DbContext (paresseux, aucune connexion).
+    builder.Configuration["ConnectionStrings:Default"] = "Host=build;Database=build;Username=build";
+    builder.Configuration["Database:MigrateOnStartup"] = "false";
+}
+
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddEndpoints();
