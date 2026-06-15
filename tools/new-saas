@@ -263,12 +263,7 @@ SKILL_PORTS="$DEST/.claude/skills/sync-api-client/SKILL.md"
   -e "s|http://localhost:5123|http://localhost:$API_PORT|g" \
   "$SKILL_PORTS" || true
 
-# openapi.json snapshots (both fronts) : 5123 → API_PORT
-for openapi in "$DEST/web-angular/openapi.json" "$DEST/web-react/openapi.json"; do
-  [ -f "$openapi" ] && sed -i \
-    -e "s/localhost:5123/localhost:$API_PORT/g" \
-    "$openapi" || true
-done
+# (openapi.json : plus de réécriture de port — le doc est généré au build, sans URL de serveur.)
 
 # B2 — devcontainer.json: fix forwardPorts (remove bogus 5001, use allocated ports)
 DEVCONTAINER="$DEST/.devcontainer/devcontainer.json"

@@ -7,6 +7,9 @@ obj/
 artifacts/
 .vs/
 
+# Document OpenAPI généré au build (source commitée = web-*/openapi.json)
+src/Api/Saas.Api.json
+
 # NuGet
 *.nupkg
 .nuget-packages/
