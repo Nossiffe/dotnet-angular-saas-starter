@@ -1,3 +1,4 @@
+using ErrorOr;
 using FluentValidation;
 using FluentValidation.Results;
 using Mediator;
@@ -14,7 +15,7 @@ public sealed class RegisterHandler(
     IEmailSender email,
     IEmailLinkBuilder links,
     ILogger<RegisterHandler> logger)
-    : ICommandHandler<RegisterCommand, Guid>
+    : ICommandHandler<RegisterCommand, ErrorOr<Guid>>
 {
     private static readonly Action<ILogger, Guid, Exception?> _logConfirmEmailFailed =
         LoggerMessage.Define<Guid>(
@@ -22,7 +23,7 @@ public sealed class RegisterHandler(
             new EventId(1, "ConfirmEmailSendFailed"),
             "Échec de l'envoi de l'email de confirmation pour {UserId}");
 
-    public async ValueTask<Guid> Handle(RegisterCommand command, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Guid>> Handle(RegisterCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
 

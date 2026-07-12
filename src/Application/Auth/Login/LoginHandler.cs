@@ -1,4 +1,5 @@
 using Dapper;
+using ErrorOr;
 using FluentValidation;
 using FluentValidation.Results;
 using Mediator;
@@ -10,22 +11,22 @@ public sealed class LoginHandler(
     IIdentityService identity,
     IDbConnectionFactory connections,
     ITokenService tokens,
-    IRefreshTokenStore refresh) : ICommandHandler<LoginCommand, AuthResult?>
+    IRefreshTokenStore refresh) : ICommandHandler<LoginCommand, ErrorOr<AuthResult>>
 {
-    public async ValueTask<AuthResult?> Handle(LoginCommand command, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<AuthResult>> Handle(LoginCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
 
         var user = await identity.FindByEmailAsync(command.Email, cancellationToken);
         if (user is null)
         {
-            return null;
+            return AuthErrors.InvalidCredentials;
         }
 
         var passwordOk = await identity.CheckPasswordAsync(user.Id, command.Password, cancellationToken);
         if (!passwordOk)
         {
-            return null;
+            return AuthErrors.InvalidCredentials;
         }
 
         // Mot de passe valide mais email non confirmé → refus explicite (400) avec un message clair.
@@ -56,7 +57,7 @@ public sealed class LoginHandler(
 
         if (rows.Count == 0)
         {
-            return null;
+            return AuthErrors.InvalidCredentials;
         }
 
         var membership = command.TenantId is { } requested

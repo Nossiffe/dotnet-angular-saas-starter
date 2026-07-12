@@ -1,5 +1,4 @@
 using Mediator;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Saas.Api.Common;
 using Saas.Api.Contracts;
 using Saas.Application.Auth.ConfirmEmail;
@@ -22,18 +21,19 @@ public sealed class AuthEndpoints : IEndpoint
 
         group.MapPost("/register", Register)
             .AllowAnonymous()
-            .Produces<RegisterResponse>(StatusCodes.Status201Created)
-            .Produces(StatusCodes.Status400BadRequest);
+            .WithCreatedResponses<RegisterResponse>();
 
         group.MapPost("/login", Login)
             .AllowAnonymous()
             .Produces<AuthResponse>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status401Unauthorized);
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/refresh", Refresh)
             .AllowAnonymous()
             .Produces<AuthResponse>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status401Unauthorized);
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         // Logout : révoque le refresh token. Réservé à l'utilisateur connecté — pas d'AllowAnonymous ici.
         group.MapPost("/logout", Logout)
@@ -43,7 +43,7 @@ public sealed class AuthEndpoints : IEndpoint
         group.MapPost("/confirm-email", ConfirmEmail)
             .AllowAnonymous()
             .Produces(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status400BadRequest);
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
         // Anti-énumération : renvoie toujours 200, qu'on connaisse l'email ou non.
         group.MapPost("/forgot-password", ForgotPassword)
@@ -53,68 +53,66 @@ public sealed class AuthEndpoints : IEndpoint
         group.MapPost("/reset-password", ResetPassword)
             .AllowAnonymous()
             .Produces(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status400BadRequest);
+            .ProducesProblem(StatusCodes.Status400BadRequest);
     }
 
-    private static async Task<Results<Created<RegisterResponse>, ValidationProblem>> Register(
-        RegisterCommand cmd, ISender sender, CancellationToken ct)
+    private static async Task<IResult> Register(RegisterCommand cmd, ISender sender, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(cmd);
-        var id = await sender.Send(cmd, ct);
-        return TypedResults.Created($"/users/{id}", new RegisterResponse(id));
+        var result = await sender.Send(cmd, ct);
+        return result.Match(
+            id => Results.Created($"/users/{id}", new RegisterResponse(id)),
+            _ => result.ToHttpResult());
     }
 
-    private static async Task<Results<Ok<AuthResponse>, UnauthorizedHttpResult>> Login(
-        LoginCommand cmd, ISender sender, CancellationToken ct)
+    private static async Task<IResult> Login(LoginCommand cmd, ISender sender, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(cmd);
-        var r = await sender.Send(cmd, ct);
-        return r is null
-            ? TypedResults.Unauthorized()
-            : TypedResults.Ok(new AuthResponse(r.AccessToken, r.ExpiresAt, r.RefreshToken));
+        var result = await sender.Send(cmd, ct);
+        return result.Match(
+            auth => TypedResults.Ok(new AuthResponse(auth.AccessToken, auth.ExpiresAt, auth.RefreshToken)) as IResult,
+            _ => result.ToHttpResult());
     }
 
-    private static async Task<Results<Ok<AuthResponse>, UnauthorizedHttpResult>> Refresh(
-        RefreshTokenCommand cmd, ISender sender, CancellationToken ct)
+    private static async Task<IResult> Refresh(RefreshTokenCommand cmd, ISender sender, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(cmd);
-        var r = await sender.Send(cmd, ct);
-        return r is null
-            ? TypedResults.Unauthorized()
-            : TypedResults.Ok(new AuthResponse(r.AccessToken, r.ExpiresAt, r.RefreshToken));
+        var result = await sender.Send(cmd, ct);
+        return result.Match(
+            auth => TypedResults.Ok(new AuthResponse(auth.AccessToken, auth.ExpiresAt, auth.RefreshToken)) as IResult,
+            _ => result.ToHttpResult());
     }
 
-    private static async Task<NoContent> Logout(
-        LogoutRequest request, ISender sender, CancellationToken ct)
+    private static async Task<IResult> Logout(LogoutRequest request, ISender sender, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
-        await sender.Send(new LogoutCommand(request.RefreshToken), ct);
-        return TypedResults.NoContent();
+        var result = await sender.Send(new LogoutCommand(request.RefreshToken), ct);
+        return result.Match(_ => Results.NoContent(), _ => result.ToHttpResult());
     }
 
-    private static async Task<Results<Ok, BadRequest>> ConfirmEmail(
-        ConfirmEmailRequest request, ISender sender, CancellationToken ct)
+    private static async Task<IResult> ConfirmEmail(ConfirmEmailRequest request, ISender sender, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var ok = await sender.Send(new ConfirmEmailCommand(request.UserId, request.Token), ct);
-        return ok ? TypedResults.Ok() : TypedResults.BadRequest();
+        var result = await sender.Send(new ConfirmEmailCommand(request.UserId, request.Token), ct);
+        return result.Match(_ => Results.Ok(), _ => result.ToHttpResult());
     }
 
-    private static async Task<Ok> ForgotPassword(
+    private static async Task<IResult> ForgotPassword(
         ForgotPasswordRequest request, ISender sender, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
         // Toujours 200 (anti-énumération) — le handler n'expose jamais si l'email existe.
-        await sender.Send(new ForgotPasswordCommand(request.Email), ct);
-        return TypedResults.Ok();
+        var result = await sender.Send(new ForgotPasswordCommand(request.Email), ct);
+        return result.Match(_ => Results.Ok(), _ => result.ToHttpResult());
     }
 
-    private static async Task<Ok> ResetPassword(
+    private static async Task<IResult> ResetPassword(
         ResetPasswordRequest request, ISender sender, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
-        // Échec → ValidationException → 400 ProblemDetails via GlobalExceptionHandler.
-        await sender.Send(new ResetPasswordCommand(request.UserId, request.Token, request.NewPassword), ct);
-        return TypedResults.Ok();
+        // Échec → ValidationException (400) ou ErrorOr (ToHttpResult) selon la cause.
+        var result = await sender.Send(
+            new ResetPasswordCommand(request.UserId, request.Token, request.NewPassword), ct);
+        return result.Match(_ => Results.Ok(), _ => result.ToHttpResult());
     }
 }

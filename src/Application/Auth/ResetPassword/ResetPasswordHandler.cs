@@ -1,3 +1,4 @@
+using ErrorOr;
 using FluentValidation;
 using FluentValidation.Results;
 using Mediator;
@@ -5,9 +6,10 @@ using Saas.Application.Common.Interfaces;
 
 namespace Saas.Application.Auth.ResetPassword;
 
-public sealed class ResetPasswordHandler(IIdentityService identity) : ICommandHandler<ResetPasswordCommand, Unit>
+public sealed class ResetPasswordHandler(IIdentityService identity)
+    : ICommandHandler<ResetPasswordCommand, ErrorOr<Success>>
 {
-    public async ValueTask<Unit> Handle(ResetPasswordCommand command, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Success>> Handle(ResetPasswordCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
 
@@ -19,6 +21,6 @@ public sealed class ResetPasswordHandler(IIdentityService identity) : ICommandHa
                 [new ValidationFailure(nameof(command.Token), "Le lien de réinitialisation est invalide ou expiré.")]);
         }
 
-        return Unit.Value;
+        return Result.Success;
     }
 }

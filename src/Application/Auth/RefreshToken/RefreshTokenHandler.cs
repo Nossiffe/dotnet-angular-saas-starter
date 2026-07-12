@@ -1,4 +1,5 @@
 using Dapper;
+using ErrorOr;
 using Mediator;
 using Saas.Application.Common.Interfaces;
 
@@ -8,22 +9,22 @@ public sealed class RefreshTokenHandler(
     IRefreshTokenStore refresh,
     IIdentityService identity,
     IDbConnectionFactory connections,
-    ITokenService tokens) : ICommandHandler<RefreshTokenCommand, AuthResult?>
+    ITokenService tokens) : ICommandHandler<RefreshTokenCommand, ErrorOr<AuthResult>>
 {
-    public async ValueTask<AuthResult?> Handle(RefreshTokenCommand command, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<AuthResult>> Handle(RefreshTokenCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
 
         var rotated = await refresh.ValidateAndRotateAsync(command.RefreshToken, cancellationToken);
         if (rotated is null)
         {
-            return null;
+            return AuthErrors.SessionExpired;
         }
 
         var user = await identity.FindByIdAsync(rotated.UserId, cancellationToken);
         if (user is null)
         {
-            return null;
+            return AuthErrors.SessionExpired;
         }
 
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);

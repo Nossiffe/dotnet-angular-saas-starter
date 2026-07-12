@@ -1,13 +1,16 @@
+using ErrorOr;
 using Mediator;
 using Saas.Application.Common.Interfaces;
 
 namespace Saas.Application.Auth.ConfirmEmail;
 
-public sealed class ConfirmEmailHandler(IIdentityService identity) : ICommandHandler<ConfirmEmailCommand, bool>
+public sealed class ConfirmEmailHandler(IIdentityService identity)
+    : ICommandHandler<ConfirmEmailCommand, ErrorOr<Success>>
 {
-    public async ValueTask<bool> Handle(ConfirmEmailCommand command, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Success>> Handle(ConfirmEmailCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
-        return await identity.ConfirmEmailAsync(command.UserId, command.Token, cancellationToken);
+        var confirmed = await identity.ConfirmEmailAsync(command.UserId, command.Token, cancellationToken);
+        return confirmed ? Result.Success : AuthErrors.InvalidConfirmationLink;
     }
 }

@@ -1,12 +1,13 @@
+using ErrorOr;
 using Mediator;
 using Saas.Application.Common.Interfaces;
 
 namespace Saas.Application.Auth.ForgotPassword;
 
 public sealed class ForgotPasswordHandler(
-    IPasswordResetEnqueuer enqueuer) : ICommandHandler<ForgotPasswordCommand, Unit>
+    IPasswordResetEnqueuer enqueuer) : ICommandHandler<ForgotPasswordCommand, ErrorOr<Success>>
 {
-    public ValueTask<Unit> Handle(ForgotPasswordCommand command, CancellationToken cancellationToken)
+    public ValueTask<ErrorOr<Success>> Handle(ForgotPasswordCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
 
@@ -14,6 +15,6 @@ public sealed class ForgotPasswordHandler(
         // Le vrai travail (lookup + token + envoi) est délégué à un job Hangfire qui s'exécute
         // hors bande → la réponse HTTP est instantanée et uniforme (ferme le timing oracle).
         enqueuer.Enqueue(command.Email);
-        return ValueTask.FromResult(Unit.Value);
+        return ValueTask.FromResult<ErrorOr<Success>>(Result.Success);
     }
 }
