@@ -45,7 +45,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",
     "@eslint/js": "^10.0.1",
-    "@hey-api/openapi-ts": "^0.98.1",
+    "@hey-api/openapi-ts": "~0.99.0",
     "@playwright/test": "^1.60.0",
     "@tanstack/router-plugin": "^1.168.18",
     "@testing-library/jest-dom": "^6.9.1",
