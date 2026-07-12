@@ -46,7 +46,7 @@ if (isBuildTimeOpenApi)
     builder.Configuration["Jwt:Issuer"] = "build";
     builder.Configuration["Jwt:Audience"] = "build";
     builder.Configuration["Jwt:SigningKey"] = new string('x', 32); // satisfait [MinLength(32)] sans littéral « secret »
-    builder.Configuration["App:BaseUrl"] = "http://build.local";
+    builder.Configuration["App:BaseUrl"] = "https://build.local";
     builder.Configuration["Email:Host"] = "build";
     builder.Configuration["Email:FromAddress"] = "build@build.local";
 }
