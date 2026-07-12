@@ -4,6 +4,7 @@
     <PackageReference Include="Microsoft.Extensions.Identity.Stores" />
     <PackageReference Include="Mediator.Abstractions" />
     <PackageReference Include="Vogen" />
+    <PackageReference Include="ErrorOr" />
   </ItemGroup>
 
 </Project>

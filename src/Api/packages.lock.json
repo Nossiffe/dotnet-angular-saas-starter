@@ -26,6 +26,12 @@
         "resolved": "2.0.5",
         "contentHash": "8LrlvI1KpjjJ4VGSqZ16yoOCKlQnYS+Y8rYNifNrscmVh5anJcF9E4e0NiDP30BHBMUbkoJ5KdcxoRWM7Pz9Aw=="
       },
+      "ErrorOr": {
+        "type": "Direct",
+        "requested": "[2.1.1, )",
+        "resolved": "2.1.1",
+        "contentHash": "Y/AhvEZ5DjSi993Db1VrnYpK8YpM4o+tonF4f+AtXDzrIHYvbjWJD7fpip+ugSwW8kMw+XXEnMlJM7E0BKJBWA=="
+      },
       "FluentValidation": {
         "type": "Direct",
         "requested": "[12.1.1, )",
@@ -561,6 +567,7 @@
         "type": "Project",
         "dependencies": {
           "Dapper": "[2.1.79, )",
+          "ErrorOr": "[2.1.1, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "Mediator.Abstractions": "[3.0.2, )",
@@ -571,6 +578,7 @@
       "saas.domain": {
         "type": "Project",
         "dependencies": {
+          "ErrorOr": "[2.1.1, )",
           "Mediator.Abstractions": "[3.0.2, )",
           "Vogen": "[8.0.6, )"
         }

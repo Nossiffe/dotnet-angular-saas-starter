@@ -694,6 +694,7 @@
         "dependencies": {
           "Asp.Versioning.Http": "[10.0.0, )",
           "Asp.Versioning.Mvc.ApiExplorer": "[10.0.0, )",
+          "ErrorOr": "[2.1.1, )",
           "FluentValidation": "[12.1.1, )",
           "Hangfire.AspNetCore": "[1.8.23, )",
           "Mediator.Abstractions": "[3.0.2, )",
@@ -719,6 +720,7 @@
         "type": "Project",
         "dependencies": {
           "Dapper": "[2.1.79, )",
+          "ErrorOr": "[2.1.1, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "Mediator.Abstractions": "[3.0.2, )",
@@ -729,6 +731,7 @@
       "saas.domain": {
         "type": "Project",
         "dependencies": {
+          "ErrorOr": "[2.1.1, )",
           "Mediator.Abstractions": "[3.0.2, )",
           "Vogen": "[8.0.6, )"
         }
@@ -773,6 +776,12 @@
         "requested": "[2.1.79, )",
         "resolved": "2.1.79",
         "contentHash": "8YijbzgTfmqmQOnVNorYM6K++pxqnW3nJ4aC1sRHzxUA2CcuoJ9gsTem3kgBnPRMc38zZHl4Esb6hAezXIEEuw=="
+      },
+      "ErrorOr": {
+        "type": "CentralTransitive",
+        "requested": "[2.1.1, )",
+        "resolved": "2.1.1",
+        "contentHash": "Y/AhvEZ5DjSi993Db1VrnYpK8YpM4o+tonF4f+AtXDzrIHYvbjWJD7fpip+ugSwW8kMw+XXEnMlJM7E0BKJBWA=="
       },
       "FluentValidation": {
         "type": "CentralTransitive",
