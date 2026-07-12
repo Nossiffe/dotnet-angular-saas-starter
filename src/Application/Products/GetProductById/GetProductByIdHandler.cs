@@ -1,14 +1,16 @@
 using Dapper;
+using ErrorOr;
 using Mediator;
 using Microsoft.Extensions.Caching.Hybrid;
 using Saas.Application.Common.Interfaces;
+using Saas.Domain.Products;
 
 namespace Saas.Application.Products.GetProductById;
 
 public sealed class GetProductByIdHandler(IDbConnectionFactory factory, ITenantProvider tenant, HybridCache cache)
-    : IQueryHandler<GetProductByIdQuery, ProductDto?>
+    : IQueryHandler<GetProductByIdQuery, ErrorOr<ProductDto>>
 {
-    public async ValueTask<ProductDto?> Handle(GetProductByIdQuery query, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<ProductDto>> Handle(GetProductByIdQuery query, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
         var key = $"product:{tenant.TenantId}:{query.Id}";
@@ -41,6 +43,6 @@ public sealed class GetProductByIdHandler(IDbConnectionFactory factory, ITenantP
             await cache.RemoveAsync(key, cancellationToken);
         }
 
-        return dto;
+        return dto is null ? (ErrorOr<ProductDto>)ProductErrors.NotFound : dto;
     }
 }

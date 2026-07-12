@@ -1,4 +1,5 @@
 using Dapper;
+using ErrorOr;
 using Mediator;
 using Saas.Application.Common;
 using Saas.Application.Common.Interfaces;
@@ -6,12 +7,12 @@ using Saas.Application.Common.Interfaces;
 namespace Saas.Application.Products.ListProducts;
 
 public sealed class ListProductsHandler(IDbConnectionFactory factory, ITenantProvider tenant)
-    : IQueryHandler<ListProductsQuery, PagedResult<ProductDto>>
+    : IQueryHandler<ListProductsQuery, ErrorOr<PagedResult<ProductDto>>>
 {
     private const int MinPageSize = 1;
     private const int MaxPageSize = 100;
 
-    public async ValueTask<PagedResult<ProductDto>> Handle(ListProductsQuery query, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<PagedResult<ProductDto>>> Handle(ListProductsQuery query, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
         var page = Math.Max(1, query.Page);

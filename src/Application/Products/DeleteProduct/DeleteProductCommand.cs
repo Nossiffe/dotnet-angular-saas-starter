@@ -1,5 +1,6 @@
+using ErrorOr;
 using Mediator;
 
 namespace Saas.Application.Products.DeleteProduct;
 
-public sealed record DeleteProductCommand(Guid Id) : ICommand;
+public sealed record DeleteProductCommand(Guid Id) : ICommand<ErrorOr<Deleted>>;

@@ -1,3 +1,4 @@
+using ErrorOr;
 using Mediator;
 using Saas.Application.Common.Interfaces;
 using Saas.Domain.Common;
@@ -6,9 +7,9 @@ using Saas.Domain.Products;
 namespace Saas.Application.Products.CreateProduct;
 
 public sealed class CreateProductHandler(IProductRepository products, IUnitOfWork uow)
-    : ICommandHandler<CreateProductCommand, Guid>
+    : ICommandHandler<CreateProductCommand, ErrorOr<Guid>>
 {
-    public async ValueTask<Guid> Handle(CreateProductCommand command, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Guid>> Handle(CreateProductCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
         var product = Product.Create(command.Name, Money.From(command.Price));

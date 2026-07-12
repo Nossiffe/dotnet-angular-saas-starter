@@ -1,5 +1,4 @@
 using Mediator;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Saas.Api.Common;
 using Saas.Api.Contracts;
 using Saas.Application.Common;
@@ -21,57 +20,48 @@ public sealed class ProductEndpoints : IEndpoint
             .RequireAuthorization("HasTenant");
 
         group.MapPost("/", CreateProduct)
-            .Produces<CreateProductResponse>(StatusCodes.Status201Created)
-            .Produces(StatusCodes.Status400BadRequest);
+            .WithCreatedResponses<CreateProductResponse>();
 
         group.MapGet("/", ListProducts)
             .Produces<PagedResult<ProductDto>>(StatusCodes.Status200OK);
 
         group.MapGet("/{id:guid}", GetProduct)
-            .Produces<ProductDto>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound);
+            .WithStandardResponses<ProductDto>();
 
         group.MapPut("/{id:guid}", UpdateProduct)
-            .Produces(StatusCodes.Status204NoContent)
-            .Produces(StatusCodes.Status404NotFound);
+            .WithNoContentResponses();
 
         group.MapDelete("/{id:guid}", DeleteProduct)
-            .Produces(StatusCodes.Status204NoContent)
-            .Produces(StatusCodes.Status404NotFound)
+            .WithNoContentResponses()
             .RequireAuthorization("TenantAdmin");
     }
 
-    private static async Task<Created<CreateProductResponse>> CreateProduct(
+    private static async Task<IResult> CreateProduct(
         CreateProductCommand command, ISender sender, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(command);
-        var id = await sender.Send(command, ct);
-        return TypedResults.Created($"/api/v1/products/{id}", new CreateProductResponse(id));
+        var result = await sender.Send(command, ct);
+        // enveloppe dans le contract existant sur le chemin succès
+        return result.Match(
+            id => Results.Created($"/api/v1/products/{id}", new CreateProductResponse(id)),
+            _ => result.ToHttpResult());
     }
 
-    private static async Task<Ok<PagedResult<ProductDto>>> ListProducts(
-        ISender sender, CancellationToken ct, int page = 1, int pageSize = 20) =>
-        TypedResults.Ok(await sender.Send(new ListProductsQuery(page, pageSize), ct));
+    private static async Task<IResult> ListProducts(
+        ISender sender, CancellationToken ct, int page = 1, int pageSize = 20)
+        => (await sender.Send(new ListProductsQuery(page, pageSize), ct)).ToHttpResult();
 
-    private static async Task<Results<Ok<ProductDto>, NotFound>> GetProduct(
-        Guid id, ISender sender, CancellationToken ct)
-    {
-        ProductDto? product = await sender.Send(new GetProductByIdQuery(id), ct);
-        return product is null ? TypedResults.NotFound() : TypedResults.Ok(product);
-    }
+    private static async Task<IResult> GetProduct(Guid id, ISender sender, CancellationToken ct)
+        => (await sender.Send(new GetProductByIdQuery(id), ct)).ToHttpResult();
 
-    private static async Task<NoContent> UpdateProduct(
+    private static async Task<IResult> UpdateProduct(
         Guid id, UpdateProductBody body, ISender sender, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(body);
-        await sender.Send(new UpdateProductCommand(id, body.Name, body.Price), ct);
-        return TypedResults.NoContent();
+        return (await sender.Send(new UpdateProductCommand(id, body.Name, body.Price), ct))
+            .ToNoContentHttpResult();
     }
 
-    private static async Task<NoContent> DeleteProduct(
-        Guid id, ISender sender, CancellationToken ct)
-    {
-        await sender.Send(new DeleteProductCommand(id), ct);
-        return TypedResults.NoContent();
-    }
+    private static async Task<IResult> DeleteProduct(Guid id, ISender sender, CancellationToken ct)
+        => (await sender.Send(new DeleteProductCommand(id), ct)).ToNoContentHttpResult();
 }
