@@ -23,29 +23,22 @@ public sealed class InvitationEndpoints : IEndpoint
             .RequireAuthorization("TenantAdmin");
 
         orgGroup.MapPost("/", InviteMember)
-            .Produces<InviteResponse>(StatusCodes.Status201Created)
-            .Produces(StatusCodes.Status400BadRequest)
-            .Produces(StatusCodes.Status404NotFound);
+            .WithCreatedResponses<InviteResponse>();
 
         orgGroup.MapGet("/", ListPendingInvitations)
             .Produces<IReadOnlyList<InvitationDto>>(StatusCodes.Status200OK);
 
         orgGroup.MapPost("/{id:guid}/resend", ResendInvitation)
-            .Produces(StatusCodes.Status204NoContent)
-            .Produces(StatusCodes.Status400BadRequest)
-            .Produces(StatusCodes.Status404NotFound);
+            .WithNoContentResponses();
 
         orgGroup.MapDelete("/{id:guid}", RevokeInvitation)
-            .Produces(StatusCodes.Status204NoContent)
-            .Produces(StatusCodes.Status400BadRequest)
-            .Produces(StatusCodes.Status404NotFound);
+            .WithNoContentResponses();
 
         // Route anonyme : accept invitation.
         app.MapPost("/invitations/accept", AcceptInvitation)
             .WithTags("Invitations")
             .AllowAnonymous()
-            .Produces<AcceptInvitationResponse>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status400BadRequest);
+            .WithStandardResponses<AcceptInvitationResponse>();
     }
 
     private static async Task<IResult> InviteMember(

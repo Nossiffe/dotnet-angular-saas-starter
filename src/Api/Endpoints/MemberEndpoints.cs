@@ -17,9 +17,7 @@ public sealed class MemberEndpoints : IEndpoint
             .RequireAuthorization("TenantAdmin");
 
         group.MapPut("/{userId:guid}/role", ChangeMemberRole)
-            .Produces(StatusCodes.Status204NoContent)
-            .Produces(StatusCodes.Status400BadRequest)
-            .Produces(StatusCodes.Status404NotFound);
+            .WithNoContentResponses();
     }
 
     private static async Task<IResult> ChangeMemberRole(
