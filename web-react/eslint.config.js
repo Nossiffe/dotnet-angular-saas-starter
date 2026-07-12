@@ -31,5 +31,12 @@ export default tseslint.config(
             'react-refresh/only-export-components': 'off',
         },
     },
+    // shadcn/ui exporte variants/hooks à côté des composants ; main.tsx est l'entry point (jamais fast-refreshed)
+    {
+        files: ['src/components/ui/**/*.tsx', 'src/main.tsx'],
+        rules: {
+            'react-refresh/only-export-components': 'off',
+        },
+    },
     prettier,
 );
