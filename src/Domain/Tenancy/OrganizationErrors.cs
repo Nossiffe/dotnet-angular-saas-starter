@@ -17,8 +17,4 @@ public static class OrganizationErrors
     public static Error AlreadyMember => Error.Validation(
         code: "Membership.AlreadyMember",
         description: "Cette personne est déjà membre de l'organisation.");
-
-    public static Error AlreadyJoined => Error.Conflict(
-        code: "Membership.AlreadyJoined",
-        description: "Vous êtes déjà membre de cette organisation.");
 }

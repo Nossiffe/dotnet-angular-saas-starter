@@ -50,17 +50,12 @@ public sealed class AcceptInvitationHandler(
         string? password,
         CancellationToken ct)
     {
-        var userId = existingUserId ?? await CreateUserAsync(invitation.InviteeEmail, password, ct);
-
+        // Toutes les vérifications ErrorOr d'abord (aucun effet de bord avant) : la transaction
+        // ne rollback que sur throw, un early-return ErrorOr commiterait ce qui précède.
         var organization = await organizations.GetByIdAsync(invitation.OrganizationId, ct);
         if (organization is null)
         {
             return OrganizationErrors.NotFound;
-        }
-
-        if (organization.Memberships.Any(m => m.UserId == userId))
-        {
-            return OrganizationErrors.AlreadyJoined;
         }
 
         var accepted = invitation.Accept(clock.UtcNow);
@@ -69,6 +64,9 @@ public sealed class AcceptInvitationHandler(
             return accepted.Errors;
         }
 
+        // Effets de bord seulement après validation : création du user (throw → rollback OK),
+        // puis ajout idempotent (déjà membre → no-op, cf. Organization.AddMember).
+        var userId = existingUserId ?? await CreateUserAsync(invitation.InviteeEmail, password, ct);
         organization.AddMember(userId, invitation.Role);
         await uow.SaveChangesAsync(ct);
 

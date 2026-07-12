@@ -16,7 +16,6 @@ public sealed class DomainErrorsTests
         { OrganizationErrors.MemberNotFound, ErrorType.NotFound, "Membership.NotFound" },
         { OrganizationErrors.LastOwner, ErrorType.Validation, "Organization.LastOwner" },
         { OrganizationErrors.AlreadyMember, ErrorType.Validation, "Membership.AlreadyMember" },
-        { OrganizationErrors.AlreadyJoined, ErrorType.Conflict, "Membership.AlreadyJoined" },
         { InvitationErrors.NotFound, ErrorType.NotFound, "Invitation.NotFound" },
         { InvitationErrors.OwnerRole, ErrorType.Validation, "Invitation.OwnerRole" },
         { InvitationErrors.AlreadyPending, ErrorType.Conflict, "Invitation.AlreadyPending" },

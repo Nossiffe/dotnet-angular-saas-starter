@@ -4,7 +4,9 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Saas.Application.Common.Interfaces;
 using Saas.Application.Invitations;
+using Saas.Domain.Tenancy;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Auth;
 using Shouldly;
@@ -311,6 +313,106 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var accept = await anon.PostAsJsonAsync(
             "/api/v1/invitations/accept", new { invitationId, token, password = "Expired!User42" }, ct);
         accept.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    // ── Régression Fix 1 : invitation expirée + nouvel email → 400 ET aucun user orphelin ──
+    // Le handler créait autrefois le compte Identity avant la vérification d'expiration, et un
+    // early-return ErrorOr ne déclenche pas le rollback de la transaction (seule une exception le
+    // fait), donc le compte restait persisté malgré l'échec de l'acceptation. On vérifie ici
+    // qu'une tentative de connexion avec ce couple email/mot de passe échoue.
+    [Fact]
+    public async Task Expired_invitation_with_new_email_creates_no_orphan_user()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var ownerId = Guid.CreateVersion7();
+        var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
+        var owner = InvitationTestFlow.ClientFor(factory, orgId, ownerId);
+        var anon = factory.CreateClient();
+
+        var email = UniqueEmail("orphan");
+        const string password = "Orphan!User42";
+        var invite = await owner.PostAsJsonAsync(
+            $"/api/v1/organizations/{orgId}/invitations", new { email, role = "Member" }, ct);
+        invite.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var created = await invite.Content.ReadFromJsonAsync<InviteResponse>(ct);
+        var (invitationId, token) = factory.Emails.For(email)!.ExtractInvitationLink();
+
+        // Force l'expiration en base via un scope AppDbContext.
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var rows = await db.Database.ExecuteSqlAsync(
+                $"""UPDATE "Invitations" SET "ExpiresAt" = {DateTimeOffset.UtcNow.AddDays(-1)} WHERE "Id" = {created!.InvitationId}""",
+                ct);
+            rows.ShouldBe(1);
+        }
+
+        var accept = await anon.PostAsJsonAsync(
+            "/api/v1/invitations/accept", new { invitationId, token, password }, ct);
+        accept.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        var login = await anon.PostAsJsonAsync(
+            "/api/v1/auth/login", new { email, password }, ct);
+        login.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    // ── Accept idempotent : invitee déjà membre → succès silencieux (comportement d'origine) ──
+    // On seed directement une invitation Pending pour un email déjà membre de l'organisation
+    // (impossible à obtenir via l'endpoint d'invite, qui refuse avec AlreadyMember — cf.
+    // Invite_when_already_member_returns_400) pour reproduire le cas concurrentiel/legacy où
+    // l'invitee accepte alors qu'il est déjà membre : Organization.AddMember est un no-op idempotent,
+    // l'invitation passe quand même à Accepted, et l'endpoint renvoie 200.
+    [Fact]
+    public async Task Accept_when_invitee_already_member_is_idempotent_success()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var ownerId = Guid.CreateVersion7();
+        var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
+        var anon = factory.CreateClient();
+
+        var email = UniqueEmail("idempotent");
+        const string password = "Idempotent!User42";
+        await AuthTestFlow.RegisterAndConfirmAsync(anon, factory, email, password, ct);
+
+        Guid invitationId;
+        string rawToken;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var identity = scope.ServiceProvider.GetRequiredService<IIdentityService>();
+            var organizations = scope.ServiceProvider.GetRequiredService<IOrganizationRepository>();
+            var invitationsRepo = scope.ServiceProvider.GetRequiredService<IInvitationRepository>();
+            var tokens = scope.ServiceProvider.GetRequiredService<IInvitationTokenService>();
+            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+            var user = await identity.FindByEmailAsync(email, ct);
+            user.ShouldNotBeNull();
+
+            var organization = await organizations.GetByIdAsync(OrganizationId.From(orgId), ct);
+            organization.ShouldNotBeNull();
+            organization!.AddMember(user!.Id, OrganizationRole.Member);
+            await uow.SaveChangesAsync(ct);
+
+            rawToken = tokens.GenerateRawToken();
+            var created = Invitation.Create(
+                OrganizationId.From(orgId),
+                email,
+                OrganizationRole.Member,
+                ownerId,
+                tokens.HashToken(rawToken),
+                DateTimeOffset.UtcNow,
+                DateTimeOffset.UtcNow.AddDays(7));
+            created.IsError.ShouldBeFalse();
+            invitationsRepo.Add(created.Value);
+            await uow.SaveChangesAsync(ct);
+            invitationId = created.Value.Id.Value;
+        }
+
+        var accept = await anon.PostAsJsonAsync(
+            "/api/v1/invitations/accept", new { invitationId, token = rawToken }, ct);
+        accept.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await accept.Content.ReadFromJsonAsync<AcceptResponse>(ct);
+        body.ShouldNotBeNull();
+        body!.IsNewUser.ShouldBeFalse();
     }
 
     /// <summary>Décode le payload d'un JWT (base64url) et lit un claim par nom.</summary>
