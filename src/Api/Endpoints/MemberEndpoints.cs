@@ -1,5 +1,4 @@
 using Mediator;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Saas.Api.Common;
 using Saas.Api.Contracts;
 using Saas.Application.Common.Interfaces;
@@ -23,7 +22,7 @@ public sealed class MemberEndpoints : IEndpoint
             .Produces(StatusCodes.Status404NotFound);
     }
 
-    private static async Task<NoContent> ChangeMemberRole(
+    private static async Task<IResult> ChangeMemberRole(
         Guid orgId,
         Guid userId,
         ChangeMemberRoleRequest req,
@@ -34,8 +33,8 @@ public sealed class MemberEndpoints : IEndpoint
         ArgumentNullException.ThrowIfNull(req);
         EndpointHelpers.EnforceTenantScope(orgId, tenant);
         var role = EndpointHelpers.ParseRole(req.Role);
-        await sender.Send(new ChangeMemberRoleCommand(orgId, userId, role), ct);
-        return TypedResults.NoContent();
+        var result = await sender.Send(new ChangeMemberRoleCommand(orgId, userId, role), ct);
+        return result.ToNoContentHttpResult();
     }
 
 }

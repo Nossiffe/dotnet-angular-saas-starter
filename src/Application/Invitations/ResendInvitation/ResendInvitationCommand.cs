@@ -1,5 +1,6 @@
+using ErrorOr;
 using Mediator;
 
 namespace Saas.Application.Invitations.ResendInvitation;
 
-public sealed record ResendInvitationCommand(Guid OrganizationId, Guid InvitationId) : ICommand;
+public sealed record ResendInvitationCommand(Guid OrganizationId, Guid InvitationId) : ICommand<ErrorOr<Success>>;

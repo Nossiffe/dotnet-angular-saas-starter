@@ -1,13 +1,14 @@
 using Dapper;
+using ErrorOr;
 using Mediator;
 using Saas.Application.Common.Interfaces;
 
 namespace Saas.Application.Invitations.ListPendingInvitations;
 
 public sealed class ListPendingInvitationsHandler(IDbConnectionFactory connections)
-    : IQueryHandler<ListPendingInvitationsQuery, IReadOnlyList<InvitationDto>>
+    : IQueryHandler<ListPendingInvitationsQuery, ErrorOr<IReadOnlyList<InvitationDto>>>
 {
-    public async ValueTask<IReadOnlyList<InvitationDto>> Handle(
+    public async ValueTask<ErrorOr<IReadOnlyList<InvitationDto>>> Handle(
         ListPendingInvitationsQuery query,
         CancellationToken cancellationToken)
     {

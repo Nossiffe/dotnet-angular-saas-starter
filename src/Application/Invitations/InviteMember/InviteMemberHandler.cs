@@ -1,9 +1,7 @@
 using Dapper;
-using FluentValidation;
-using FluentValidation.Results;
+using ErrorOr;
 using Mediator;
 using Saas.Application.Common.Interfaces;
-using Saas.Domain.Common;
 using Saas.Domain.Tenancy;
 
 namespace Saas.Application.Invitations.InviteMember;
@@ -17,15 +15,18 @@ public sealed class InviteMemberHandler(
     IDbConnectionFactory connections,
     ICurrentUser currentUser,
     IDateTimeProvider clock)
-    : ICommandHandler<InviteMemberCommand, Guid>
+    : ICommandHandler<InviteMemberCommand, ErrorOr<Guid>>
 {
-    public async ValueTask<Guid> Handle(InviteMemberCommand command, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Guid>> Handle(InviteMemberCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
 
         var orgId = OrganizationId.From(command.OrganizationId);
-        _ = await organizations.GetByIdAsync(orgId, cancellationToken)
-            ?? throw new NotFoundException(nameof(Organization), command.OrganizationId);
+        var organization = await organizations.GetByIdAsync(orgId, cancellationToken);
+        if (organization is null)
+        {
+            return OrganizationErrors.NotFound;
+        }
 
         var normalizedEmail = command.Email.Trim().ToUpperInvariant();
 
@@ -43,20 +44,20 @@ public sealed class InviteMemberHandler(
 
             if (alreadyMember is not null)
             {
-                throw new ValidationException([new ValidationFailure("Email", "Cet utilisateur est déjà membre de l'organisation.")]);
+                return OrganizationErrors.AlreadyMember;
             }
         }
 
         if (await invitations.HasPendingInvitationAsync(orgId, command.Email.Trim().ToLowerInvariant(), cancellationToken))
         {
-            throw new ValidationException([new ValidationFailure("Email", "Une invitation en attente existe déjà pour cet email.")]);
+            return InvitationErrors.AlreadyPending;
         }
 
         var rawToken = tokens.GenerateRawToken();
         var tokenHash = tokens.HashToken(rawToken);
 
         var invitedBy = Guid.Parse(currentUser.UserId!);
-        var invitation = Invitation.Create(
+        var created = Invitation.Create(
             orgId,
             command.Email,
             command.Role,
@@ -65,6 +66,12 @@ public sealed class InviteMemberHandler(
             clock.UtcNow,
             clock.UtcNow.AddDays(7));
 
+        if (created.IsError)
+        {
+            return created.Errors;
+        }
+
+        var invitation = created.Value;
         invitations.Add(invitation);
         await uow.SaveChangesAsync(cancellationToken);
 

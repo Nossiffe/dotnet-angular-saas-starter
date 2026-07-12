@@ -1,4 +1,3 @@
-using Saas.Domain.Common;
 using Saas.Domain.Tenancy;
 using Shouldly;
 using Xunit;
@@ -44,18 +43,33 @@ public sealed class OrganizationTests
         var organization = Organization.Create("Acme", Slug.From("acme"), ownerId);
         organization.AddMember(memberId, OrganizationRole.Member);
 
-        organization.ChangeMemberRole(memberId, OrganizationRole.Admin);
+        var result = organization.ChangeMemberRole(memberId, OrganizationRole.Admin);
 
+        result.IsError.ShouldBeFalse();
         organization.Memberships.First(m => m.UserId == memberId).Role.ShouldBe(OrganizationRole.Admin);
     }
 
     [Fact]
-    public void ChangeMemberRole_du_dernier_Owner_lance()
+    public void ChangeMemberRole_du_dernier_Owner_retourne_une_erreur()
     {
         var ownerId = Guid.CreateVersion7();
         var organization = Organization.Create("Acme", Slug.From("acme"), ownerId);
 
-        Should.Throw<DomainException>(() =>
-            organization.ChangeMemberRole(ownerId, OrganizationRole.Member));
+        var result = organization.ChangeMemberRole(ownerId, OrganizationRole.Member);
+
+        result.IsError.ShouldBeTrue();
+        result.FirstError.ShouldBe(OrganizationErrors.LastOwner);
+    }
+
+    [Fact]
+    public void ChangeMemberRole_utilisateur_introuvable_retourne_une_erreur()
+    {
+        var ownerId = Guid.CreateVersion7();
+        var organization = Organization.Create("Acme", Slug.From("acme"), ownerId);
+
+        var result = organization.ChangeMemberRole(Guid.CreateVersion7(), OrganizationRole.Admin);
+
+        result.IsError.ShouldBeTrue();
+        result.FirstError.ShouldBe(OrganizationErrors.MemberNotFound);
     }
 }

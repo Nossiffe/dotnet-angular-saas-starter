@@ -1,3 +1,4 @@
+using ErrorOr;
 using Saas.Domain.Common;
 
 namespace Saas.Domain.Tenancy;
@@ -18,7 +19,7 @@ public sealed class Invitation : AggregateRoot<InvitationId>
     public Guid InvitedByUserId { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
 
-    public static Invitation Create(
+    public static ErrorOr<Invitation> Create(
         OrganizationId orgId,
         string email,
         OrganizationRole role,
@@ -27,19 +28,21 @@ public sealed class Invitation : AggregateRoot<InvitationId>
         DateTimeOffset createdAt,
         DateTimeOffset expiresAt)
     {
+        // Guards techniques : jamais atteints après validation applicative (FluentValidation) —
+        // restent des ArgumentException (pas des erreurs métier du Registre).
         if (string.IsNullOrWhiteSpace(email))
         {
-            throw new DomainException("L'email de l'invité est requis.");
+            throw new ArgumentException("L'email de l'invité est requis.", nameof(email));
         }
 
         if (string.IsNullOrWhiteSpace(tokenHash))
         {
-            throw new DomainException("Le hash du token est requis.");
+            throw new ArgumentException("Le hash du token est requis.", nameof(tokenHash));
         }
 
         if (role == OrganizationRole.Owner)
         {
-            throw new DomainException("Impossible d'inviter un membre avec le rôle Owner.");
+            return InvitationErrors.OwnerRole;
         }
 
         var invitation = new Invitation
@@ -58,45 +61,49 @@ public sealed class Invitation : AggregateRoot<InvitationId>
         return invitation;
     }
 
-    public void Revoke()
+    public ErrorOr<Success> Revoke()
     {
         if (Status != InvitationStatus.Pending)
         {
-            throw new DomainException("Seule une invitation en attente peut être révoquée.");
+            return InvitationErrors.NotPendingRevoke;
         }
 
         Status = InvitationStatus.Revoked;
+        return Result.Success;
     }
 
-    public void Accept(DateTimeOffset now)
+    public ErrorOr<Success> Accept(DateTimeOffset now)
     {
         if (Status != InvitationStatus.Pending)
         {
-            throw new DomainException("Seule une invitation en attente peut être acceptée.");
+            return InvitationErrors.NotPendingAccept;
         }
 
         if (ExpiresAt <= now)
         {
-            throw new DomainException("Cette invitation a expiré.");
+            return InvitationErrors.Expired;
         }
 
         Status = InvitationStatus.Accepted;
         Raise(new InvitationAcceptedDomainEvent(Id, OrganizationId, InviteeEmail, Role));
+        return Result.Success;
     }
 
-    public void Refresh(string newTokenHash, DateTimeOffset newExpiresAt)
+    public ErrorOr<Success> Refresh(string newTokenHash, DateTimeOffset newExpiresAt)
     {
+        // Guard technique : jamais atteint après validation applicative.
         if (string.IsNullOrWhiteSpace(newTokenHash))
         {
-            throw new DomainException("Le hash du token est requis.");
+            throw new ArgumentException("Le hash du token est requis.", nameof(newTokenHash));
         }
 
         if (Status != InvitationStatus.Pending)
         {
-            throw new DomainException("Seule une invitation en attente peut être renouvelée.");
+            return InvitationErrors.NotPendingRefresh;
         }
 
         TokenHash = newTokenHash;
         ExpiresAt = newExpiresAt;
+        return Result.Success;
     }
 }

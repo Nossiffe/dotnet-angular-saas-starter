@@ -1,5 +1,4 @@
 using Mediator;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Saas.Api.Common;
 using Saas.Api.Contracts;
 using Saas.Application.Common.Interfaces;
@@ -49,7 +48,7 @@ public sealed class InvitationEndpoints : IEndpoint
             .Produces(StatusCodes.Status400BadRequest);
     }
 
-    private static async Task<Created<InviteResponse>> InviteMember(
+    private static async Task<IResult> InviteMember(
         Guid orgId,
         InviteMemberRequest req,
         ISender sender,
@@ -59,11 +58,13 @@ public sealed class InvitationEndpoints : IEndpoint
         ArgumentNullException.ThrowIfNull(req);
         EndpointHelpers.EnforceTenantScope(orgId, tenant);
         var role = EndpointHelpers.ParseRole(req.Role);
-        var id = await sender.Send(new InviteMemberCommand(orgId, req.Email, role), ct);
-        return TypedResults.Created($"/api/v1/organizations/{orgId}/invitations/{id}", new InviteResponse(id));
+        var result = await sender.Send(new InviteMemberCommand(orgId, req.Email, role), ct);
+        return result
+            .Then(id => new InviteResponse(id))
+            .ToCreatedHttpResult(response => $"/api/v1/organizations/{orgId}/invitations/{response.InvitationId}");
     }
 
-    private static async Task<Ok<IReadOnlyList<InvitationDto>>> ListPendingInvitations(
+    private static async Task<IResult> ListPendingInvitations(
         Guid orgId,
         ISender sender,
         ITenantProvider tenant,
@@ -71,10 +72,10 @@ public sealed class InvitationEndpoints : IEndpoint
     {
         EndpointHelpers.EnforceTenantScope(orgId, tenant);
         var result = await sender.Send(new ListPendingInvitationsQuery(orgId), ct);
-        return TypedResults.Ok(result);
+        return result.ToHttpResult();
     }
 
-    private static async Task<NoContent> ResendInvitation(
+    private static async Task<IResult> ResendInvitation(
         Guid orgId,
         Guid id,
         ISender sender,
@@ -82,11 +83,11 @@ public sealed class InvitationEndpoints : IEndpoint
         CancellationToken ct)
     {
         EndpointHelpers.EnforceTenantScope(orgId, tenant);
-        await sender.Send(new ResendInvitationCommand(orgId, id), ct);
-        return TypedResults.NoContent();
+        var result = await sender.Send(new ResendInvitationCommand(orgId, id), ct);
+        return result.ToNoContentHttpResult();
     }
 
-    private static async Task<NoContent> RevokeInvitation(
+    private static async Task<IResult> RevokeInvitation(
         Guid orgId,
         Guid id,
         ISender sender,
@@ -94,18 +95,20 @@ public sealed class InvitationEndpoints : IEndpoint
         CancellationToken ct)
     {
         EndpointHelpers.EnforceTenantScope(orgId, tenant);
-        await sender.Send(new RevokeInvitationCommand(orgId, id), ct);
-        return TypedResults.NoContent();
+        var result = await sender.Send(new RevokeInvitationCommand(orgId, id), ct);
+        return result.ToNoContentHttpResult();
     }
 
-    private static async Task<Ok<AcceptInvitationResponse>> AcceptInvitation(
+    private static async Task<IResult> AcceptInvitation(
         AcceptInvitationRequest req,
         ISender sender,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(req);
         var result = await sender.Send(new AcceptInvitationCommand(req.InvitationId, req.Token, req.Password), ct);
-        return TypedResults.Ok(new AcceptInvitationResponse(result.IsNewUser));
+        return result
+            .Then(r => new AcceptInvitationResponse(r.IsNewUser))
+            .ToHttpResult();
     }
 
 }

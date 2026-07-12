@@ -1,3 +1,4 @@
+using ErrorOr;
 using Saas.Domain.Common;
 
 namespace Saas.Domain.Tenancy;
@@ -50,25 +51,29 @@ public sealed class Organization : AggregateRoot<OrganizationId>, IAuditable
         Raise(new MemberJoinedDomainEvent(Id, userId, role));
     }
 
-    public void ChangeMemberRole(Guid userId, OrganizationRole newRole)
+    public ErrorOr<Success> ChangeMemberRole(Guid userId, OrganizationRole newRole)
     {
-        var membership = _memberships.Find(m => m.UserId == userId)
-            ?? throw new NotFoundException(nameof(OrganizationMembership), userId);
+        var membership = _memberships.Find(m => m.UserId == userId);
+        if (membership is null)
+        {
+            return OrganizationErrors.MemberNotFound;
+        }
 
         var oldRole = membership.Role;
         if (oldRole == newRole)
         {
-            return;
+            return Result.Success;
         }
 
         // Garde du dernier Owner : ne jamais rétrograder le seul Owner (laisserait 0 Owner).
         if (oldRole == OrganizationRole.Owner
             && _memberships.Count(m => m.Role == OrganizationRole.Owner) == 1)
         {
-            throw new DomainException("Impossible de rétrograder le dernier Owner de l'organisation.");
+            return OrganizationErrors.LastOwner;
         }
 
         membership.UpdateRole(newRole);
         Raise(new MemberRoleChangedDomainEvent(Id, userId, oldRole, newRole));
+        return Result.Success;
     }
 }

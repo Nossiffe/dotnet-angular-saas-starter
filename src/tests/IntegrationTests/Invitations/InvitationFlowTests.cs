@@ -88,9 +88,12 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         body!.IsNewUser.ShouldBeFalse();
     }
 
-    // ── Doublon d'invitation pending → 400 ──────────────────────────────────────────
+    // ── Doublon d'invitation pending → 409 ──────────────────────────────────────────
+    // Changement de contrat volontaire (chantier ErrorOr) : InvitationErrors.AlreadyPending
+    // est un Error.Conflict (aligné avec la branche 23505 du GlobalExceptionHandler) → 409,
+    // et non plus 400.
     [Fact]
-    public async Task Duplicate_pending_invite_returns_400()
+    public async Task Duplicate_pending_invite_returns_409()
     {
         var ct = TestContext.Current.CancellationToken;
         var ownerId = Guid.CreateVersion7();
@@ -104,7 +107,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
 
         var second = await owner.PostAsJsonAsync(
             $"/api/v1/organizations/{orgId}/invitations", new { email, role = "Member" }, ct);
-        second.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        second.StatusCode.ShouldBe(HttpStatusCode.Conflict);
     }
 
     // ── Déjà membre → 400 ───────────────────────────────────────────────────────────
