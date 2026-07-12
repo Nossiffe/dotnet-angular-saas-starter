@@ -83,6 +83,10 @@ builder.Services.AddApiVersioning(options =>
 });
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.Configure<Microsoft.AspNetCore.Builder.ExceptionHandlerOptions>(
+    // .NET 10 supprime les diagnostics (logs/métriques) quand un IExceptionHandler gère l'exception —
+    // on les garde : Serilog/OTel doivent voir les 500.
+    options => options.SuppressDiagnosticsCallback = _ => false);
 builder.Services.AddProblemDetails(options =>
     // Injecte traceId dans TOUS les ProblemDetails (validation, status-code pages, etc.),
     // pas seulement ceux du GlobalExceptionHandler — pour la corrélation logs/traces OTel.

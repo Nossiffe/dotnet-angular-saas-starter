@@ -2,7 +2,6 @@ using System.Diagnostics;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using Saas.Domain.Common;
 
 namespace Saas.Api.Common;
 
@@ -24,8 +23,6 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
                 (object?)ve.Errors
                     .GroupBy(e => e.PropertyName, StringComparer.Ordinal)
                     .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray(), StringComparer.Ordinal)),
-            NotFoundException nfe => (StatusCodes.Status404NotFound, $"'{nfe.Entity}' introuvable.", (object?)null),
-            DomainException de => (StatusCodes.Status400BadRequest, de.Message, (object?)null),
             Microsoft.EntityFrameworkCore.DbUpdateException due when IsUniqueViolation(due) => (
                 StatusCodes.Status409Conflict,
                 "Une invitation est déjà en attente pour cet email.",
