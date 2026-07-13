@@ -112,16 +112,6 @@
     "/api/v1/auth/refresh": {
       "post": {
         "tags": ["Auth"],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RefreshTokenCommand"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "description": "OK",
@@ -129,16 +119,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuthResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
                 }
               }
             }
@@ -164,16 +144,6 @@
     "/api/v1/auth/logout": {
       "post": {
         "tags": ["Auth"],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LogoutRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "204": {
             "description": "No Content"
@@ -879,7 +849,7 @@
         }
       },
       "AuthResponse": {
-        "required": ["accessToken", "expiresAt", "refreshToken"],
+        "required": ["accessToken", "expiresAt"],
         "type": "object",
         "properties": {
           "accessToken": {
@@ -888,9 +858,6 @@
           "expiresAt": {
             "type": "string",
             "format": "date-time"
-          },
-          "refreshToken": {
-            "type": "string"
           }
         }
       },
@@ -1042,15 +1009,6 @@
           }
         }
       },
-      "LogoutRequest": {
-        "required": ["refreshToken"],
-        "type": "object",
-        "properties": {
-          "refreshToken": {
-            "type": "string"
-          }
-        }
-      },
       "PagedResultOfProductDto": {
         "required": ["items", "page", "pageSize", "totalCount"],
         "type": "object",
@@ -1120,15 +1078,6 @@
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": ["number", "string"],
             "format": "double"
-          }
-        }
-      },
-      "RefreshTokenCommand": {
-        "required": ["refreshToken"],
-        "type": "object",
-        "properties": {
-          "refreshToken": {
-            "type": "string"
           }
         }
       },

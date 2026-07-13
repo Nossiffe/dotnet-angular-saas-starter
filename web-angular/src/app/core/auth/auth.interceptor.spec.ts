@@ -5,12 +5,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { authInterceptor } from './auth.interceptor';
 import { AuthService } from './auth.service';
 
-const TOKEN_RESP = { accessToken: 'AT', expiresAt: '2030-01-01T00:00:00Z', refreshToken: 'RT' };
-const NEW_TOKEN_RESP = {
-  accessToken: 'AT2',
-  expiresAt: '2030-01-01T00:00:00Z',
-  refreshToken: 'RT2',
-};
+const TOKEN_RESP = { accessToken: 'AT', expiresAt: '2030-01-01T00:00:00Z' };
+const NEW_TOKEN_RESP = { accessToken: 'AT2', expiresAt: '2030-01-01T00:00:00Z' };
 
 describe('authInterceptor', () => {
   let auth: AuthService;
@@ -18,7 +14,6 @@ describe('authInterceptor', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(() => {
-    localStorage.clear();
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(withInterceptors([authInterceptor])),
@@ -90,9 +85,10 @@ describe('authInterceptor', () => {
     const firstReq = httpMock.expectOne('/api/v1/products');
     firstReq.flush(null, { status: 401, statusText: 'Unauthorized' });
 
-    // Interceptor should call refresh
+    // Interceptor should call refresh, body vide (le cookie `rt` part seul)
     const refreshReq = httpMock.expectOne('/api/v1/auth/refresh');
     expect(refreshReq.request.method).toBe('POST');
+    expect(refreshReq.request.body).toEqual({});
     refreshReq.flush(NEW_TOKEN_RESP);
 
     // Interceptor should retry with new token

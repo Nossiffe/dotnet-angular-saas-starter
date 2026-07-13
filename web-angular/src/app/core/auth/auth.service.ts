@@ -1,14 +1,12 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient, HttpContext } from '@angular/common/http';
-import { Observable, catchError, of, tap } from 'rxjs';
+import { Observable, catchError, map, of, tap } from 'rxjs';
 import type {
   AuthResponse,
   LoginCommand,
   RegisterCommand,
   PostApiV1AuthLoginData,
-  PostApiV1AuthRefreshData,
   PostApiV1AuthRegisterData,
-  PostApiV1AuthLogoutData,
   PostApiV1AuthForgotPasswordData,
   PostApiV1AuthResetPasswordData,
   PostApiV1AuthConfirmEmailData,
@@ -23,14 +21,11 @@ export interface CurrentUser {
   email: string;
 }
 
-const REFRESH_KEY = 'rt';
-
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
 
   private readonly accessToken = signal<string | null>(null);
-  private readonly refreshToken = signal<string | null>(localStorage.getItem(REFRESH_KEY));
   private readonly user = signal<CurrentUser | null>(null);
 
   readonly currentUser = this.user.asReadonly();
@@ -38,10 +33,6 @@ export class AuthService {
 
   token(): string | null {
     return this.accessToken();
-  }
-
-  refreshTokenValue(): string | null {
-    return this.refreshToken();
   }
 
   register(body: RegisterCommand): Observable<unknown> {
@@ -58,25 +49,38 @@ export class AuthService {
       .pipe(tap((res) => this.applyTokens(res, body.email)));
   }
 
+  /**
+   * Refresh the access token. The refresh token itself never touches JS: it
+   * lives in the HttpOnly cookie `rt` (Path=/api/v1/auth) and is sent
+   * automatically by the browser (same-origin via the dev proxy).
+   */
   refresh(): Observable<TokenResponse> {
-    const reqBody: PostApiV1AuthRefreshData['body'] = {
-      refreshToken: this.refreshToken() ?? '',
-    };
     return this.http
-      .post<TokenResponse>('/api/v1/auth/refresh', reqBody)
+      .post<TokenResponse>('/api/v1/auth/refresh', {})
       .pipe(tap((res) => this.applyTokens(res, this.user()?.email)));
   }
 
   /**
-   * Synchronously clears all local auth state (signals + localStorage).
+   * Silent session restoration attempted at boot (see `restoreSession`
+   * provider in `app.config.ts`). Tries the HttpOnly refresh cookie; a 401
+   * simply means "not logged in" and must not surface as an error.
+   */
+  restoreSession(): Observable<boolean> {
+    return this.refresh().pipe(
+      map(() => true),
+      catchError(() => of(false)),
+    );
+  }
+
+  /**
+   * Synchronously clears all local auth state (signals only — the refresh
+   * token cookie is invisible to JS and cleared server-side by /auth/logout).
    * Does NOT make any HTTP call. Call this when the server revocation is
    * impossible or inappropriate (e.g. refresh failure in the interceptor).
    */
   clearLocalState(): void {
     this.accessToken.set(null);
-    this.refreshToken.set(null);
     this.user.set(null);
-    localStorage.removeItem(REFRESH_KEY);
   }
 
   /**
@@ -84,13 +88,7 @@ export class AuthService {
    * Local state is cleared even if the server call fails.
    */
   logout(): Observable<void> {
-    const rt = this.refreshToken();
-    if (!rt) {
-      this.clearLocalState();
-      return of(undefined);
-    }
-    const logoutBody: PostApiV1AuthLogoutData['body'] = { refreshToken: rt };
-    return this.http.post<void>('/api/v1/auth/logout', logoutBody).pipe(
+    return this.http.post<void>('/api/v1/auth/logout', {}).pipe(
       tap(() => this.clearLocalState()),
       catchError(() => {
         this.clearLocalState();
@@ -122,8 +120,6 @@ export class AuthService {
 
   private applyTokens(res: TokenResponse, email?: string): void {
     this.accessToken.set(res.accessToken);
-    this.refreshToken.set(res.refreshToken);
-    localStorage.setItem(REFRESH_KEY, res.refreshToken);
     if (email) this.user.set({ email });
   }
 }
