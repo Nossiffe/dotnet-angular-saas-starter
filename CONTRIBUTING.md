@@ -106,6 +106,33 @@ docs(adr): ADR-0003 slug uniqueness constraint
 
 ---
 
+## Release & CHANGELOG
+
+`CHANGELOG.md` suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) : une
+section `## [Unreleased]` accumule les changements en cours, avec toujours une rubrique
+**Migrations DB** (même vide : « aucune ») — pour ne jamais oublier un `database update`
+au déploiement (cf. `DEPLOYMENT.md` § Migration Bundle).
+
+### Au tag `v*`
+
+1. Basculer `## [Unreleased]` vers une section versionnée (`## [x.y.z] - AAAA-MM-JJ`),
+   puis recréer une section `## [Unreleased]` vide au-dessus pour la suite.
+2. Remplir la rubrique **Migrations DB** de la nouvelle section à partir des migrations
+   EF ajoutées depuis le tag précédent :
+   ```bash
+   git diff <tag-précédent>..HEAD --stat -- '**/Migrations/'
+   ```
+   Si la commande ne retourne rien : « aucune ».
+3. Lier cette rubrique au **Migration Bundle** (`DEPLOYMENT.md` § Production — Migration
+   Bundle) — c'est ce bundle qui applique ces migrations en production, une seule fois par
+   release, avant le déploiement de la nouvelle version.
+
+`release.yml` (déclenché par le tag) gère le build/push image + SBOM + attestation (cf.
+tableau CI/CD ci-dessous) — il ne touche pas au `CHANGELOG.md`, qui reste maintenu à la
+main lors du tag.
+
+---
+
 ## Tests
 
 - **Unit** (`src/tests/UnitTests/`) : agrégats, validators, archi. Rapides, sans Docker.
