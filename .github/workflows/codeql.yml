@@ -1,12 +1,16 @@
 name: CodeQL (SAST)
 
+# DÉSACTIVÉ en automatique (2026-07-13) : CodeQL exige GitHub Advanced Security
+# sur un repo privé — l'upload des résultats échoue systématiquement sans licence.
+# RÉACTIVER (rétablir les triggers push/pull_request/schedule ci-dessous) si :
+#   - le repo devient public (CodeQL gratuit), OU
+#   - une licence GHAS / GitHub Code Security est activée sur le repo.
+# Triggers d'origine :
+#   push:         branches: [main]
+#   pull_request: branches: [main]
+#   schedule:     cron "30 1 * * 1" (lundi 01h30 UTC)
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  schedule:
-    - cron: "30 1 * * 1"   # chaque lundi à 01h30 UTC
+  workflow_dispatch:
 
 permissions:
   contents: read
