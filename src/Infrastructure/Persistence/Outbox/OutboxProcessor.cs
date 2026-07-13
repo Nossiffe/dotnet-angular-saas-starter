@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Saas.Application.Common.Interfaces;
 
 namespace Saas.Infrastructure.Persistence.Outbox;
 
@@ -13,6 +14,7 @@ namespace Saas.Infrastructure.Persistence.Outbox;
 // donc désormais de façon ASYNCHRONE via ce processor, plus de manière synchrone au SaveChanges.
 internal sealed partial class OutboxProcessor(
     IServiceScopeFactory scopeFactory,
+    IDateTimeProvider clock,
     ILogger<OutboxProcessor> logger)
     : BackgroundService
 {
@@ -65,7 +67,7 @@ internal sealed partial class OutboxProcessor(
 
                 // Cast object → dispatch sur le TYPE concret (handler généré par Mediator).
                 await publisher.Publish(domainEvent, cancellationToken).ConfigureAwait(false);
-                message.ProcessedOn = DateTimeOffset.UtcNow;
+                message.ProcessedOn = clock.UtcNow;
                 processed++;
             }
 #pragma warning disable CA1031 // on isole l'échec d'un message (retry borné) sans casser le batch
