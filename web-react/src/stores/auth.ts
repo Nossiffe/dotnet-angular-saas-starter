@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { toast } from 'sonner';
+import { refreshOnce } from '@/lib/refresh';
 
 interface User {
     email: string;
@@ -35,8 +36,9 @@ const clearState = {
 };
 
 // Partagée entre tous les appelants concurrents de restoreSession() (ex. plusieurs
-// beforeLoad de route montés en même temps) : évite un double appel réseau à
-// /api/v1/auth/refresh (le refresh token étant à usage unique côté serveur).
+// beforeLoad de route montés en même temps) : leur évite de relancer chacun un appel à
+// refreshOnce() (qui, lui, dédoublonne aussi avec l'intercepteur 401 de setup-client.ts —
+// cf. `src/lib/refresh.ts`).
 let restoring: Promise<boolean> | null = null;
 
 export const useAuthStore = create<AuthState>()(
@@ -73,16 +75,12 @@ export const useAuthStore = create<AuthState>()(
             restoreSession: () => {
                 restoring ??= (async () => {
                     try {
-                        const r = await fetch('/api/v1/auth/refresh', {
-                            method: 'POST',
-                            credentials: 'same-origin',
-                        });
-                        if (!r.ok) {
+                        const accessToken = await refreshOnce();
+                        if (accessToken === null) {
                             set(clearState);
                             return false;
                         }
-                        const d = (await r.json()) as { accessToken: string };
-                        set({ accessToken: d.accessToken, isAuthenticated: true });
+                        set({ accessToken, isAuthenticated: true });
                         return true;
                     } catch {
                         set(clearState);

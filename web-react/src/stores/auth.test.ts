@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useAuthStore } from './auth';
+import { refreshOnce } from '@/lib/refresh';
 
 // Mock fetch for logout/refresh calls
 const mockFetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
@@ -94,6 +95,22 @@ describe('auth store', () => {
         });
         await useAuthStore.getState().restoreSession();
         expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('restoreSession() concurrent à refreshOnce() (style intercepteur setup-client) ne déclenche qu’un seul fetch et donne un résultat cohérent', async () => {
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ accessToken: 'unified-at' }),
+        });
+        const [restored, token] = await Promise.all([
+            useAuthStore.getState().restoreSession(),
+            refreshOnce(),
+        ]);
+        expect(mockFetch).toHaveBeenCalledOnce();
+        expect(restored).toBe(true);
+        expect(token).toBe('unified-at');
+        expect(useAuthStore.getState().isAuthenticated).toBe(true);
+        expect(useAuthStore.getState().accessToken).toBe('unified-at');
     });
 
     it("le localStorage persisté ('auth') ne contient aucun refreshToken — seul `user` est conservé", () => {
