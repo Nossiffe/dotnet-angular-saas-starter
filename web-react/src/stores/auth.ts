@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { toast } from 'sonner';
 
 interface User {
     email: string;
@@ -44,12 +45,23 @@ export const useAuthStore = create<AuthState>()(
             clearAuth: () => set(clearState),
             logout: async () => {
                 try {
-                    await fetch('/api/v1/auth/logout', {
+                    // Pas de Bearer requis (endpoint AllowAnonymous — la credential réelle est le
+                    // cookie HttpOnly `rt`, envoyé automatiquement same-origin).
+                    const r = await fetch('/api/v1/auth/logout', {
                         method: 'POST',
                         credentials: 'same-origin',
                     });
+                    if (!r.ok) {
+                        // Échec NON réseau (ex. 500) : la révocation serveur a pu ne pas avoir lieu.
+                        // On ne l'avale pas silencieusement — on le surface via le canal toast existant —
+                        // mais on efface quand même l'état local : rester "connecté" côté UI alors que
+                        // l'utilisateur a demandé la déconnexion serait pire.
+                        toast.error(
+                            'La déconnexion côté serveur a échoué (session locale effacée).',
+                        );
+                    }
                 } catch {
-                    // Network failure — still clear local state
+                    // Échec réseau : rien à surfacer de plus utile, on efface l'état local.
                 }
                 set(clearState);
             },

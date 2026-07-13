@@ -86,6 +86,9 @@ export class AuthService {
   /**
    * Revoke the refresh token server-side, then clear local state.
    * Local state is cleared even if the server call fails.
+   * `/auth/logout` is `AllowAnonymous` server-side (the real credential is the
+   * HttpOnly `rt` cookie, not the access token) — an expired/absent access
+   * token no longer prevents the server-side revocation from succeeding.
    */
   logout(): Observable<void> {
     return this.http.post<void>('/api/v1/auth/logout', {}).pipe(
