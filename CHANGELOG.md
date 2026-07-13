@@ -13,6 +13,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 ### Changed
 - Stack de test basculée sur le runner natif **Microsoft Testing Platform** (MTP) : `global.json` §test + `UseMicrosoftTestingPlatformRunner` sur xunit.v3, retrait de VSTest (`Microsoft.NET.Test.Sdk`, `xunit.runner.visualstudio`) et de `coverlet.collector`. Couverture désormais produite par `Microsoft.Testing.Extensions.CodeCoverage` (`dotnet test --coverage --coverage-output-format cobertura`) ; step CI et résumé de couverture adaptés (fichiers `<guid>.cobertura.xml`).
 - Angular : retrait de `withFetch()` (fetch déjà par défaut en v22), `provideAnimationsAsync()` et du package `@angular/animations` — Material a abandonné sa dépendance au module animations depuis v19.2 (canari Playwright snack-bar validé sans le provider) ; verdicts sourcés Signal Forms (stable v22) et `@angular/aria` (stable v22, non installé — YAGNI) documentés dans `.claude/rules/angular.md`.
+- React : **React Compiler activé** (`@vitejs/plugin-react` `reactCompilerPreset` + `@rolldown/plugin-babel`, `babel-plugin-react-compiler`) — surcoût mesuré : build ~+20 % (meilleur de 2, 6,59 s → 7,90 s), démarrage `dev` ~+19 % (567 ms → 675 ms), sous le seuil de rollback (×1,5) ; preset ESLint `react-hooks` `recommended-latest`. `restoreSession` (store d'auth) passe en single-flight (promesse module-level partagée) pour éviter un double appel concurrent à `/api/v1/auth/refresh`.
 
 ### Fixed
 - `OutboxProcessor` utilise `IDateTimeProvider` (testabilité).

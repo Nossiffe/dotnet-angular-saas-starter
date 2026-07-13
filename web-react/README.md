@@ -9,7 +9,7 @@ Currently, two official plugins are available:
 
 ## React Compiler
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Activé depuis 2026-07 (`@vitejs/plugin-react` `reactCompilerPreset` + `@rolldown/plugin-babel`, cf. `vite.config.ts`) — surcoût mesuré : build ~+20 % (meilleur de 2 : 6,59 s → 7,90 s), démarrage `npm run dev` ~+19 % (567 ms → 675 ms), bien en dessous du seuil de rollback (×1,5). Voir [la documentation officielle](https://react.dev/learn/react-compiler/installation) pour la configuration.
 
 ## Expanding the ESLint configuration
 

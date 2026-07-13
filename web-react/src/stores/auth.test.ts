@@ -65,6 +65,37 @@ describe('auth store', () => {
         expect(useAuthStore.getState().accessToken).toBeNull();
     });
 
+    it('deux appels concurrents à restoreSession() ne déclenchent qu’un seul fetch (single-flight)', async () => {
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ accessToken: 'shared-at' }),
+        });
+        const [a, b] = await Promise.all([
+            useAuthStore.getState().restoreSession(),
+            useAuthStore.getState().restoreSession(),
+        ]);
+        expect(mockFetch).toHaveBeenCalledOnce();
+        expect(a).toBe(true);
+        expect(b).toBe(true);
+        expect(useAuthStore.getState().accessToken).toBe('shared-at');
+    });
+
+    it('un appel à restoreSession() après résolution du précédent déclenche un nouveau fetch', async () => {
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ accessToken: 'first-at' }),
+        });
+        await useAuthStore.getState().restoreSession();
+        expect(mockFetch).toHaveBeenCalledOnce();
+
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ accessToken: 'second-at' }),
+        });
+        await useAuthStore.getState().restoreSession();
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
     it("le localStorage persisté ('auth') ne contient aucun refreshToken — seul `user` est conservé", () => {
         useAuthStore.getState().login('at', { email: 'a@b.com' });
         const raw = localStorage.getItem('auth');

@@ -34,6 +34,11 @@ const clearState = {
     isAuthenticated: false,
 };
 
+// Partagée entre tous les appelants concurrents de restoreSession() (ex. plusieurs
+// beforeLoad de route montés en même temps) : évite un double appel réseau à
+// /api/v1/auth/refresh (le refresh token étant à usage unique côté serveur).
+let restoring: Promise<boolean> | null = null;
+
 export const useAuthStore = create<AuthState>()(
     persist(
         (set) => ({
@@ -65,23 +70,28 @@ export const useAuthStore = create<AuthState>()(
                 }
                 set(clearState);
             },
-            restoreSession: async () => {
-                try {
-                    const r = await fetch('/api/v1/auth/refresh', {
-                        method: 'POST',
-                        credentials: 'same-origin',
-                    });
-                    if (!r.ok) {
+            restoreSession: () => {
+                restoring ??= (async () => {
+                    try {
+                        const r = await fetch('/api/v1/auth/refresh', {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                        });
+                        if (!r.ok) {
+                            set(clearState);
+                            return false;
+                        }
+                        const d = (await r.json()) as { accessToken: string };
+                        set({ accessToken: d.accessToken, isAuthenticated: true });
+                        return true;
+                    } catch {
                         set(clearState);
                         return false;
+                    } finally {
+                        restoring = null;
                     }
-                    const d = (await r.json()) as { accessToken: string };
-                    set({ accessToken: d.accessToken, isAuthenticated: true });
-                    return true;
-                } catch {
-                    set(clearState);
-                    return false;
-                }
+                })();
+                return restoring;
             },
         }),
         {
