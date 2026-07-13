@@ -1,0 +1,24 @@
+name: zizmor (workflows lint)
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/**']
+  pull_request:
+    paths: ['.github/workflows/**']
+
+permissions:
+  contents: read
+
+jobs:
+  zizmor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # repo prive -> requis par zizmor-action en mode advanced-security
+      actions: read # idem (lecture des runs/artifacts pour l'analyse)
+      security-events: write # upload SARIF vers l'onglet Security
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7

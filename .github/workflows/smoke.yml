@@ -30,6 +30,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Créer le réseau Docker partagé
         run: docker network create devnet 2>/dev/null || true
@@ -66,11 +68,11 @@ jobs:
 
       - name: Démarrer l'API en arrière-plan
         run: |
-          ASPNETCORE_URLS="http://localhost:${{ env.API_PORT }}" \
+          ASPNETCORE_URLS="http://localhost:$API_PORT" \
           ASPNETCORE_ENVIRONMENT=Development \
           ConnectionStrings__Default="Host=localhost;Port=5432;Database=saas;Username=saas;Password=saas" \
           Email__Host=localhost \
-          Email__Port=${{ env.MAILPIT_SMTP_PORT }} \
+          Email__Port=$MAILPIT_SMTP_PORT \
           Database__MigrateOnStartup=false \
           dotnet run --project src/Api --no-build &
           echo "API_PID=$!" >> $GITHUB_ENV
@@ -78,7 +80,7 @@ jobs:
       - name: Attendre /health/ready
         run: |
           for i in $(seq 1 30); do
-            if curl -sf "http://localhost:${{ env.API_PORT }}/health/ready" >/dev/null 2>&1; then
+            if curl -sf "http://localhost:$API_PORT/health/ready" >/dev/null 2>&1; then
               echo "API prête"
               break
             fi
@@ -87,7 +89,7 @@ jobs:
           done
 
       - name: Exécuter smoke.sh
-        run: bash scripts/smoke.sh ${{ env.API_PORT }}
+        run: bash scripts/smoke.sh "$API_PORT"
         env:
           MAILPIT_UI_PORT: ${{ env.MAILPIT_UI_PORT }}
 
