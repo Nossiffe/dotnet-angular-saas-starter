@@ -29,17 +29,19 @@ fi
 MAILPIT="http://localhost:${MAILPIT_PORT}"
 
 # ---- 1. Pré-requis ----
+# En local, dotnet est fourni via mise ; en CI (setup-dotnet), mise n'existe pas.
+if command -v mise >/dev/null 2>&1; then DOTNET_CMD=(mise exec -- dotnet); else DOTNET_CMD=(dotnet); fi
 echo "▶ Démarrage de la base de données et de Mailpit"
 docker compose up -d db mailpit
 echo "▶ Migration EF"
-mise exec -- dotnet ef database update --project src/Infrastructure --startup-project src/Api \
-  --no-build 2>/dev/null || mise exec -- dotnet ef database update --project src/Infrastructure --startup-project src/Api
+"${DOTNET_CMD[@]}" ef database update --project src/Infrastructure --startup-project src/Api \
+  --no-build 2>/dev/null || "${DOTNET_CMD[@]}" ef database update --project src/Infrastructure --startup-project src/Api
 
 # ---- 2. Démarrer l'API en arrière-plan ----
 echo "▶ Démarrage de l'API (port $PORT)"
 ASPNETCORE_URLS="http://localhost:$PORT" \
 ASPNETCORE_ENVIRONMENT=Development \
-  mise exec -- dotnet run --project src/Api --no-build --no-launch-profile &
+  "${DOTNET_CMD[@]}" run --project src/Api --no-build --no-launch-profile &
 API_PID=$!
 trap 'kill $API_PID 2>/dev/null || true; rm -f "$COOKIE_JAR"' EXIT
 

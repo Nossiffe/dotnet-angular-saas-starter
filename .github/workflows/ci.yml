@@ -121,6 +121,7 @@ jobs:
           cache: npm
           cache-dependency-path: web-angular/package-lock.json
       - run: npm ci
+      - run: npm run api:gen # client Hey API généré (gitignoré, absent du checkout)
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e
 
@@ -140,5 +141,7 @@ jobs:
           cache: npm
           cache-dependency-path: web-react/package-lock.json
       - run: npm ci
+      - run: npm run gen:api # client Hey API généré (gitignoré, absent du checkout)
+      - run: npx tsr generate # routeTree.gen.ts (gitignoré)
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e

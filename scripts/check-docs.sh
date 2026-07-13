@@ -85,6 +85,11 @@ is_known_optional() {
 # Pour les ADR-style : docs/adr/0001 → chercher un fichier commençant par docs/adr/0001
 path_exists_or_prefix() {
   local path="$1"
+  # Chemins GÉNÉRÉS (gitignorés) : légitimement absents d'un checkout frais (CI).
+  case "$path" in
+    web-angular/src/app/api/generated*|web-react/src/client*|web-react/src/routeTree.gen.ts)
+      return 0 ;;
+  esac
   # Vérification exacte d'abord
   if [[ -e "$REPO/$path" ]]; then
     return 0
