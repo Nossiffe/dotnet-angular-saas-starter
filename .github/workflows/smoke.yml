@@ -12,6 +12,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -26,7 +29,7 @@ jobs:
       API_PORT: 5123
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Créer le réseau Docker partagé
         run: docker network create devnet 2>/dev/null || true
@@ -45,7 +48,7 @@ jobs:
             sleep 2
           done
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: '10.x'
 
