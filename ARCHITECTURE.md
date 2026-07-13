@@ -318,7 +318,7 @@ Les domain events ne sont plus dispatchés directement après `SaveChanges`. Le 
 `record XxxQuery` de `[CachedQuery(seconds, Tag = "…")]` active le `CachingBehavior<,>` du
 pipeline Mediator (enregistré après `ValidationBehavior`) — une query sans l'attribut traverse
 le behavior sans écriture de cache. Réservé aux queries **tenant-scoped** : clé
-(`q:{tenantId}:{Query}:{json}`) et tags (`t:{tenantId}` + `t:{tenantId}:{Tag}`) viennent
+(`q:{tenantId}:{Query.FullName}:{json}`) et tags (`t:{tenantId}` + `t:{tenantId}:{Tag}`) viennent
 d'`ITenantProvider` (fail-closed). Seuls les succès sont cachés (jamais l'erreur d'un
 `ErrorOr<T>`). Invalidation par write : `cache.RemoveByTagAsync($"t:{tenantId}:{tag}", ct)`
 (`UpdateProductHandler`/`DeleteProductHandler`) — **logique**, pas physique (doc officielle

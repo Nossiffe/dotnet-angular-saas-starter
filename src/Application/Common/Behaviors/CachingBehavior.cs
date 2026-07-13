@@ -12,8 +12,10 @@ namespace Saas.Application.Common.Behaviors;
 /// (opt-in strict) dans <see cref="HybridCache"/>, avec une clé et des tags scopés au tenant.
 /// </summary>
 /// <remarks>
-/// <para>Clé : <c>q:{tenantId}:{TMessage.Name}:{json(message)}</c> — le tenant vient
-/// d'<see cref="ITenantProvider"/> (fail-closed).</para>
+/// <para>Clé : <c>q:{tenantId}:{TMessage.FullName}:{json(message)}</c> — le tenant vient
+/// d'<see cref="ITenantProvider"/> (fail-closed). <c>FullName</c> (pas <c>Name</c>) pour éviter
+/// une collision entre deux <c>[CachedQuery]</c> de même nom simple dans des namespaces
+/// différents (même tenant, mauvais DTO désérialisé depuis le L2).</para>
 /// <para>Tags : <c>t:{tenantId}</c> (tout le tenant) + <c>t:{tenantId}:{Tag}</c> (la famille
 /// d'entités) — les writes invalident par tag via <c>RemoveByTagAsync</c>. Invalidation
 /// <b>logique</b> : <c>RemoveByTagAsync</c> n'efface pas physiquement, il ignore toute entrée
@@ -57,7 +59,7 @@ public sealed class CachingBehavior<TMessage, TResponse>(HybridCache cache, ITen
         // Fail-closed : lève si le claim tenant est absent (voulu — [CachedQuery] est réservé
         // aux queries tenant-scoped).
         var tenantId = tenant.TenantId;
-        var key = $"q:{tenantId}:{typeof(TMessage).Name}:{JsonSerializer.Serialize(message)}";
+        var key = $"q:{tenantId}:{typeof(TMessage).FullName}:{JsonSerializer.Serialize(message)}";
         var tags = new[] { $"t:{tenantId}", $"t:{tenantId}:{_attribute.Tag}" };
         var expiration = TimeSpan.FromSeconds(_attribute.Seconds);
 
