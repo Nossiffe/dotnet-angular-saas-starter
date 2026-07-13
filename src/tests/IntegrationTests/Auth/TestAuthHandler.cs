@@ -23,6 +23,14 @@ public sealed class TestAuthHandler(
     /// </summary>
     public const string TenantRoleHeader = "X-Test-TenantRole";
 
+    /// <summary>
+    /// Émet un claim <c>platform_role</c> (ex. "PlatformAdmin") si le header est présent.
+    /// AUCUN défaut : contrairement à tenant_role, ce claim n'existe dans aucun flow de login
+    /// standard — c'est le contrat de prod (voir HangfireDashboardAuthFilter). Un test qui ne
+    /// pose pas ce header simule donc un utilisateur authentifié SANS ce claim.
+    /// </summary>
+    public const string PlatformRoleHeader = "X-Test-PlatformRole";
+
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var tenant = Request.Headers.TryGetValue(TenantHeader, out var t) && t.Count > 0
@@ -32,14 +40,19 @@ public sealed class TestAuthHandler(
         var tenantRole = Request.Headers.TryGetValue(TenantRoleHeader, out var r) && r.Count > 0
             ? r.ToString() : "Owner";
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub, userId),
-            new Claim(JwtRegisteredClaimNames.Email, "test@saas.local"),
-            new Claim("tenant", tenant),
-            new Claim(ClaimTypes.Role, "Admin"),
-            new Claim("tenant_role", tenantRole),
+            new(JwtRegisteredClaimNames.Sub, userId),
+            new(JwtRegisteredClaimNames.Email, "test@saas.local"),
+            new("tenant", tenant),
+            new(ClaimTypes.Role, "Admin"),
+            new("tenant_role", tenantRole),
         };
+        if (Request.Headers.TryGetValue(PlatformRoleHeader, out var p) && p.Count > 0)
+        {
+            claims.Add(new Claim("platform_role", p.ToString()));
+        }
+
         var ticket = new AuthenticationTicket(
             new ClaimsPrincipal(new ClaimsIdentity(claims, SchemeName)), SchemeName);
         return Task.FromResult(AuthenticateResult.Success(ticket));
