@@ -6,10 +6,25 @@ namespace Saas.Infrastructure.Identity;
 
 public sealed class TenantProvider(IHttpContextAccessor accessor) : ITenantProvider
 {
+    // Mémoïse la 1re résolution réussie, pour la durée du scope (une requête). Nécessaire au
+    // CachingBehavior : HybridCache exécute la factory de cache sur un contexte d'exécution
+    // DÉTACHÉ (le flux ExecutionContext est supprimé pour partager le résultat entre appelants
+    // concurrents), où HttpContext est indisponible. Le behavior résout le tenant sur le thread
+    // de la requête AVANT d'entrer dans la factory ; le handler, qui partage cette même instance
+    // scopée, relit ici la valeur mémoïsée au lieu de retoucher HttpContext (absent → lèverait).
+    // Ne cache QUE le succès : le fail-closed reste intact (un contexte sans claim valide lève
+    // à chaque accès, rien n'est mémoïsé).
+    private Guid? _cached;
+
     public Guid TenantId
     {
         get
         {
+            if (_cached is { } cached)
+            {
+                return cached;
+            }
+
             var raw = accessor.HttpContext?.User.FindFirstValue("tenant");
             if (!Guid.TryParse(raw, out var id) || id == Guid.Empty)
             {
@@ -21,6 +36,7 @@ public sealed class TenantProvider(IHttpContextAccessor accessor) : ITenantProvi
                     "Aucun tenant dans le contexte — claim 'tenant' absent ou invalide (fail-closed).");
             }
 
+            _cached = id;
             return id;
         }
     }

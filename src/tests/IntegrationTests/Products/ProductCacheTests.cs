@@ -34,7 +34,7 @@ public sealed class ProductCacheTests(PostgresApiFactory factory)
         var page = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products", ct);
         var id = page!.Items.Single(p => string.Equals(p.Name, name, StringComparison.Ordinal)).Id;
 
-        // 1er GET → peuple le cache (clé product:{tenant}:{id}).
+        // 1er GET → peuple le cache via le CachingBehavior ([CachedQuery] sur GetProductByIdQuery).
         var first = await client.GetFromJsonAsync<ProductDto>($"/api/v1/products/{id}", ct);
         first!.Price.ShouldBe(10m);
 
@@ -51,7 +51,7 @@ public sealed class ProductCacheTests(PostgresApiFactory factory)
         var cached = await client.GetFromJsonAsync<ProductDto>($"/api/v1/products/{id}", ct);
         cached!.Price.ShouldBe(10m);
 
-        // Update via l'endpoint → invalidation (RemoveAsync).
+        // Update via l'endpoint → invalidation par tag (RemoveByTagAsync t:{tenant}:products).
         var update = await client.PutAsJsonAsync($"/api/v1/products/{id}", new { name, price = 42m }, ct);
         update.EnsureSuccessStatusCode();
 

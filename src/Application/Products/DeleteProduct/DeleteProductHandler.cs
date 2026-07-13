@@ -25,7 +25,10 @@ public sealed class DeleteProductHandler(
         products.Remove(product); // converti en soft-delete par l'intercepteur
         await uow.SaveChangesAsync(cancellationToken);
 
-        await cache.RemoveAsync($"product:{tenant.TenantId}:{command.Id}", cancellationToken);
+        // Invalidation par tag : couvre la lecture by-id ET les listes futures du tenant.
+#pragma warning disable EXTEXP0018 // RemoveByTagAsync : stable en .NET 10, attribut Experimental résiduel
+        await cache.RemoveByTagAsync($"t:{tenant.TenantId}:products", cancellationToken);
+#pragma warning restore EXTEXP0018
         return Result.Deleted;
     }
 }
