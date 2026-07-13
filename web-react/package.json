@@ -16,6 +16,7 @@
     "check": "npm run gen:api && npm run gen:routes && tsc -b --noEmit && eslint . && prettier --check .",
     "pretest": "npm run gen:routes",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "preview": "vite preview"

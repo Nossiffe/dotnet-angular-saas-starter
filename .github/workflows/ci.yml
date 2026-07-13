@@ -29,7 +29,30 @@ jobs:
         with:
           dotnet-version: '10.x'
       - run: dotnet build
-      - run: dotnet test
+      - run: dotnet test --collect:"XPlat Code Coverage" --results-directory ./coverage
+      - name: Résumé couverture
+        run: |
+          # defusedxml : les parseurs XML stdlib sont vulnérables XXE/billion-laughs par
+          # défaut — ici l'entrée est auto-générée par coverlet dans ce même job, mais le
+          # template modélise la bonne pratique.
+          pip install --quiet defusedxml
+          python3 - <<'EOF'
+          import glob
+          import os
+          import defusedxml.ElementTree as ET
+
+          files = sorted(glob.glob("coverage/**/coverage.cobertura.xml", recursive=True))
+          covered = sum(int(ET.parse(f).getroot().get("lines-covered")) for f in files)
+          valid = sum(int(ET.parse(f).getroot().get("lines-valid")) for f in files)
+          rate = (covered / valid * 100) if valid else 0.0
+          print(f"Couverture lignes backend : {rate:.1f}% ({covered}/{valid}, {len(files)} projet(s))")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write(f"### Couverture backend : {rate:.1f}% (lignes, {covered}/{valid} sur {len(files)} projet(s))\n")
+          EOF
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-backend
+          path: coverage/**/coverage.cobertura.xml
 
   web-angular:
     runs-on: ubuntu-latest

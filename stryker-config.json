@@ -6,16 +6,16 @@
       "src/tests/UnitTests/Saas.UnitTests.csproj"
     ],
     "mutate": [
-      "src/Domain/**/*.cs",
-      "src/Application/**/*.cs",
-      "!src/**/Migrations/**/*.cs",
-      "!src/**/*.g.cs"
+      "**/*.cs",
+      "!**/Migrations/**/*.cs",
+      "!**/*.g.cs"
     ],
+    "coverage-analysis": "off",
     "reporters": ["html", "progress"],
     "thresholds": {
       "high": 80,
       "low": 60,
-      "break": 0
+      "break": 92
     }
   }
 }

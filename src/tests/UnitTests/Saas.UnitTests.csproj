@@ -12,6 +12,7 @@
     <PackageReference Include="Shouldly" />
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="NetArchTest.Rules" />
+    <PackageReference Include="coverlet.collector" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
