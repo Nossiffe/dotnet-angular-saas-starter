@@ -121,6 +121,22 @@ builder.Services.AddHsts(o =>
     // o.Preload = true; // opt-in : ne décommenter qu'après avoir soumis le domaine à hstspreload.org
 });
 
+// Request timeouts : filet global (config RequestTimeouts:DefaultSeconds, défaut 30 s).
+// Ne se déclenche pas sous debugger. Un endpoint long légitime s'exempte avec
+// [DisableRequestTimeout] ou une policy nommée.
+var timeoutSeconds = builder.Configuration.GetValue("RequestTimeouts:DefaultSeconds", 30);
+builder.Services.AddRequestTimeouts(options =>
+    options.DefaultPolicy = new Microsoft.AspNetCore.Http.Timeouts.RequestTimeoutPolicy
+    {
+        Timeout = TimeSpan.FromSeconds(timeoutSeconds),
+    });
+
+// Output cache : câblé SANS policy par défaut — opt-in strict par endpoint
+// (.CacheOutput(...)). ⚠️ Multi-tenant : ne JAMAIS l'appliquer à un endpoint
+// authentifié/tenant-scoped sans VaryBy explicite sur le tenant — le défaut
+// (les requêtes authentifiées ne sont pas cachées) protège, ne pas le contourner.
+builder.Services.AddOutputCache();
+
 AddCors(builder);
 AddRateLimiter(builder);
 AddOpenTelemetry(builder);
@@ -178,7 +194,14 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseSerilogRequestLogging();
 app.UseRouting();
+// Ordre officiel (learn.microsoft.com/aspnet/core/performance/timeouts) : après UseRouting,
+// avant l'exécution des endpoints — pour couvrir le temps passé dans le endpoint lui-même.
+app.UseRequestTimeouts();
 app.UseCors("spa");
+// Ordre officiel (learn.microsoft.com/aspnet/core/performance/caching/output) : après CORS,
+// avant l'authentification — le cache de sortie ne doit voir que les requêtes anonymes
+// (les requêtes authentifiées ne sont PAS mises en cache par défaut, cf. AddOutputCache ci-dessus).
+app.UseOutputCache();
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();

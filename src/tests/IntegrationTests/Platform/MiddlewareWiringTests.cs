@@ -1,0 +1,33 @@
+using System.Net;
+using Microsoft.AspNetCore.Http.Timeouts;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Shouldly;
+using Xunit;
+
+namespace Saas.IntegrationTests.Platform;
+
+// Les timeouts ne sont pas testables via une requête HTTP réelle sans endpoint lent dédié
+// (et ils ne se déclenchent pas sous debugger, cf. dotnet.md) — on vérifie donc le câblage
+// par DI (policy résolue = config par défaut) plutôt que le comportement en bout en bout.
+[Collection("api")]
+public sealed class MiddlewareWiringTests(PostgresApiFactory factory)
+{
+    [Fact]
+    public void RequestTimeouts_expose_la_policy_par_defaut_configuree()
+    {
+        using var scope = factory.Services.CreateScope();
+        var options = scope.ServiceProvider.GetRequiredService<IOptions<RequestTimeoutOptions>>().Value;
+
+        options.DefaultPolicy.ShouldNotBeNull();
+        options.DefaultPolicy!.Timeout.ShouldBe(TimeSpan.FromSeconds(30));
+    }
+
+    [Fact]
+    public async Task Une_requete_nominale_passe_toujours_avec_le_middleware_de_timeout_actif()
+    {
+        var client = factory.CreateClient();
+        var resp = await client.GetAsync("/health/live", TestContext.Current.CancellationToken);
+        resp.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+}
