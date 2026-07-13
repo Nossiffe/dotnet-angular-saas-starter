@@ -46,14 +46,17 @@ public sealed class RealJwtFlowTests(RealJwtApiFactory factory)
     }
 
     [Fact]
-    public async Task Logout_sans_Authorization_retourne_401()
+    public async Task Logout_sans_cookie_est_idempotent_204()
     {
-        // Vérifie que le .RequireAuthorization() sur /logout fonctionne réellement
-        // avec le schéma JWT réel (le TestAuthHandler authentifie tout, donc ce cas
-        // ne peut être testé qu'avec RealJwtApiFactory).
+        // /auth/logout est AllowAnonymous (adjudiqué) : la credential réelle du logout est le
+        // cookie HttpOnly `rt` (possession), pas l'access token. Rationale : révocation
+        // idempotente, suppression de cookie inoffensive, un access token absent/expiré ne doit
+        // pas empêcher un utilisateur de se déconnecter (cf. AuthEndpoints.cs). SameSite=Strict
+        // couvre déjà le logout-CSRF (nuisance seulement). Sans Authorization NI cookie `rt` :
+        // rien à révoquer côté serveur → 204 quand même (idempotent), jamais 401.
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
         var resp = await client.PostAsync("/api/v1/auth/logout", content: null, ct);
-        resp.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        resp.StatusCode.ShouldBe(HttpStatusCode.NoContent);
     }
 }

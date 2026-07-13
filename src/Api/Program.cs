@@ -151,10 +151,22 @@ app.UseSecurityHeaders(new HeaderPolicyCollection().AddDefaultApiSecurityHeaders
 // un client pourrait usurper X-Forwarded-* directement).
 if (app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
 {
-    app.UseForwardedHeaders(new ForwardedHeadersOptions
+    var forwardedHeadersOptions = new ForwardedHeadersOptions
     {
         ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
-    });
+    };
+    // Les défauts (KnownIPNetworks/KnownProxies = loopback uniquement) ignorent SILENCIEUSEMENT
+    // X-Forwarded-* dès que le proxy n'est pas sur la même machine (cas courant : nginx dans un
+    // conteneur séparé, IP interne du réseau docker) — UseForwardedHeaders ne ferait alors rien,
+    // sans erreur, et Program.cs ci-dessus (commentaire "DOIT s'exécuter avant") serait un no-op.
+    // On vide donc ces listes : la validation est déléguée au fait que ce bloc est déjà
+    // config-gated (ForwardedHeaders:Enabled, alias ASPNETCORE_FORWARDEDHEADERS_ENABLED) —
+    // à n'activer que derrière un proxy de confiance qui ÉCRASE ces en-têtes pour les requêtes
+    // externes (sinon un client pourrait usurper X-Forwarded-* directement).
+    forwardedHeadersOptions.KnownIPNetworks.Clear();
+    forwardedHeadersOptions.KnownProxies.Clear();
+    forwardedHeadersOptions.ForwardLimit = 1;
+    app.UseForwardedHeaders(forwardedHeadersOptions);
 }
 
 if (!app.Environment.IsDevelopment())

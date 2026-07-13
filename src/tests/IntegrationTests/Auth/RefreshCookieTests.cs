@@ -70,6 +70,11 @@ public sealed class RefreshCookieTests(PostgresApiFactory factory)
         deletedCookie.ShouldContain("expires=", Case.Insensitive);
         var expiresValue = ParseExpires(deletedCookie);
         expiresValue.ShouldBeLessThan(DateTimeOffset.UtcNow);
+        // Path/HttpOnly du Set-Cookie de suppression doivent matcher EXACTEMENT ceux posés au
+        // login (RefreshCookie.Delete) : un navigateur n'efface un cookie que si Path (et Domain)
+        // correspondent au cookie original — un mismatch laisserait `rt` orphelin dans le jar.
+        deletedCookie.ShouldContain("path=/api/v1/auth", Case.Insensitive);
+        deletedCookie.ShouldContain("httponly", Case.Insensitive);
     }
 
     private static DateTimeOffset ParseExpires(string setCookieHeader)

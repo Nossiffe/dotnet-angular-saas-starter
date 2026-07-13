@@ -34,9 +34,13 @@ public sealed class AuthEndpoints : IEndpoint
             .Produces<AuthResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
-        // Logout : révoque le refresh token. Réservé à l'utilisateur connecté — pas d'AllowAnonymous ici.
+        // Logout : AllowAnonymous délibéré. La credential réelle du logout EST le cookie HttpOnly
+        // `rt` (possession), pas l'access token — la révocation est idempotente et la suppression du
+        // cookie est inoffensive ; un access token expiré/absent ne doit donc jamais empêcher un
+        // utilisateur de se déconnecter. SameSite=Strict couvre déjà le logout-CSRF (nuisance
+        // "je te déconnecte" seulement, aucune lecture ni écriture de données possible).
         group.MapPost("/logout", Logout)
-            .RequireAuthorization()
+            .AllowAnonymous()
             .Produces(StatusCodes.Status204NoContent);
 
         group.MapPost("/confirm-email", ConfirmEmail)

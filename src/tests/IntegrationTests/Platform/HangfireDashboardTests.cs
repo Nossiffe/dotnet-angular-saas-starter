@@ -16,8 +16,10 @@ public sealed class HangfireDashboardTests(NonDevelopmentApiFactory factory)
     {
         var client = factory.CreateClient();
         var resp = await client.GetAsync("/hangfire", TestContext.Current.CancellationToken);
-        // Hors Development (host de test forcé en Production) : 401/403/404 attendu — jamais 200.
-        ((int)resp.StatusCode).ShouldBeGreaterThanOrEqualTo(401);
+        // Hors Development (host de test forcé en Production) : uniquement 401/403/404 attendu —
+        // ensemble fermé plutôt que ">= 401", qui laisserait passer silencieusement un 500 (bug).
+        new[] { HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden, HttpStatusCode.NotFound }
+            .ShouldContain(resp.StatusCode);
     }
 
     [Fact]
