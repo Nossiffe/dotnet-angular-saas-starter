@@ -9,8 +9,27 @@ permissions:
   contents: read
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # NON-BLOQUANT (continue-on-error) — Stryker.NET 4.16 ne mesure pas
+  # correctement avec xunit.v3/MTP sur cette stack :
+  #   - run Application (2026-07-13 12:09) : 97.84 % de "score" mais
+  #     0 Killed / 226 Timeout — les kills remontent en timeouts génériques
+  #     (artefact de l'intégration, pas un vrai signal de qualité).
+  #   - run Domain (2026-07-13 12:41, relancé 12:45) : 0.00 % — 124/124
+  #     mutants SURVIVED, 0 killed, 0 timeout — les tests passent contre
+  #     chaque mutant (exécution à vide, artefact).
+  #   - Upstream : stryker-mutator/stryker-net#3117 et #3629 (support MTP
+  #     incomplet).
+  # Le job reste câblé (cron hebdo + workflow_dispatch, les deux runs,
+  # upload des rapports) pour le jour où stryker-net supportera MTP :
+  # les rapports produits ici restent une preuve utile — un futur run avec
+  # de vrais compteurs Killed (≠ 0) signalera que le support est arrivé.
+  # Réévaluer à chaque montée de version de dotnet-stryker (Renovate ouvrira
+  # les PRs) : si Killed redevient non nul, retirer ce continue-on-error.
+  # ---------------------------------------------------------------------------
   stryker:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -19,9 +38,23 @@ jobs:
         with:
           dotnet-version: '10.x'
       - run: dotnet tool restore
-      - run: dotnet stryker
+      - name: Stryker — Application
+        run: dotnet stryker -f stryker-config.json
+        continue-on-error: true
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
-          name: stryker-report
+          name: stryker-report-application
+          path: StrykerOutput/**/reports/*.html
+      - name: Nettoyer StrykerOutput avant le run Domain
+        if: always()
+        run: rm -rf StrykerOutput
+      - name: Stryker — Domain
+        if: always()
+        run: dotnet stryker -f stryker-config-domain.json
+        continue-on-error: true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: stryker-report-domain
           path: StrykerOutput/**/reports/*.html

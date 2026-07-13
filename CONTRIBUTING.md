@@ -114,11 +114,42 @@ dotnet test --filter "Unit"    # unit seulement (sans Docker)
 
 ---
 
-## Mutation testing (Stryker.NET — on-demand)
+## Mutation testing (Stryker.NET — câblé, mesure non fiable actuellement)
 
-Le mutation testing mesure la **qualité réelle des tests** en introduisant des mutations dans le code et vérifiant si les tests les détectent.
+Le mutation testing est censé mesurer la **qualité réelle des tests** en introduisant des
+mutations dans le code et en vérifiant si les tests les détectent. L'outillage est en
+place (workflow hebdo `.github/workflows/stryker.yml`, deux configs
+`stryker-config.json` / `stryker-config-domain.json`, manifest `.config/dotnet-tools.json`)
+mais **ne produit aujourd'hui aucune mesure fiable** sur cette stack.
 
-**Stryker.NET est un outil on-demand — il n'est PAS dans la gate CI** (trop lent pour bloquer les PRs).
+### État constaté : incompatibilité Stryker.NET 4.16 ↔ xunit.v3/MTP
+
+Deux runs complets (2026-07-13) ont démontré que l'intégration Stryker.NET 4.16 avec
+xunit.v3 / Microsoft Testing Platform (MTP) est cassée :
+
+- **Run Application** (12:09) : "score" affiché 97.84 %, mais **0 Killed / 226 Timeout**
+  — les mutants tués remontent comme des timeouts génériques plutôt que comme des kills.
+  Le chiffre est un artefact de l'intégration, pas un vrai signal de qualité.
+- **Run Domain** (12:41, relancé 12:45) : **0.00 %** — **124/124 mutants SURVIVED**,
+  0 killed, 0 timeout. Les tests passent contre chaque mutant : exécution à vide
+  (artefact), pas un score réel de 0.
+- Suivi upstream : [stryker-mutator/stryker-net#3117](https://github.com/stryker-mutator/stryker-net/issues/3117)
+  et [#3629](https://github.com/stryker-mutator/stryker-net/issues/3629) (support MTP incomplet).
+
+**Conséquence** : le job `stryker.yml` est marqué `continue-on-error: true` au niveau
+job — il tourne chaque semaine (et sur `workflow_dispatch`) et publie ses rapports en
+artifacts, mais **ne bloque rien** tant que l'intégration reste cassée. Les seuils
+`break: 60` restent configurés comme cible pour le jour où la mesure redeviendra fiable ;
+ils ne sont pas appliqués de façon fiable aujourd'hui.
+
+### Signal à surveiller
+
+Un futur run hebdomadaire avec des compteurs **`Killed` non nuls** dans le rapport
+(au lieu de tout-Timeout ou tout-Survived) signale que le support MTP est arrivé côté
+stryker-net. Dans ce cas : retirer le `continue-on-error: true` du job, et réévaluer les
+seuils `break` à la lumière du vrai score. Renovate ouvrira les PRs de montée de version
+de `dotnet-stryker` — chaque montée est l'occasion de relancer les deux configs et de
+vérifier si `Killed` redevient non nul.
 
 ### Installation (locale, une seule fois)
 
@@ -131,25 +162,18 @@ dotnet tool install dotnet-stryker
 ### Lancer une analyse
 
 ```bash
-# Depuis la racine du projet (lit stryker-config.json)
-dotnet stryker
-
-# Ou cibler uniquement le Domain :
-dotnet stryker --project Saas.Domain.csproj
+# Depuis la racine du projet
+dotnet stryker -f stryker-config.json          # Application
+dotnet stryker -f stryker-config-domain.json   # Domain
 ```
 
-Le rapport HTML s'ouvre dans `StrykerOutput/reports/mutation-report.html`.
-
-### Interpréter les résultats
-
-- **Mutation score ≥ 80 %** : bon niveau de couverture (seuil `high` configuré).
-- **60–80 %** : seuil `low` — des tests supplémentaires sont recommandés.
-- **< 60 %** : zone à risque — écrire des tests unitaires ciblés sur les cas limites.
-- Le seuil `break: 0` signifie que Stryker ne casse jamais la CI même si le score est faible.
+Le rapport HTML s'ouvre dans `StrykerOutput/**/reports/mutation-report.html`.
 
 ### Configuration
 
-Voir `stryker-config.json` à la racine. Cible `Domain` + `Application`, exclut les migrations et fichiers générés (`.g.cs`).
+Voir `stryker-config.json` (Application) et `stryker-config-domain.json` (Domain) à la
+racine. Chaque config exclut les migrations et fichiers générés (`.g.cs`), coverage
+analysis désactivée (`"coverage-analysis": "off"`, requis avec xunit.v3/MTP).
 
 ---
 
