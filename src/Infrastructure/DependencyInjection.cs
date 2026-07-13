@@ -129,12 +129,20 @@ public static class DependencyInjection
             {
                 options.User.RequireUniqueEmail = true;
                 options.Password.RequiredLength = 12;
+                // Lockout : défauts Identity rendus EXPLICITES (contrat testé par LockoutTests).
+                options.Lockout.AllowedForNewUsers = true;
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
             })
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<AppDbContext>()
             .AddSignInManager()
             .AddDefaultTokenProviders(); // requis pour GenerateEmailConfirmationToken / GeneratePasswordResetToken
         services.AddScoped<IIdentityService, IdentityService>();
+        // OWASP Password Storage Cheat Sheet : PBKDF2-SHA512 >= 210k itérations
+        // (défaut Identity = 100k — insuffisant). Les hashes existants sont re-hashés
+        // automatiquement au prochain login réussi (SuccessRehashNeeded).
+        services.Configure<PasswordHasherOptions>(options => options.IterationCount = 210_000);
         // Service stateless de tokens d'invitation (raw base64url + hash SHA-256).
         services.AddSingleton<IInvitationTokenService, InvitationTokenService>();
     }
