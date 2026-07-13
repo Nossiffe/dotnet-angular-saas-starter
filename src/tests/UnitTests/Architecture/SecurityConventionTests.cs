@@ -43,4 +43,27 @@ public sealed class SecurityConventionTests
         violations.ShouldBeEmpty(
             $"Entités ISoftDeletable sans SoftDeleteFilter : {string.Join(", ", violations)}");
     }
+
+    [Fact]
+    public void TenantProvider_leve_quand_le_claim_est_absent()
+    {
+        var accessor = new Microsoft.AspNetCore.Http.HttpContextAccessor
+        {
+            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext(),
+        };
+        var provider = new Saas.Infrastructure.Identity.TenantProvider(accessor);
+        Should.Throw<InvalidOperationException>(() => _ = provider.TenantId);
+    }
+
+    [Fact]
+    public void TenantProvider_leve_quand_le_claim_est_Guid_Empty()
+    {
+        var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        context.User = new System.Security.Claims.ClaimsPrincipal(
+            new System.Security.Claims.ClaimsIdentity(
+                [new System.Security.Claims.Claim("tenant", Guid.Empty.ToString())], "test"));
+        var accessor = new Microsoft.AspNetCore.Http.HttpContextAccessor { HttpContext = context };
+        var provider = new Saas.Infrastructure.Identity.TenantProvider(accessor);
+        Should.Throw<InvalidOperationException>(() => _ = provider.TenantId);
+    }
 }
