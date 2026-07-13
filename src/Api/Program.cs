@@ -198,13 +198,15 @@ app.UseRouting();
 // avant l'exécution des endpoints — pour couvrir le temps passé dans le endpoint lui-même.
 app.UseRequestTimeouts();
 app.UseCors("spa");
-// Ordre officiel (learn.microsoft.com/aspnet/core/performance/caching/output) : après CORS,
-// avant l'authentification — le cache de sortie ne doit voir que les requêtes anonymes
-// (les requêtes authentifiées ne sont PAS mises en cache par défaut, cf. AddOutputCache ci-dessus).
-app.UseOutputCache();
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
+// Ordre officiel (learn.microsoft.com/aspnet/core/performance/caching/output, .NET 10),
+// verbatim : « In apps that use authentication or authorization, the UseOutputCache method
+// must be called after the UseAuthentication and UseAuthorization methods. Otherwise, the
+// output caching middleware can serve content cached for unauthorized users. »
+// Également requis par la même page : après UseCors et après UseRouting — satisfait ici.
+app.UseOutputCache();
 
 if (app.Environment.IsDevelopment())
 {
