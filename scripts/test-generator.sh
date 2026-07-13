@@ -77,8 +77,12 @@ run_front() {
   # tools/ and scripts/ are meta-files (the generator itself + test harness) that
   # legitimately reference both front names as string literals in their logic.
   # generator.yml also legitimately lists both fronts in its path triggers.
+  # docs/adr/ are historical decision records: an ADR documents the reasoning at
+  # the time the decision was made (here, a decision that concerned BOTH fronts
+  # as they existed then) — rewriting it post-hoc to erase one front would
+  # falsify the historical record. The generator does NOT touch ADRs.
   # Only assert on actual generated SaaS content.
-  info "Assertion (b): no references to removed front '$REMOVE' (excl. tools/, scripts/, .github/workflows/generator.yml)..."
+  info "Assertion (b): no references to removed front '$REMOVE' (excl. tools/, scripts/, .github/workflows/generator.yml, docs/adr/)..."
   FRONT_RESIDUALS=$(grep -rnI "$REMOVE" "$DEST" \
     --exclude-dir=node_modules \
     --exclude-dir=bin \
@@ -89,6 +93,7 @@ run_front() {
     | grep -v "^$DEST/tools/" \
     | grep -v "^$DEST/scripts/" \
     | grep -v "^$DEST/.github/workflows/generator.yml:" \
+    | grep -v "^$DEST/docs/adr/" \
     || true)
   if [ -z "$FRONT_RESIDUALS" ]; then
     pass "(b) No '$REMOVE' references (outside meta-files)"
@@ -100,7 +105,12 @@ run_front() {
   # --- (c) Template port residuals: 5123 / 5001 --------------------------------
   # tools/new-saas contains sed patterns like s/5123/$API_PORT/ — those are the
   # replacement instructions, not residuals. Exclude tools/ and scripts/.
-  info "Assertion (c): no template port residuals (5123, 5001) (excl. tools/, scripts/)..."
+  # .github/workflows/smoke.yml is excluded too: it declares its own env (API_PORT,
+  # POSTGRES_PORT, ...) for use inside an ephemeral GitHub Actions runner only —
+  # those values never touch the developer's machine and can't collide with the
+  # local port block allocated by new-saas (which exists solely to avoid port
+  # clashes between several SaaS instances running locally at once).
+  info "Assertion (c): no template port residuals (5123, 5001) (excl. tools/, scripts/, .github/workflows/smoke.yml)..."
   PORT_RESIDUALS=$(grep -rnIE '\b(5123|5001)\b' "$DEST" \
     --exclude-dir=node_modules \
     --exclude-dir=bin \
@@ -110,6 +120,7 @@ run_front() {
     2>/dev/null \
     | grep -v "^$DEST/tools/" \
     | grep -v "^$DEST/scripts/" \
+    | grep -v "^$DEST/.github/workflows/smoke.yml:" \
     || true)
   if [ -z "$PORT_RESIDUALS" ]; then
     pass "(c) No template port residuals (5123/5001) outside meta-files"

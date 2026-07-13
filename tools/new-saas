@@ -117,6 +117,7 @@ rsync -a \
   --exclude='test-results/' \
   --exclude='playwright-report/' \
   --exclude='docs/superpowers/' \
+  --exclude='.superpowers/' \
   --exclude='*.user' \
   --exclude='*.log' \
   "$TEMPLATE/" "$DEST/"
@@ -228,16 +229,18 @@ PROXY="$DEST/web-angular/src/proxy.conf.json"
   -e "s/localhost:5123/localhost:$API_PORT/g" \
   "$PROXY" || true
 
-# React vite.config.ts : 5173 → FRONT_PORT
+# React vite.config.ts : 5173 → FRONT_PORT (dev server), 5123 → API_PORT (proxy target)
 VITE="$DEST/web-react/vite.config.ts"
 [ -f "$VITE" ] && sed -i \
   -e "s/port: 5173/port: $FRONT_PORT/" \
+  -e "s/localhost:5123/localhost:$API_PORT/g" \
   "$VITE" || true
 
-# React .env.example : VITE_API_URL
+# React .env.example : VITE_API_URL + mention en commentaire du port API (":5123")
 REACT_ENVEX="$DEST/web-react/.env.example"
 [ -f "$REACT_ENVEX" ] && sed -i \
   -e "s/localhost:5123/localhost:$API_PORT/g" \
+  -e "s/:5123/:$API_PORT/g" \
   "$REACT_ENVEX" || true
 
 # README.md : 5123 → API_PORT (port references in quickstart / ports table)
@@ -326,6 +329,20 @@ if [ -f "$CI_FILE" ]; then
   fi
 fi
 
+# Nettoyer .github/workflows/release.yml — retirer la ligne SBOM npm du front
+# retiré (sinon le job release échoue : `cd $REMOVE` pointe vers un dossier
+# supprimé à l'étape 7 ci-dessus)
+RELEASE_YML="$DEST/.github/workflows/release.yml"
+if [ -f "$RELEASE_YML" ]; then
+  grep -v "(cd $REMOVE " "$RELEASE_YML" > "$RELEASE_YML.tmp" && mv "$RELEASE_YML.tmp" "$RELEASE_YML"
+fi
+
+# Nettoyer .claude/agents/doc-updater.md — ne référencer que le front conservé
+DOC_UPDATER="$DEST/.claude/agents/doc-updater.md"
+[ -f "$DOC_UPDATER" ] && sed -i \
+  "s/\`web-angular\/\`, \`web-react\/\`/\`$KEEP\/\`/" \
+  "$DOC_UPDATER"
+
 # Nettoyer .github/workflows/deps-audit.yml — restreindre la matrice
 # npm-audit au front conservé (sinon le job échoue sur un working-directory
 # inexistant pour le front retiré)
@@ -333,6 +350,19 @@ DEPS_AUDIT="$DEST/.github/workflows/deps-audit.yml"
 if [ -f "$DEPS_AUDIT" ]; then
   sed -i "s/front: \[web-angular, web-react\]/front: [$KEEP]/" "$DEPS_AUDIT"
 fi
+
+# Nettoyer security/README.md et security/deps-review-TEMPLATE.md — la description
+# de la matrice npm-audit ne doit plus mentionner les deux fronts une fois l'un
+# des deux retiré (doc lue par un auditeur externe : elle doit rester exacte).
+SECURITY_README="$DEST/security/README.md"
+[ -f "$SECURITY_README" ] && sed -i \
+  "s/matrice sur les deux fronts (\`web-angular\`, \`web-react\`)/matrice sur \`$KEEP\`/" \
+  "$SECURITY_README"
+
+DEPS_REVIEW_TEMPLATE="$DEST/security/deps-review-TEMPLATE.md"
+[ -f "$DEPS_REVIEW_TEMPLATE" ] && sed -i \
+  "s/web-angular + web-react/$KEEP/" \
+  "$DEPS_REVIEW_TEMPLATE"
 
 # Nettoyer lefthook.yml — supprimer les commandes du front retiré
 LEFTHOOK="$DEST/lefthook.yml"

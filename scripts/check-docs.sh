@@ -68,6 +68,11 @@ is_known_optional() {
   case "$path" in
     # Fichier optionnel à créer si on veut la review Claude en CI
     ".github/workflows/claude-review.yml") return 0 ;;
+    # Bundles de build front (gitignorés) — n'existent qu'après `npm run build`.
+    # Mentionnés dans REVIEW.md comme chemins générés à ignorer par la review,
+    # au même titre que bin/, obj/ (déjà tolérés via le glob `**`) — même
+    # nature d'artefact, mais écrits sans `*` donc non couverts par is_placeholder.
+    "web-angular/dist/"|"web-react/dist/") return 0 ;;
   esac
   return 1
 }
