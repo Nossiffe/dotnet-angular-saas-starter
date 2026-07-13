@@ -24,6 +24,7 @@ fichier indiqué.
 ## Règles par zone (`.claude/rules/`)
 
 - `dotnet.md` — conventions backend C#/.NET (CQRS, ErrorOr, Vogen).
+- `analyzer-cheatsheet.md` — warnings analyzers récurrents (`src/**/*.cs`) et leurs fixes directs.
 - `angular.md` — conventions front Angular.
 - `react.md` — conventions front React.
 - `security.md` — isolation tenant, authz, fail-closed.

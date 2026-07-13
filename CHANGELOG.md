@@ -6,5 +6,8 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 
 ## [Unreleased]
 
+### Fixed
+- `OutboxProcessor` utilise `IDateTimeProvider` (testabilité).
+
 ### Migrations DB
 - (aucune)

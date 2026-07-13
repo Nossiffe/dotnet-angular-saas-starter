@@ -32,6 +32,8 @@ done < <(
   find "$REPO/web-react" -maxdepth 1 -name "CLAUDE.md" -print0 2>/dev/null
   find "$REPO/.claude/rules" -name "*.md" -print0 2>/dev/null
   find "$REPO/.claude/skills" -name "SKILL.md" -print0 2>/dev/null
+  find "$REPO/.claude/patterns" -maxdepth 1 -name "README.md" -print0 2>/dev/null
+  find "$REPO/.claude/agents" -maxdepth 1 -name "*.md" -print0 2>/dev/null
 )
 
 # ---------------------------------------------------------------------------
@@ -58,6 +60,9 @@ is_placeholder() {
   leaf="$(basename "$token")"
   [[ "$leaf" == Foo* ]] && return 0
   [[ "$leaf" == Bar* ]] && return 0
+  # Placeholder numérique conventionnel (ex. `docs/adr/NNNN` = "prochain numéro
+  # d'ADR", jamais un fichier réel) — convention déjà utilisée ailleurs dans le repo.
+  [[ "$leaf" == "NNNN" ]] && return 0
   return 1
 }
 
