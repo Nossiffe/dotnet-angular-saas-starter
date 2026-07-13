@@ -174,8 +174,22 @@ HTTP POST /products
 
 ### Gestion des erreurs
 
-- `GlobalExceptionHandler` convertit `ValidationException` → 400 `ProblemDetails`, `NotFoundException` → 404.
-- Toutes les autres exceptions → 500 (Serilog les logue).
+- **Erreurs métier : `ErrorOr<T>`, jamais d'exception.** Chaque handler `ICommand<ErrorOr<T>>` /
+  `IQuery<ErrorOr<T>>` retourne une erreur d'une classe `XxxErrors` centralisée (registre complet :
+  `.claude/rules/error-codes.md`). Les endpoints convertissent via `result.ToHttpResult()` /
+  `ToNoContentHttpResult()` / `ToCreatedHttpResult(...)` (`Saas.Api.Common.ErrorOrHttpExtensions`),
+  qui mappe chaque `ErrorType` (`Validation`→400, `NotFound`→404, `Conflict`→409, `Forbidden`→403,
+  `Unauthorized`→401, autre→500) sur un `ProblemDetails`.
+- **Anti-énumération** : une ressource d'un autre tenant renvoie `NotFound`, jamais `Forbidden`
+  (ne révèle pas son existence — `.claude/rules/security.md`).
+- **`GlobalExceptionHandler` reste responsable des exceptions légitimes restantes** (frontière
+  forme/métier, `docs/adr/0003`) : `ValidationException` du pipeline FluentValidation ou des
+  erreurs Identity field-tied (→ 400 `ProblemDetails` par champ), `DbUpdateException`/`DbUpdateConcurrencyException`
+  côté infrastructure (→ 409, ex. contrainte d'unicité Postgres 23505 en défense en profondeur
+  derrière une vérification applicative `ErrorOr`), toute autre exception non prévue → 500 (Serilog
+  la logue).
+- Vérifié par `ErrorOrConventionTests` (test d'archi) : tout `ICommand<T>`/`IQuery<T>` doit
+  retourner `ErrorOr<>`, et aucune exception métier custom ne doit réapparaître dans `Domain`.
 
 ---
 
