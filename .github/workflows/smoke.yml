@@ -1,16 +1,26 @@
 name: Smoke
 
-# Choix du déclencheur : workflow_dispatch + push sur main.
+# Déclencheur : workflow_dispatch + push sur main + PR ciblées backend.
 # Rationale : le smoke est lourd (Postgres + Mailpit + API complète + Hangfire).
-# Le lancer sur chaque PR serait coûteux. On le déclenche donc :
-#   - manuellement (workflow_dispatch) pour valider une branche à la demande,
-#   - automatiquement sur push/merge vers main (guard de prod).
-# Alternative envisagée : label "run-smoke" sur PR — rejetée car elle nécessite
-# des droits de gestion de labels dans les forks et complique le DX.
+# Avant, limité à main pour économiser les ressources. Maintenant, on le lance aussi
+# sur les PR qui touchent le backend (src/, Directory.Packages.props, scripts/smoke.sh,
+# docker-compose.yml) pour attraper les régressions d'intégration avant merge.
+# Le filtre `paths:` maintient le coût maîtrisé : PRs front-only bypassen le smoke.
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'Directory.Packages.props'
+      - 'scripts/smoke.sh'
+      - 'docker-compose.yml'
   workflow_dispatch:
+
+concurrency:
+  group: smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
