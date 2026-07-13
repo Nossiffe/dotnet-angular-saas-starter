@@ -13,7 +13,7 @@ public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> opti
 {
     private readonly JwtOptions _o = options.Value;
 
-    public async Task<string> IssueAsync(Guid userId, Guid tenantId, CancellationToken cancellationToken)
+    public async Task<(string RawToken, int Days)> IssueAsync(Guid userId, Guid tenantId, CancellationToken cancellationToken)
     {
         var raw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
         db.RefreshTokens.Add(new RefreshToken
@@ -24,7 +24,7 @@ public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> opti
             ExpiresAt = clock.UtcNow.AddDays(_o.RefreshTokenDays),
         });
         await db.SaveChangesAsync(cancellationToken);
-        return raw;
+        return (raw, _o.RefreshTokenDays);
     }
 
     public async Task<RotatedToken?> ValidateAndRotateAsync(string rawToken, CancellationToken cancellationToken)
@@ -75,7 +75,7 @@ public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> opti
             return null;
         }
 
-        return new RotatedToken(existing.UserId, existing.TenantId, newRaw);
+        return new RotatedToken(existing.UserId, existing.TenantId, newRaw, _o.RefreshTokenDays);
     }
 
     public async Task RevokeAsync(string rawToken, CancellationToken cancellationToken)

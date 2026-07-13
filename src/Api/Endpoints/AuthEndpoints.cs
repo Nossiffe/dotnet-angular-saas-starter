@@ -32,7 +32,6 @@ public sealed class AuthEndpoints : IEndpoint
         group.MapPost("/refresh", Refresh)
             .AllowAnonymous()
             .Produces<AuthResponse>(StatusCodes.Status200OK)
-            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         // Logout : révoque le refresh token. Réservé à l'utilisateur connecté — pas d'AllowAnonymous ici.
@@ -65,29 +64,44 @@ public sealed class AuthEndpoints : IEndpoint
             _ => result.ToHttpResult());
     }
 
-    private static async Task<IResult> Login(LoginCommand cmd, ISender sender, CancellationToken ct)
+    private static async Task<IResult> Login(LoginCommand cmd, ISender sender, HttpResponse response, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(cmd);
         var result = await sender.Send(cmd, ct);
         return result.Match(
-            auth => TypedResults.Ok(new AuthResponse(auth.AccessToken, auth.ExpiresAt, auth.RefreshToken)) as IResult,
+            auth =>
+            {
+                RefreshCookie.Append(response, auth.RefreshToken, auth.RefreshTokenDays);
+                return TypedResults.Ok(new AuthResponse(auth.AccessToken, auth.ExpiresAt)) as IResult;
+            },
             _ => result.ToHttpResult());
     }
 
-    private static async Task<IResult> Refresh(RefreshTokenCommand cmd, ISender sender, CancellationToken ct)
+    private static async Task<IResult> Refresh(ISender sender, HttpRequest request, HttpResponse response, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(cmd);
-        var result = await sender.Send(cmd, ct);
+        var raw = RefreshCookie.Read(request);
+        ErrorOr.ErrorOr<Saas.Application.Auth.AuthResult> result = raw is null
+            ? Saas.Application.Auth.AuthErrors.SessionExpired
+            : await sender.Send(new RefreshTokenCommand(raw), ct);
         return result.Match(
-            auth => TypedResults.Ok(new AuthResponse(auth.AccessToken, auth.ExpiresAt, auth.RefreshToken)) as IResult,
+            auth =>
+            {
+                RefreshCookie.Append(response, auth.RefreshToken, auth.RefreshTokenDays);
+                return TypedResults.Ok(new AuthResponse(auth.AccessToken, auth.ExpiresAt)) as IResult;
+            },
             _ => result.ToHttpResult());
     }
 
-    private static async Task<IResult> Logout(LogoutRequest request, ISender sender, CancellationToken ct)
+    private static async Task<IResult> Logout(ISender sender, HttpRequest request, HttpResponse response, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        var result = await sender.Send(new LogoutCommand(request.RefreshToken), ct);
-        return result.Match(_ => Results.NoContent(), _ => result.ToHttpResult());
+        var raw = RefreshCookie.Read(request);
+        if (raw is not null)
+        {
+            _ = await sender.Send(new LogoutCommand(raw), ct); // révocation idempotente
+        }
+
+        RefreshCookie.Delete(response);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> ConfirmEmail(ConfirmEmailRequest request, ISender sender, CancellationToken ct)

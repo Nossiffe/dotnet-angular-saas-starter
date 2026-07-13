@@ -70,8 +70,8 @@ public sealed class LoginHandler(
 
         var roles = await identity.GetRolesAsync(user.Id, cancellationToken);
         var (token, exp) = tokens.CreateAccessToken(user.Id, user.Email, tenantId, roles, tenantRole);
-        var refreshToken = await refresh.IssueAsync(user.Id, tenantId, cancellationToken);
+        var (refreshToken, refreshDays) = await refresh.IssueAsync(user.Id, tenantId, cancellationToken);
 
-        return new AuthResult(token, exp, refreshToken);
+        return new AuthResult(token, exp, refreshToken, refreshDays);
     }
 }

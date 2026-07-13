@@ -8,8 +8,6 @@ namespace Saas.IntegrationTests.Auth;
 [Collection("api")]
 public sealed class AuthSecurityTests(PostgresApiFactory factory)
 {
-    private sealed record AuthResponse(string AccessToken, DateTimeOffset ExpiresAt, string RefreshToken);
-
     // ── Email dupliqué → 400 ─────────────────────────────────────────────
     [Fact]
     public async Task Duplicate_email_register_renvoie_400()
@@ -46,44 +44,45 @@ public sealed class AuthSecurityTests(PostgresApiFactory factory)
     }
 
     // ── Refresh-token reuse → révocation famille ─────────────────────────
+    // Le mécanisme métier (rotation + détection de réutilisation dans RefreshTokenStore) est inchangé —
+    // seul le transport change : le refresh token voyage désormais en cookie `rt` HttpOnly, plus dans le
+    // body JSON. Le client par défaut de WebApplicationFactory rejoue le cookie automatiquement pour le
+    // login + le premier refresh légitime ; la présentation de l'ANCIEN cookie révoqué doit en revanche
+    // être manuelle (le cookie-jar automatique l'aurait déjà écrasé par la rotation), via un client SANS
+    // cookie-jar (`HandleCookies = false`) et un header `Cookie` explicite portant la valeur capturée.
     [Fact]
     public async Task Refresh_token_reuse_declenche_revocation_famille()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = factory.CreateClient();
+        var client = AuthTestFlow.HttpsClient(factory);
         var email = $"reuse-{Guid.NewGuid():N}@saas.local";
         const string password = "Sup3rSecret!!42";
 
         await AuthTestFlow.RegisterAndConfirmAsync(client, factory, email, password, ct);
 
-        // Login → obtenir le premier refresh token
+        // Login → capture la valeur brute du cookie refresh initial (pour le rejouer plus bas).
         var login = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password }, ct);
         login.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var auth1 = await login.Content.ReadFromJsonAsync<AuthResponse>(ct);
-        auth1.ShouldNotBeNull();
-        var originalRefreshToken = auth1!.RefreshToken;
+        var originalRefreshToken = AuthTestFlow.ExtractRefreshCookieValue(login);
 
-        // Premier refresh légitime → rotation (nouveau token, l'ancien est révoqué)
-        var refresh1 = await client.PostAsJsonAsync(
-            "/api/v1/auth/refresh", new { refreshToken = originalRefreshToken }, ct);
+        // Premier refresh légitime (cookie rejoué automatiquement) → rotation (nouveau cookie, l'ancien révoqué)
+        var refresh1 = await client.PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);
         refresh1.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var auth2 = await refresh1.Content.ReadFromJsonAsync<AuthResponse>(ct);
-        auth2.ShouldNotBeNull();
-        var currentRefreshToken = auth2!.RefreshToken;
+        var currentRefreshToken = AuthTestFlow.ExtractRefreshCookieValue(refresh1);
 
         // Vérifier que la rotation a bien eu lieu
         currentRefreshToken.ShouldNotBe(originalRefreshToken);
 
-        // Re-présenter l'ANCIEN token révoqué → détection de réutilisation
-        // → révocation de tous les tokens actifs de l'utilisateur → null → 401
-        var reuseAttempt = await client.PostAsJsonAsync(
-            "/api/v1/auth/refresh", new { refreshToken = originalRefreshToken }, ct);
+        // Re-présenter l'ANCIEN cookie révoqué (client sans cookie-jar, header Cookie manuel)
+        // → détection de réutilisation → révocation de tous les tokens actifs de l'utilisateur → 401
+        var reuseAttempt = await AuthTestFlow.RawCookieClient(factory, originalRefreshToken)
+            .PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);
         reuseAttempt.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
 
-        // Le token COURANT (issu de la rotation légale) doit aussi être révoqué
+        // Le cookie COURANT (issu de la rotation légale) doit aussi être révoqué
         // par la cascade de révocation famille déclenchée par la réutilisation
-        var currentAfterRevocation = await client.PostAsJsonAsync(
-            "/api/v1/auth/refresh", new { refreshToken = currentRefreshToken }, ct);
+        var currentAfterRevocation = await AuthTestFlow.RawCookieClient(factory, currentRefreshToken)
+            .PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);
         currentAfterRevocation.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 }

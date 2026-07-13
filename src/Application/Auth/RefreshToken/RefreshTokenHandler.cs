@@ -42,6 +42,6 @@ public sealed class RefreshTokenHandler(
         var (token, exp) = tokens.CreateAccessToken(
             rotated.UserId, user.Email, rotated.TenantId, roles, tenantRole);
 
-        return new AuthResult(token, exp, rotated.NewRefreshToken);
+        return new AuthResult(token, exp, rotated.NewRefreshToken, rotated.RefreshTokenDays);
     }
 }

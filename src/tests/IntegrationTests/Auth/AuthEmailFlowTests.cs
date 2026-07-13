@@ -11,7 +11,7 @@ namespace Saas.IntegrationTests.Auth;
 [Collection("api")]
 public sealed class AuthEmailFlowTests(PostgresApiFactory factory)
 {
-    private sealed record AuthResponse(string AccessToken, DateTimeOffset ExpiresAt, string RefreshToken);
+    private sealed record AuthResponse(string AccessToken, DateTimeOffset ExpiresAt);
 
     [Fact]
     public async Task Confirm_email_active_le_compte()
@@ -92,7 +92,7 @@ public sealed class AuthEmailFlowTests(PostgresApiFactory factory)
     public async Task Logout_revoque_le_refresh_token()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = factory.CreateClient();
+        var client = AuthTestFlow.HttpsClient(factory);
         var email = $"logout-{Guid.NewGuid():N}@saas.local";
         const string password = "Sup3rSecret!!42";
 
@@ -103,13 +103,13 @@ public sealed class AuthEmailFlowTests(PostgresApiFactory factory)
         var auth = await login.Content.ReadFromJsonAsync<AuthResponse>(ct);
         auth.ShouldNotBeNull();
 
-        var logout = await client.PostAsJsonAsync(
-            "/api/v1/auth/logout", new { refreshToken = auth!.RefreshToken }, ct);
+        // Logout sans body : le cookie refresh (rejoué automatiquement) suffit à identifier le token à révoquer.
+        var logout = await client.PostAsJsonAsync("/api/v1/auth/logout", new { }, ct);
         logout.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        // Le refresh token révoqué n'est plus utilisable → 401.
-        var refresh = await client.PostAsJsonAsync(
-            "/api/v1/auth/refresh", new { refreshToken = auth.RefreshToken }, ct);
+        // Le refresh token révoqué n'est plus utilisable → 401 (le cookie a été supprimé par logout,
+        // donc même sans cookie le endpoint renvoie 401 SessionExpired — comportement attendu).
+        var refresh = await client.PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);
         refresh.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 }

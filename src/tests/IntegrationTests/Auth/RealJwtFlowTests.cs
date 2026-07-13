@@ -9,7 +9,7 @@ namespace Saas.IntegrationTests.Auth;
 [Collection("real-jwt")]
 public sealed class RealJwtFlowTests(RealJwtApiFactory factory)
 {
-    private sealed record AuthResponse(string AccessToken, DateTimeOffset ExpiresAt, string RefreshToken);
+    private sealed record AuthResponse(string AccessToken, DateTimeOffset ExpiresAt);
 
     [Fact]
     public async Task Register_login_bearer_acces_produits_200()

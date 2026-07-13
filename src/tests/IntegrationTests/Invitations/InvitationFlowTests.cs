@@ -18,7 +18,7 @@ namespace Saas.IntegrationTests.Invitations;
 public sealed class InvitationFlowTests(PostgresApiFactory factory)
 {
     private sealed record AcceptResponse(bool IsNewUser);
-    private sealed record AuthResponse(string AccessToken, DateTimeOffset ExpiresAt, string RefreshToken);
+    private sealed record AuthResponse(string AccessToken, DateTimeOffset ExpiresAt);
     private sealed record InviteResponse(Guid InvitationId);
 
     private static string UniqueEmail(string prefix) => $"{prefix}-{Guid.NewGuid():N}@saas.local";

@@ -8,13 +8,13 @@ namespace Saas.IntegrationTests.Auth;
 [Collection("api")]
 public sealed class AuthFlowTests(PostgresApiFactory factory)
 {
-    private sealed record AuthResponse(string AccessToken, DateTimeOffset ExpiresAt, string RefreshToken);
+    private sealed record AuthResponse(string AccessToken, DateTimeOffset ExpiresAt);
 
     [Fact]
     public async Task Register_login_donne_un_token_utilisable()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = factory.CreateClient();
+        var client = AuthTestFlow.HttpsClient(factory);
         var email = $"user-{Guid.NewGuid():N}@saas.local";
         const string password = "Sup3rSecret!!42";
 
@@ -25,12 +25,14 @@ public sealed class AuthFlowTests(PostgresApiFactory factory)
         var auth = await login.Content.ReadFromJsonAsync<AuthResponse>(ct);
         auth.ShouldNotBeNull();
         auth!.AccessToken.ShouldNotBeNullOrWhiteSpace();
+        var loginCookie = AuthTestFlow.ExtractRefreshCookieValue(login);
 
-        // Vérifie que le refresh fonctionne de bout en bout côté serveur.
-        var refresh = await client.PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken = auth.RefreshToken }, ct);
+        // Vérifie que le refresh fonctionne de bout en bout côté serveur (cookie rejoué automatiquement).
+        var refresh = await client.PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);
         refresh.EnsureSuccessStatusCode();
         var refreshed = await refresh.Content.ReadFromJsonAsync<AuthResponse>(ct);
-        refreshed!.RefreshToken.ShouldNotBe(auth.RefreshToken); // rotation
+        refreshed.ShouldNotBeNull();
+        AuthTestFlow.ExtractRefreshCookieValue(refresh).ShouldNotBe(loginCookie); // rotation
     }
 
     [Fact]
