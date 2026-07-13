@@ -36,19 +36,23 @@ jobs:
           cache: true
           cache-dependency-path: '**/packages.lock.json'
       - run: dotnet build
-      - run: dotnet test --collect:"XPlat Code Coverage" --results-directory ./coverage
+      # Microsoft Testing Platform natif (global.json §test) : couverture via l'extension
+      # Microsoft.Testing.Extensions.CodeCoverage — options passées directement (sans « -- »).
+      - run: dotnet test --coverage --coverage-output-format cobertura --results-directory ./coverage
       - name: Résumé couverture
         run: |
           # defusedxml : les parseurs XML stdlib sont vulnérables XXE/billion-laughs par
-          # défaut — ici l'entrée est auto-générée par coverlet dans ce même job, mais le
-          # template modélise la bonne pratique.
+          # défaut — ici l'entrée est auto-générée par Microsoft.CodeCoverage dans ce même
+          # job, mais le template modélise la bonne pratique.
           pip install --quiet defusedxml
           python3 - <<'EOF'
           import glob
           import os
           import defusedxml.ElementTree as ET
 
-          files = sorted(glob.glob("coverage/**/coverage.cobertura.xml", recursive=True))
+          # MTP nomme les fichiers <guid>.cobertura.xml (un par projet de test), à plat
+          # dans --results-directory — glob sur *.cobertura.xml (≠ coverage.cobertura.xml VSTest).
+          files = sorted(glob.glob("coverage/**/*.cobertura.xml", recursive=True))
           covered = sum(int(ET.parse(f).getroot().get("lines-covered")) for f in files)
           valid = sum(int(ET.parse(f).getroot().get("lines-valid")) for f in files)
           rate = (covered / valid * 100) if valid else 0.0
@@ -59,7 +63,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-backend
-          path: coverage/**/coverage.cobertura.xml
+          path: coverage/**/*.cobertura.xml
 
   web-angular:
     runs-on: ubuntu-latest

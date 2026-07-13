@@ -10,22 +10,26 @@ permissions:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # NON-BLOQUANT (continue-on-error) — Stryker.NET 4.16 ne mesure pas
-  # correctement avec xunit.v3/MTP sur cette stack :
-  #   - run Application (2026-07-13 12:09) : 97.84 % de "score" mais
-  #     0 Killed / 226 Timeout — les kills remontent en timeouts génériques
-  #     (artefact de l'intégration, pas un vrai signal de qualité).
-  #   - run Domain (2026-07-13 12:41, relancé 12:45) : 0.00 % — 124/124
-  #     mutants SURVIVED, 0 killed, 0 timeout — les tests passent contre
-  #     chaque mutant (exécution à vide, artefact).
-  #   - Upstream : stryker-mutator/stryker-net#3117 et #3629 (support MTP
-  #     incomplet).
-  # Le job reste câblé (cron hebdo + workflow_dispatch, les deux runs,
-  # upload des rapports) pour le jour où stryker-net supportera MTP :
-  # les rapports produits ici restent une preuve utile — un futur run avec
-  # de vrais compteurs Killed (≠ 0) signalera que le support est arrivé.
-  # Réévaluer à chaque montée de version de dotnet-stryker (Renovate ouvrira
-  # les PRs) : si Killed redevient non nul, retirer ce continue-on-error.
+  # NON-BLOQUANT (continue-on-error) — Stryker.NET 4.16 ne supporte pas le
+  # runner natif Microsoft Testing Platform (MTP) utilisé par cette stack
+  # (global.json §test + UseMicrosoftTestingPlatformRunner sur xunit.v3).
+  #   - Depuis la bascule MTP native (2026-07-13) : Stryker DÉTECTE MTP sur les
+  #     projets de test et ABANDONNE la découverte des tests —
+  #     « Test discovery has been aborted », « Number of tests found: 0 »,
+  #     « Test assemblies do not contain any test, skipping ». Échec franc en
+  #     ~70 s, aucun rapport produit (≠ VsTest requis par Stryker 4.16).
+  #     Upstream : stryker-mutator/stryker-net#3094 (support MTP — issue de
+  #     suivi ; message d'erreur explicite pointant dessus).
+  #   - Historique (mode VSTest via xunit.runner.visualstudio, avant bascule) :
+  #     le run allait au bout mais les scores étaient des artefacts —
+  #     Application 97.84 % tout-Timeout (0 Killed / 226 Timeout),
+  #     Domain 0.00 % tout-Survived (124/124). Voir #3117 et #3629.
+  # Dans les deux cas : AUCUN signal de mutation exploitable tant que
+  # stryker-net ne supporte pas MTP. Le job reste câblé (cron hebdo +
+  # workflow_dispatch) comme sonde : dès qu'un run produit de vrais compteurs
+  # Killed (≠ 0), le support MTP sera arrivé → retirer ce continue-on-error.
+  # Réévaluer à chaque montée de dotnet-stryker (Renovate ouvrira les PRs) et
+  # surveiller #3094.
   # ---------------------------------------------------------------------------
   stryker:
     runs-on: ubuntu-latest

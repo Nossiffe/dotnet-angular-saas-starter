@@ -140,8 +140,8 @@ main lors du tag.
 - **Archi** (`DependencyRuleTests`) : NetArchTest vérifie la règle de dépendance Clean Arch.
 
 ```bash
-dotnet test                    # tous
-dotnet test --filter "Unit"    # unit seulement (sans Docker)
+dotnet test                                                  # tous
+dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulement (sans Docker)
 ```
 
 ---
@@ -150,11 +150,11 @@ dotnet test --filter "Unit"    # unit seulement (sans Docker)
 
 | Workflow | Déclencheur | Rôle | Si ça casse |
 |---|---|---|---|
-| `ci.yml` | Push/PR/`merge_group` sur `main` | Build + tests (unit/intégration/archi) + gate lint/format/typecheck des 2 fronts + couverture backend (coverlet → summary + artifact, **non bloquante** — cf. § Couverture) | Lire le log du job en échec (build/tests/front) ; une couverture qui baisse n'échoue jamais le job, c'est un signal |
+| `ci.yml` | Push/PR/`merge_group` sur `main` | Build + tests (unit/intégration/archi) + gate lint/format/typecheck des 2 fronts + couverture backend (Microsoft.CodeCoverage MTP → summary + artifact, **non bloquante** — cf. § Couverture) | Lire le log du job en échec (build/tests/front) ; une couverture qui baisse n'échoue jamais le job, c'est un signal |
 | `smoke.yml` | Push `main` + PR touchant le backend (`src/`, `Directory.Packages.props`, `scripts/smoke.sh`, `docker-compose.yml`) + manuel | Bout-en-bout réel (Postgres + Mailpit + API + Hangfire) via `scripts/smoke.sh` | Reproduire en local : `docker compose up -d db mailpit && dotnet run --project src/Api` puis `bash scripts/smoke.sh` |
 | `deps-audit.yml` | PR touchant les manifests de deps (`Directory.Packages.props`, `packages.lock.json`, `package.json`/`package-lock.json`) + cron hebdo (lundi 05h UTC) + manuel | Bloque sur CVE High/Critical — `dotnet-audit` (NuGet, direct + transitif) et `npm-audit` (par front, prod deps seulement) | Corriger (bump/pin) ou documenter une exception datée — voir § Procédure d'exception CVE ci-dessous |
 | `zizmor.yml` | Push/PR touchant `.github/workflows/**` | Lint de sécurité des workflows GitHub Actions (permissions, injections, cache-poisoning…) — mode console (`advanced-security: false`, repo privé sans Advanced Security), exit non nul = bloquant | Reproduire en local : `uvx zizmor .github/workflows/` ; corriger le finding (permissions minimales, pin SHA, échappement d'input) |
-| `stryker.yml` | Cron hebdo + manuel | Mutation testing (Application + Domain) — **non bloquant actuellement** | Voir § Mutation testing ci-dessous (incompatibilité xunit.v3/MTP en cours) |
+| `stryker.yml` | Cron hebdo + manuel | Mutation testing (Application + Domain) — **non bloquant actuellement** | Voir § Mutation testing ci-dessous (Stryker 4.16 ne supporte pas le runner MTP) |
 | `release.yml` | Tag `v*` + manuel | Build + push image GHCR, SBOM (CycloneDX backend + npm natif par front), attestation de provenance (SLSA build L2) | Voir `DEPLOYMENT.md` § Release — image, SBOM, attestation |
 | `generator.yml` | Push/PR touchant `tools/new-saas`, `scripts/test-generator.sh` ou `.github/**` | Génère les 2 variantes du template (Angular/React) et vérifie l'absence de résidu (nom du template, front retiré, ports) + build | Reproduire en local : `bash scripts/test-generator.sh` (quelques minutes, build .NET compris) |
 | `codeql.yml` / `security.yml` | Push/PR (préexistants) | SAST (CodeQL C#/TS) + secret scanning (gitleaks) | Voir l'onglet Security du repo |
@@ -188,8 +188,10 @@ pour être lisible par un auditeur externe sans contexte préalable.
 
 ### Couverture de code
 
-`ci.yml` collecte la couverture backend (coverlet, format Cobertura) à chaque run, l'affiche en
-summary et la publie en artifact (`coverage-backend`) — **volontairement non bloquante** : la
+`ci.yml` collecte la couverture backend via l'extension Microsoft Testing Platform
+`Microsoft.Testing.Extensions.CodeCoverage` (`dotnet test --coverage --coverage-output-format cobertura`,
+format Cobertura) à chaque run, l'affiche en summary et la publie en artifact
+(`coverage-backend`, fichiers `<guid>.cobertura.xml`) — **volontairement non bloquante** : la
 qualité réelle des tests est gatée par Stryker (mutation testing), pas par un seuil de lignes
 couvertes (un seuil de couverture se contourne trivialement avec des tests sans assertion).
 
@@ -203,34 +205,43 @@ place (workflow hebdo `.github/workflows/stryker.yml`, deux configs
 `stryker-config.json` / `stryker-config-domain.json`, manifest `.config/dotnet-tools.json`)
 mais **ne produit aujourd'hui aucune mesure fiable** sur cette stack.
 
-### État constaté : incompatibilité Stryker.NET 4.16 ↔ xunit.v3/MTP
+### État constaté : Stryker.NET 4.16 ne supporte pas le runner natif MTP
 
-Deux runs complets (2026-07-13) ont démontré que l'intégration Stryker.NET 4.16 avec
-xunit.v3 / Microsoft Testing Platform (MTP) est cassée :
+Depuis la bascule au runner natif Microsoft Testing Platform (MTP)
+(`global.json` §test + `UseMicrosoftTestingPlatformRunner` sur xunit.v3, 2026-07-13),
+Stryker.NET 4.16 **détecte MTP sur les projets de test et abandonne** :
 
-- **Run Application** (12:09) : "score" affiché 97.84 %, mais **0 Killed / 226 Timeout**
-  — les mutants tués remontent comme des timeouts génériques plutôt que comme des kills.
-  Le chiffre est un artefact de l'intégration, pas un vrai signal de qualité.
-- **Run Domain** (12:41, relancé 12:45) : **0.00 %** — **124/124 mutants SURVIVED**,
-  0 killed, 0 timeout. Les tests passent contre chaque mutant : exécution à vide
-  (artefact), pas un score réel de 0.
-- Suivi upstream : [stryker-mutator/stryker-net#3117](https://github.com/stryker-mutator/stryker-net/issues/3117)
-  et [#3629](https://github.com/stryker-mutator/stryker-net/issues/3629) (support MTP incomplet).
+```
+[ERR] TestDiscoverer: Test discovery has been aborted!
+[WRN] Project '…/Saas.UnitTests.csproj' is using Microsoft.Testing.Platform which
+      is not yet supported by Stryker, see stryker-net/issues/3094
+[INF] Number of tests found: 0 … Test assemblies do not contain any test, skipping.
+```
+
+Échec franc en ~70 s, **aucun rapport produit** (Stryker 4.16 exige encore VsTest).
+Suivi upstream : [stryker-mutator/stryker-net#3094](https://github.com/stryker-mutator/stryker-net/issues/3094)
+(support MTP — issue de suivi, citée explicitement dans le message d'erreur).
+
+**Historique (avant bascule, mode VSTest via `xunit.runner.visualstudio`)** : le run
+allait au bout mais les scores étaient des artefacts — Application 97.84 % tout-Timeout
+(0 Killed / 226 Timeout), Domain 0.00 % tout-Survived (124/124). Voir aussi
+[#3117](https://github.com/stryker-mutator/stryker-net/issues/3117) et
+[#3629](https://github.com/stryker-mutator/stryker-net/issues/3629). Dans les deux modes :
+**aucun signal de mutation exploitable** tant que stryker-net ne supporte pas MTP.
 
 **Conséquence** : le job `stryker.yml` est marqué `continue-on-error: true` au niveau
-job — il tourne chaque semaine (et sur `workflow_dispatch`) et publie ses rapports en
-artifacts, mais **ne bloque rien** tant que l'intégration reste cassée. Les seuils
-`break: 60` restent configurés comme cible pour le jour où la mesure redeviendra fiable ;
-ils ne sont pas appliqués de façon fiable aujourd'hui.
+job — il tourne chaque semaine (et sur `workflow_dispatch`), mais **ne bloque rien** tant
+que l'intégration reste cassée. Les seuils `break: 60` restent configurés comme cible pour
+le jour où la mesure redeviendra fiable ; ils ne sont pas appliqués aujourd'hui.
 
 ### Signal à surveiller
 
-Un futur run hebdomadaire avec des compteurs **`Killed` non nuls** dans le rapport
-(au lieu de tout-Timeout ou tout-Survived) signale que le support MTP est arrivé côté
-stryker-net. Dans ce cas : retirer le `continue-on-error: true` du job, et réévaluer les
-seuils `break` à la lumière du vrai score. Renovate ouvrira les PRs de montée de version
-de `dotnet-stryker` — chaque montée est l'occasion de relancer les deux configs et de
-vérifier si `Killed` redevient non nul.
+Un futur run hebdomadaire qui **produit un rapport avec des compteurs `Killed` non nuls**
+(au lieu de s'abandonner sur « MTP not supported ») signalera que le support MTP est arrivé
+côté stryker-net. Dans ce cas : retirer le `continue-on-error: true` du job, et réévaluer les
+seuils `break` à la lumière du vrai score. Renovate ouvrira les PRs de montée de version de
+`dotnet-stryker` — chaque montée est l'occasion de relancer les deux configs et de surveiller
+[#3094](https://github.com/stryker-mutator/stryker-net/issues/3094).
 
 ### Installation (locale, une seule fois)
 

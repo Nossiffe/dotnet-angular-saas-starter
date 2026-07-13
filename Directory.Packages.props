@@ -59,16 +59,19 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
   </ItemGroup>
-  <!-- Stack de test (référencée par les projets *Tests). Versions alignées sur Step 1. -->
+  <!-- Stack de test (référencée par les projets *Tests) — runner natif MTP (xunit.v3),
+       couverture via Microsoft.Testing.Extensions.CodeCoverage (plus de VSTest/coverlet). -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <!-- Aligné sur MTP v1 (xunit.v3 3.2.2 → xunit.v3.core.mtp-v1 pin MTP 1.9.1) :
+         la dernière CodeCoverage restant sur la ligne MTP v1.x est 18.0.6 (→ MTP 1.8.4,
+         unifié vers 1.9.1). 18.1.0+ sautent à MTP 2.x → TypeLoadException (IDataConsumer)
+         car l'extension MSBuild reste en 1.9.1. Remonter quand xunit.v3 passera à MTP v2. -->
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.0.6" />
     <PackageVersion Include="NSubstitute" Version="6.0.0" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
     <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.9" />
-    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
   </ItemGroup>
 </Project>
