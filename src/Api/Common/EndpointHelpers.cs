@@ -7,14 +7,16 @@ namespace Saas.Api.Common;
 
 internal static class EndpointHelpers
 {
-    internal static void EnforceTenantScope(Guid orgId, ITenantProvider tenant)
-    {
-        if (orgId != tenant.TenantId)
-        {
-            throw new ValidationException(
-                [new ValidationFailure("orgId", "L'organisation demandée ne correspond pas au tenant du token.")]);
-        }
-    }
+    /// <summary>
+    /// Vérifie que l'<c>orgId</c> de la route correspond au tenant du token. Anti-énumération :
+    /// un mismatch renvoie 404 (<see cref="OrganizationErrors.NotFound"/>), jamais 400/403 —
+    /// un statut distinct révélerait à un appelant authentifié qu'une autre organisation existe
+    /// (cf. .claude/rules/error-codes.md § anti-énumération).
+    /// Retourne <see langword="null"/> si la portée est correcte (l'appelant continue), sinon
+    /// le <see cref="IResult"/> 404 à retourner immédiatement.
+    /// </summary>
+    internal static IResult? CheckTenantScope(Guid orgId, ITenantProvider tenant)
+        => orgId == tenant.TenantId ? null : OrganizationErrors.NotFound.ToProblemHttpResult();
 
     internal static OrganizationRole ParseRole(string role)
     {

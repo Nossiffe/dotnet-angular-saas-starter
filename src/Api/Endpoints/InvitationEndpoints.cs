@@ -23,7 +23,8 @@ public sealed class InvitationEndpoints : IEndpoint
             .RequireAuthorization("TenantAdmin");
 
         orgGroup.MapPost("/", InviteMember)
-            .WithCreatedResponses<InviteResponse>();
+            .WithCreatedResponses<InviteResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         orgGroup.MapGet("/", ListPendingInvitations)
             .Produces<IReadOnlyList<InvitationDto>>(StatusCodes.Status200OK);
@@ -49,7 +50,11 @@ public sealed class InvitationEndpoints : IEndpoint
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(req);
-        EndpointHelpers.EnforceTenantScope(orgId, tenant);
+        if (EndpointHelpers.CheckTenantScope(orgId, tenant) is { } scopeError)
+        {
+            return scopeError;
+        }
+
         var role = EndpointHelpers.ParseRole(req.Role);
         var result = await sender.Send(new InviteMemberCommand(orgId, req.Email, role), ct);
         return result
@@ -63,7 +68,11 @@ public sealed class InvitationEndpoints : IEndpoint
         ITenantProvider tenant,
         CancellationToken ct)
     {
-        EndpointHelpers.EnforceTenantScope(orgId, tenant);
+        if (EndpointHelpers.CheckTenantScope(orgId, tenant) is { } scopeError)
+        {
+            return scopeError;
+        }
+
         var result = await sender.Send(new ListPendingInvitationsQuery(orgId), ct);
         return result.ToHttpResult();
     }
@@ -75,7 +84,11 @@ public sealed class InvitationEndpoints : IEndpoint
         ITenantProvider tenant,
         CancellationToken ct)
     {
-        EndpointHelpers.EnforceTenantScope(orgId, tenant);
+        if (EndpointHelpers.CheckTenantScope(orgId, tenant) is { } scopeError)
+        {
+            return scopeError;
+        }
+
         var result = await sender.Send(new ResendInvitationCommand(orgId, id), ct);
         return result.ToNoContentHttpResult();
     }
@@ -87,7 +100,11 @@ public sealed class InvitationEndpoints : IEndpoint
         ITenantProvider tenant,
         CancellationToken ct)
     {
-        EndpointHelpers.EnforceTenantScope(orgId, tenant);
+        if (EndpointHelpers.CheckTenantScope(orgId, tenant) is { } scopeError)
+        {
+            return scopeError;
+        }
+
         var result = await sender.Send(new RevokeInvitationCommand(orgId, id), ct);
         return result.ToNoContentHttpResult();
     }

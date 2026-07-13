@@ -23,9 +23,13 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
                 (object?)ve.Errors
                     .GroupBy(e => e.PropertyName, StringComparer.Ordinal)
                     .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray(), StringComparer.Ordinal)),
+            // Filet de course générique : le chemin normal (ex. invitation en double) est déjà
+            // couvert en amont par une erreur ErrorOr précise et spécifique au domaine ; cette
+            // branche ne s'atteint que si une contrainte d'unicité est violée après ce check
+            // applicatif (race), donc sans le contexte métier pour formuler un message précis.
             Microsoft.EntityFrameworkCore.DbUpdateException due when IsUniqueViolation(due) => (
                 StatusCodes.Status409Conflict,
-                "Une invitation est déjà en attente pour cet email.",
+                "Cette ressource existe déjà (conflit d'unicité).",
                 (object?)null),
             Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException => (
                 StatusCodes.Status409Conflict,

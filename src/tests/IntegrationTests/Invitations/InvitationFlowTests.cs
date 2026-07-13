@@ -283,6 +283,26 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         invite.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
+    // ── orgId de la route ≠ tenant du token → 404 (anti-énumération) ────────────────
+    // Changement de contrat volontaire (chantier 3, minor différé du chantier 2) :
+    // avant, un mismatch levait une ValidationException (400) exposant "l'organisation
+    // demandée ne correspond pas au tenant" — révélant qu'une AUTRE organisation existe.
+    // EnforceTenantScope renvoie désormais OrganizationErrors.NotFound (404), indiscernable
+    // d'un orgId qui n'existe simplement pas.
+    [Fact]
+    public async Task Invite_with_mismatched_orgId_returns_404()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var ownerId = Guid.CreateVersion7();
+        var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
+        var owner = InvitationTestFlow.ClientFor(factory, orgId, ownerId);
+        var otherOrgId = Guid.CreateVersion7();
+
+        var invite = await owner.PostAsJsonAsync(
+            $"/api/v1/organizations/{otherOrgId}/invitations", new { email = UniqueEmail("mismatch"), role = "Member" }, ct);
+        invite.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
     // ── Token expiré → 400 (ExpiresAt mis dans le passé en base) ────────────────────
     [Fact]
     public async Task Expired_invitation_accept_returns_400()

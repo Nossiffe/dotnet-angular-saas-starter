@@ -29,7 +29,11 @@ public sealed class MemberEndpoints : IEndpoint
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(req);
-        EndpointHelpers.EnforceTenantScope(orgId, tenant);
+        if (EndpointHelpers.CheckTenantScope(orgId, tenant) is { } scopeError)
+        {
+            return scopeError;
+        }
+
         var role = EndpointHelpers.ParseRole(req.Role);
         var result = await sender.Send(new ChangeMemberRoleCommand(orgId, userId, role), ct);
         return result.ToNoContentHttpResult();

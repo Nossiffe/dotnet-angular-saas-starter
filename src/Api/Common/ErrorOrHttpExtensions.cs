@@ -16,6 +16,12 @@ public static class ErrorOrHttpExtensions
         return result.Match(value => Results.Created(uri(value), value), Problem);
     }
 
+    /// <summary>
+    /// Convertit une <see cref="Error"/> isolée (hors flux <see cref="ErrorOr{T}"/>, ex. un
+    /// garde de portée tenant) en <see cref="IResult"/> via le même mapping ErrorType → HTTP.
+    /// </summary>
+    internal static IResult ToProblemHttpResult(this Error error) => Problem([error]);
+
     private static IResult Problem(List<Error> errors)
     {
         var error = errors[0];

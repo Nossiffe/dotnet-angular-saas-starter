@@ -1,7 +1,9 @@
 using System.Threading.RateLimiting;
 using Asp.Versioning;
 using Hangfire;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using OpenTelemetry;
@@ -98,6 +100,27 @@ builder.Services.AddOpenApi(options => options.AddDocumentTransformer<BearerSecu
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>(name: "db", tags: ["ready"]);
 
+// Clés Data Protection (tokens email Identity) : éphémères par défaut en conteneur →
+// tout redéploiement invaliderait confirmations/resets en cours. En prod, monter un
+// volume et pointer DataProtection__KeysPath dessus (DEPLOYMENT.md).
+var dpPath = builder.Configuration["DataProtection:KeysPath"];
+if (!string.IsNullOrEmpty(dpPath))
+{
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(dpPath))
+        .SetApplicationName("Saas");
+}
+
+// HSTS 2 ans (recommandation OWASP) : appliqué par le UseHsts() existant hors Development.
+// Preload volontairement PAS activé par défaut : engagement quasi irréversible (listes
+// navigateurs), à faire opt-in une fois le domaine confirmé stable en HTTPS partout.
+builder.Services.AddHsts(o =>
+{
+    o.MaxAge = TimeSpan.FromDays(730);
+    o.IncludeSubDomains = true;
+    // o.Preload = true; // opt-in : ne décommenter qu'après avoir soumis le domaine à hstspreload.org
+});
+
 AddCors(builder);
 AddRateLimiter(builder);
 AddOpenTelemetry(builder);
@@ -118,6 +141,22 @@ if (app.Environment.IsDevelopment()
 
 app.UseExceptionHandler();
 app.UseSecurityHeaders(new HeaderPolicyCollection().AddDefaultApiSecurityHeaders());
+
+// Derrière un reverse-proxy (nginx/Traefik/ALB), Kestrel ne voit que la connexion interne
+// (souvent HTTP, IP du proxy) : sans réécriture, UseHsts (redirection interne) et le
+// `Secure` du cookie refresh évalueraient le MAUVAIS scheme. UseForwardedHeaders DOIT donc
+// s'exécuter avant UseHsts/UseHttpsRedirection pour que HttpContext.Request.Scheme/
+// Connection.RemoteIpAddress reflètent le client réel. Config-gated (faux par défaut) :
+// à activer uniquement quand un proxy de confiance est effectivement devant l'API (sinon
+// un client pourrait usurper X-Forwarded-* directement).
+if (app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
+{
+    app.UseForwardedHeaders(new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    });
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseHsts();
