@@ -12,6 +12,7 @@ PORT="${1:-5123}"
 BASE="http://localhost:${PORT}"
 EMAIL="smoke-$(date +%s)@saas.local"
 PASSWORD="SmokeTest!99"
+COOKIE_JAR="$(mktemp)"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; NC='\033[0m'
 ok()   { echo -e "${GREEN}✓${NC} $1"; }
@@ -40,7 +41,7 @@ ASPNETCORE_URLS="http://localhost:$PORT" \
 ASPNETCORE_ENVIRONMENT=Development \
   mise exec -- dotnet run --project src/Api --no-build --no-launch-profile &
 API_PID=$!
-trap 'kill $API_PID 2>/dev/null || true' EXIT
+trap 'kill $API_PID 2>/dev/null || true; rm -f "$COOKIE_JAR"' EXIT
 
 # Attendre que /health/ready réponde (vérifie aussi la DB)
 for i in $(seq 1 30); do
@@ -54,6 +55,14 @@ echo "▶ Test /health"
 STATUS=$(curl -sf "${BASE}/health")
 echo "  health: $STATUS"
 ok "/health répond"
+
+# ---- Helper cookie refresh (rt) ----
+# Lit la valeur du cookie 'rt' dans un cookie jar au format Netscape (curl -c).
+# Retourne une chaîne vide si le cookie est absent (ex. après suppression par /auth/logout).
+get_rt_cookie() {
+  local jar="$1"
+  awk -F'\t' '$6=="rt"{print $7}' "$jar" | tail -1
+}
 
 # ---- Helpers Mailpit ----
 # Vider les messages Mailpit (état propre entre les tests)
@@ -167,17 +176,33 @@ docker compose exec -T db psql -U saas -d saas \
   || fail "Confirmation email: échec UPDATE en base"
 ok "Email confirmé en base pour ${EMAIL}"
 
-# ---- 5. Login → JWT ----
+# ---- 5. Login → JWT + cookie rt (HttpOnly) ----
 echo "▶ Login"
 LOGIN_RESPONSE=$(curl -sf \
   -X POST "${BASE}/api/v1/auth/login" \
   -H "Content-Type: application/json" \
+  -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
   -d "{\"email\":\"${EMAIL}\",\"password\":\"${PASSWORD}\"}")
 ACCESS_TOKEN=$(echo "$LOGIN_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['accessToken'])")
-REFRESH_TOKEN=$(echo "$LOGIN_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['refreshToken'])")
 [ -n "$ACCESS_TOKEN" ] || fail "Login: accessToken absent"
-[ -n "$REFRESH_TOKEN" ] || fail "Login: refreshToken absent"
-ok "POST /api/v1/auth/login → JWT obtenu"
+echo "$LOGIN_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(1 if 'refreshToken' in d else 0)" \
+  || fail "Login: refreshToken présent dans le corps JSON (attendu : transport uniquement par cookie)"
+RT_AFTER_LOGIN=$(get_rt_cookie "$COOKIE_JAR")
+[ -n "$RT_AFTER_LOGIN" ] || fail "Login: cookie 'rt' absent du jar"
+ok "POST /api/v1/auth/login → JWT obtenu, refreshToken absent du body, cookie 'rt' (HttpOnly) posé"
+
+# ---- 5a. Refresh → 200 + rotation du cookie rt ----
+echo "▶ Refresh (rotation du cookie rt)"
+REFRESH_ROTATE_RESPONSE=$(curl -sf \
+  -X POST "${BASE}/api/v1/auth/refresh" \
+  -b "$COOKIE_JAR" -c "$COOKIE_JAR")
+NEW_ACCESS_TOKEN=$(echo "$REFRESH_ROTATE_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['accessToken'])")
+[ -n "$NEW_ACCESS_TOKEN" ] || fail "Refresh: accessToken absent"
+RT_AFTER_REFRESH=$(get_rt_cookie "$COOKIE_JAR")
+[ -n "$RT_AFTER_REFRESH" ] || fail "Refresh: cookie 'rt' absent du jar après refresh"
+[ "$RT_AFTER_REFRESH" != "$RT_AFTER_LOGIN" ] || fail "Refresh: le cookie 'rt' n'a pas été renouvelé (rotation attendue)"
+ACCESS_TOKEN="$NEW_ACCESS_TOKEN"
+ok "POST /api/v1/auth/refresh → 200, nouveau accessToken + cookie 'rt' roté"
 
 # ---- 5b. OpenAPI Bearer scheme ----
 echo "▶ OpenAPI Bearer scheme"
@@ -274,25 +299,25 @@ done
 [ "$GOT_409" = "1" ] || fail "409 Concurrence: aucun 409 obtenu après 5 tentatives"
 ok "409 Concurrence → un 409 avec 'traceId' obtenu"
 
-# ---- 10. Logout révoqué ----
+# ---- 10. Logout révoqué (cookie rt, sans body) ----
 echo "▶ Logout → refresh révoqué (→ 401)"
 LOGOUT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST "${BASE}/api/v1/auth/logout" \
-  -H "Content-Type: application/json" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-  -d "{\"refreshToken\":\"${REFRESH_TOKEN}\"}")
+  -b "$COOKIE_JAR" -c "$COOKIE_JAR")
 [ "$LOGOUT_STATUS" = "204" ] || fail "Logout: attendu 204, obtenu $LOGOUT_STATUS"
+RT_AFTER_LOGOUT=$(get_rt_cookie "$COOKIE_JAR")
+[ -z "$RT_AFTER_LOGOUT" ] || fail "Logout: cookie 'rt' toujours présent dans le jar après logout"
 
 REFRESH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST "${BASE}/api/v1/auth/refresh" \
-  -H "Content-Type: application/json" \
-  -d "{\"refreshToken\":\"${REFRESH_TOKEN}\"}")
+  -b "$COOKIE_JAR" -c "$COOKIE_JAR")
 [ "$REFRESH_STATUS" = "401" ] || fail "Refresh après logout: attendu 401, obtenu $REFRESH_STATUS"
-ok "Logout (204) → refresh révoqué → 401"
+ok "Logout (204, cookie 'rt' supprimé du jar) → refresh sans cookie → 401"
 
 # ---- 11. Forgot/Reset password ----
 # Attendre la fin de la fenêtre du rate-limiter "auth" (FixedWindow 10/30s) : les étapes
-# précédentes ont consommé ~10 jetons (register×2, login×3, confirm×2, logout, refresh).
+# précédentes ont consommé ~9 jetons (register×2, login×3, confirm×1, refresh rotation, logout, refresh révoqué).
 # Sans ce délai, forgot-password reçoit 429. 31s garantit que la fenêtre de 30s est expirée.
 echo "▶ Attente reset fenêtre rate-limiter (31s)..."
 sleep 31
