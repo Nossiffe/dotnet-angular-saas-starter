@@ -116,14 +116,28 @@ Request → LoggingBehavior → ValidationBehavior → Handler
 
 ### Multi-tenant
 
-- `TenantId` extrait du JWT claim `"tenant"` par `TenantProvider`.
-- `HasQueryFilter(p => p.TenantId == tenant.TenantId && !p.IsDeleted)` sur `Product`.
+- `TenantId` extrait du JWT claim `"tenant"` par `TenantProvider` (`Infrastructure/Identity/TenantProvider.cs`)
+  — **fail-closed** : claim absent/invalide/vide → `InvalidOperationException` (pas de fallback
+  `Guid.Empty`).
+- **Named query filters EF Core 10, appliqués par convention** dans `AppDbContext.OnModelCreating` :
+  toute entité `ITenantOwned` reçoit le filtre nommé `"TenantFilter"` (`e.TenantId == tenant.TenantId`),
+  toute entité `ISoftDeletable` le filtre nommé `"SoftDeleteFilter"` (`!e.IsDeleted`) — aucune
+  configuration au cas par cas par entité (pas de `HasQueryFilter` dans `XxxConfiguration.cs`).
+  `"TenantFilter"` n'est jamais contournable métier ; `"SoftDeleteFilter"` peut être ignoré
+  ponctuellement via `IgnoreQueryFilters(["SoftDeleteFilter"])`. Détail : `.claude/rules/security.md`.
 - L'`AuditableEntityInterceptor` injecte `TenantId` sur les nouveaux agrégats tenant-scoped.
 
 ### Identité & Auth
 
 - ASP.NET Core Identity (`ApplicationUser`, `IdentityRole<Guid>`) stocké en Postgres.
 - JWT maison : `JwtTokenService` (access token 15min) + `RefreshTokenStore` (refresh token en base).
+- **Refresh token transporté par cookie `HttpOnly` + `Secure` + `SameSite=Strict` +
+  `Path=/api/v1/auth`** (`Saas.Api.Common.RefreshCookie`), jamais dans le body JSON ni
+  `localStorage` — posé/lu uniquement par les endpoints `/auth/login`, `/auth/refresh`,
+  `/auth/logout`. Décision complète (attributs, pas d'antiforgery, exigence même-origine) :
+  `docs/adr/0004`.
+- **Hardening mots de passe** : PBKDF2-SHA512, `IterationCount = 210_000` (OWASP Password
+  Storage Cheat Sheet) ; **lockout** après 5 tentatives échouées, verrouillage 5 minutes.
 - Policies : `"HasTenant"` (claim `tenant` non vide), `"TenantAdmin"` (claim `tenant_role = Owner`).
 - Fallback policy : `RequireAuthenticatedUser` (toutes les routes sont auth par défaut).
 
@@ -314,3 +328,5 @@ services.AddHybridCache(); // utilisera automatiquement Redis comme L2
 
 - `docs/adr/0001` — Strongly-typed IDs & value objects via Vogen (STJ-only + converter EF manuel)
 - `docs/adr/0002` — Persistance CQRS (repos write par agrégat + Dapper read ; Ardalis.Specification écarté)
+- `docs/adr/0003` — ErrorOr pour les erreurs métier (frontière avec les exceptions légitimes)
+- `docs/adr/0004` — Refresh token en cookie HttpOnly (pas d'antiforgery ; fronts même-origine)
