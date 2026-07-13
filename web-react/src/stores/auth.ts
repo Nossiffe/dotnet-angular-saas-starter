@@ -7,62 +7,75 @@ interface User {
 
 export interface AuthState {
     accessToken: string | null;
-    refreshToken: string | null;
     user: User | null;
     isAuthenticated: boolean;
-    login: (accessToken: string, refreshToken: string, user: User) => void;
-    setTokens: (accessToken: string, refreshToken: string) => void;
+    login: (accessToken: string, user: User) => void;
+    setTokens: (accessToken: string) => void;
     /** Clear local auth state immediately (without server revocation). */
     clearAuth: () => void;
     /**
-     * Revoke the refresh token server-side then clear local state.
+     * Revoke the refresh token server-side (HttpOnly cookie `rt`, sent
+     * automatically same-origin) then clear local state.
      * Clears local state even if the server call fails.
      */
     logout: () => Promise<void>;
+    /**
+     * Silent session restoration attempted at boot: tries the HttpOnly
+     * refresh cookie. A 401 simply means "not logged in" and is not an error.
+     * `user` stays persisted in localStorage for display only — real
+     * authentication comes from this refresh call, never from localStorage.
+     */
+    restoreSession: () => Promise<boolean>;
 }
 
 const clearState = {
     accessToken: null,
-    refreshToken: null,
-    user: null,
     isAuthenticated: false,
 };
 
 export const useAuthStore = create<AuthState>()(
     persist(
-        (set, get) => ({
+        (set) => ({
             accessToken: null,
-            refreshToken: null,
             user: null,
             isAuthenticated: false,
-            login: (accessToken, refreshToken, user) =>
-                set({ accessToken, refreshToken, user, isAuthenticated: true }),
-            setTokens: (accessToken, refreshToken) =>
-                set({ accessToken, refreshToken, isAuthenticated: true }),
+            login: (accessToken, user) => set({ accessToken, user, isAuthenticated: true }),
+            setTokens: (accessToken) => set({ accessToken, isAuthenticated: true }),
             clearAuth: () => set(clearState),
             logout: async () => {
-                const rt = get().refreshToken;
-                if (rt) {
-                    try {
-                        await fetch(`${import.meta.env.VITE_API_URL ?? ''}/api/v1/auth/logout`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ refreshToken: rt }),
-                        });
-                    } catch {
-                        // Network failure — still clear local state
-                    }
+                try {
+                    await fetch('/api/v1/auth/logout', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                    });
+                } catch {
+                    // Network failure — still clear local state
                 }
                 set(clearState);
+            },
+            restoreSession: async () => {
+                try {
+                    const r = await fetch('/api/v1/auth/refresh', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                    });
+                    if (!r.ok) {
+                        set(clearState);
+                        return false;
+                    }
+                    const d = (await r.json()) as { accessToken: string };
+                    set({ accessToken: d.accessToken, isAuthenticated: true });
+                    return true;
+                } catch {
+                    set(clearState);
+                    return false;
+                }
             },
         }),
         {
             name: 'auth',
             storage: createJSONStorage(() => localStorage),
-            partialize: (s) => ({ refreshToken: s.refreshToken, user: s.user }),
-            onRehydrateStorage: () => (state) => {
-                if (state?.refreshToken) state.isAuthenticated = true;
-            },
+            partialize: (s) => ({ user: s.user }),
         },
     ),
 );

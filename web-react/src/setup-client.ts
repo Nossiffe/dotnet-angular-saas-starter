@@ -19,22 +19,18 @@ client.interceptors.response.use(async (response, request) => {
         return response;
     }
     refreshing ??= (async () => {
-        const { refreshToken, setTokens, clearAuth } = useAuthStore.getState();
-        if (!refreshToken) {
-            clearAuth();
-            return null;
-        }
-        const r = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/auth/refresh`, {
+        // Le refresh token ne transite jamais en JS : il vit dans le cookie
+        // HttpOnly `rt` (Path=/api/v1/auth), envoyé automatiquement (même-origine).
+        const r = await fetch('/api/v1/auth/refresh', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refreshToken }),
+            credentials: 'same-origin',
         });
         if (!r.ok) {
-            clearAuth();
+            useAuthStore.getState().clearAuth();
             return null;
         }
-        const d = (await r.json()) as { accessToken: string; refreshToken: string };
-        setTokens(d.accessToken, d.refreshToken);
+        const d = (await r.json()) as { accessToken: string };
+        useAuthStore.getState().setTokens(d.accessToken);
         return d.accessToken;
     })();
     let newToken: string | null;

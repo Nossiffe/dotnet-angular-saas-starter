@@ -22,11 +22,6 @@ const schema = z.object({
 });
 type Values = z.infer<typeof schema>;
 
-interface AuthResponse {
-    accessToken: string;
-    refreshToken: string;
-}
-
 export function LoginPage() {
     const navigate = useNavigate();
     const search = useSearch({ from: '/login' });
@@ -39,8 +34,7 @@ export function LoginPage() {
     const loginMut = useMutation({
         ...postApiV1AuthLoginMutation(),
         onSuccess: (data, vars) => {
-            const resp = data as AuthResponse;
-            login(resp.accessToken, resp.refreshToken, {
+            login(data.accessToken, {
                 email: (vars.body as { email: string }).email,
             });
             const safeTo =
