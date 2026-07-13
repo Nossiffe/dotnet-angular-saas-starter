@@ -1,0 +1,82 @@
+name: Dependencies audit (CVE)
+
+on:
+  pull_request:
+    paths:
+      - 'Directory.Packages.props'
+      - '**/packages.lock.json'
+      - '**/package-lock.json'
+      - '**/package.json'
+  schedule:
+    - cron: '0 5 * * 1' # lundi 05h UTC — attrape les CVE publiées sans changement de code
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dotnet-audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # commentaire d'échec sur la PR
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: '10.x'
+      - name: Restore
+        run: dotnet restore Saas.slnx
+      - name: Audit NuGet (fail sur High/Critical, direct + transitif)
+        run: |
+          dotnet list Saas.slnx package --vulnerable --include-transitive --format json > audit.json
+          cat audit.json
+          HIGH=$(python3 - <<'EOF'
+          import json
+          data = json.load(open('audit.json'))
+          count = 0
+          for project in data.get('projects', []):
+              for framework in project.get('frameworks', []) or []:
+                  for kind in ('topLevelPackages', 'transitivePackages'):
+                      for package in framework.get(kind, []) or []:
+                          for vulnerability in package.get('vulnerabilities', []) or []:
+                              if vulnerability.get('severity') in ('High', 'Critical'):
+                                  print(f"::error::{package['id']} {vulnerability.get('severity')} {vulnerability.get('advisoryurl','')}")
+                                  count += 1
+          print(count)
+          EOF
+          )
+          HIGH=$(echo "$HIGH" | tail -1)
+          if [ "$HIGH" != "0" ]; then
+            echo "::error::$HIGH vulnérabilité(s) High/Critical NuGet — voir security/deps-review-TEMPLATE.md pour documenter une exception"
+            exit 1
+          fi
+      - name: Commentaire PR (échec audit)
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body \
+            "⛔ **deps-audit** : vulnérabilité(s) High/Critical détectée(s) — voir le log du job \`dotnet-audit\` de ce run. Corriger (bump/pin) ou documenter une exception datée via \`security/deps-review-TEMPLATE.md\`."
+
+  npm-audit:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        front: [web-angular, web-react]
+    defaults:
+      run:
+        working-directory: ${{ matrix.front }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - name: Audit npm (prod deps, fail sur high/critical)
+        run: npm audit --omit=dev --audit-level=high

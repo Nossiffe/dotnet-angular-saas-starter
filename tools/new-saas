@@ -326,18 +326,12 @@ if [ -f "$CI_FILE" ]; then
   fi
 fi
 
-# Nettoyer .github/dependabot.yml — retirer l'entrée npm du front retiré
-DEPENDABOT="$DEST/.github/dependabot.yml"
-if [ -f "$DEPENDABOT" ]; then
-  # Chaque entrée commence à "  - package-ecosystem" ; on droppe le bloc dont la directory = front retiré
-  awk -v rm="/$REMOVE" '
-    /^  - package-ecosystem/ {
-      if (prev != "" && prev !~ ("\"" rm "\"")) printf "%s", prev
-      prev = ""
-    }
-    { prev = prev $0 ORS }
-    END { if (prev !~ ("\"" rm "\"")) printf "%s", prev }
-  ' "$DEPENDABOT" > "$DEPENDABOT.tmp" && mv "$DEPENDABOT.tmp" "$DEPENDABOT"
+# Nettoyer .github/workflows/deps-audit.yml — restreindre la matrice
+# npm-audit au front conservé (sinon le job échoue sur un working-directory
+# inexistant pour le front retiré)
+DEPS_AUDIT="$DEST/.github/workflows/deps-audit.yml"
+if [ -f "$DEPS_AUDIT" ]; then
+  sed -i "s/front: \[web-angular, web-react\]/front: [$KEEP]/" "$DEPS_AUDIT"
 fi
 
 # Nettoyer lefthook.yml — supprimer les commandes du front retiré

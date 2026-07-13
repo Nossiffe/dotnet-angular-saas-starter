@@ -19,6 +19,10 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <NuGetAudit>true</NuGetAudit>
     <NuGetAuditMode>all</NuGetAuditMode>
+    <!-- NU1901-NU1904 sont des warnings → erreurs via TreatWarningsAsErrors.
+         Level low = toute sévérité remonte (le tri High/Critical bloquant vit
+         dans deps-audit.yml ; ici, tout est bloquant par design). -->
+    <NuGetAuditLevel>low</NuGetAuditLevel>
   </PropertyGroup>
 
   <!-- Builds déterministes / reproductibles -->

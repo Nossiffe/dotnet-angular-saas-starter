@@ -134,7 +134,7 @@ run_front() {
   while IFS= read -r -d '' f; do
     YAML_FILES+=("$f")
   done < <(find "$DEST/.github" -name "*.yml" -print0 2>/dev/null || true)
-  for f in "$DEST/docker-compose.yml" "$DEST/lefthook.yml" "$DEST/.github/dependabot.yml"; do
+  for f in "$DEST/docker-compose.yml" "$DEST/lefthook.yml"; do
     [ -f "$f" ] && YAML_FILES+=("$f") || true
   done
   # Remove duplicates
