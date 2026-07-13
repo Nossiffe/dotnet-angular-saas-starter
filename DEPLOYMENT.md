@@ -29,15 +29,19 @@ Le workflow `.github/workflows/release.yml` se déclenche sur un tag `v*` (ou ma
 pour chaque release :
 
 1. **Build & push** l'image sur GHCR (`ghcr.io/<repo>`), taguée par semver + SHA court.
-2. **Attestation de provenance** (SLSA build L2, `actions/attest-build-provenance`) sur le
-   digest de l'image poussée — preuve vérifiable que l'image provient bien de ce repo/run/commit,
-   publiée sur le registre GHCR.
-3. **SBOM** (Software Bill of Materials) :
-   - Backend : `dotnet tool run dotnet-CycloneDX Saas.slnx -o sbom --filename sbom-backend.json --json`
-     (format CycloneDX ; ~151 composants sur ce template).
+2. **SBOM** (Software Bill of Materials), généré avant l'attestation (voir note ci-dessous) :
+   - Backend : `dotnet tool run dotnet-CycloneDX -- Saas.slnx -o sbom --filename sbom-backend.json --json`
+     (format CycloneDX ; ~151 composants sur ce template — le `--` sépare les arguments de
+     `dotnet tool run` de ceux passés à l'outil).
    - Chaque front : `npm sbom --sbom-format cyclonedx --omit dev` (SBOM natif npm, dépendances
      de prod uniquement).
    - Tous les fichiers `sbom/*.json` sont publiés en artifact du run (`actions/upload-artifact`).
+3. **Attestation de provenance** (SLSA build L2, `actions/attest-build-provenance`) sur le
+   digest de l'image poussée — preuve vérifiable que l'image provient bien de ce repo/run/commit,
+   publiée sur le registre GHCR. Placée **après** les SBOM dans le workflow : sur ce repo privé
+   (hors GitHub Enterprise), cette étape échoue par construction (transparence log requiert
+   Advanced Security) — un échec attendu ici ne doit pas priver de leurs SBOM les images déjà
+   poussées.
 
 ### Vérifier l'attestation d'une image
 

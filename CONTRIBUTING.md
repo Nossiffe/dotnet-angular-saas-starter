@@ -126,11 +126,23 @@ dotnet test --filter "Unit"    # unit seulement (sans Docker)
 | `ci.yml` | Push/PR/`merge_group` sur `main` | Build + tests (unit/intégration/archi) + gate lint/format/typecheck des 2 fronts + couverture backend (coverlet → summary + artifact, **non bloquante** — cf. § Couverture) | Lire le log du job en échec (build/tests/front) ; une couverture qui baisse n'échoue jamais le job, c'est un signal |
 | `smoke.yml` | Push `main` + PR touchant le backend (`src/`, `Directory.Packages.props`, `scripts/smoke.sh`, `docker-compose.yml`) + manuel | Bout-en-bout réel (Postgres + Mailpit + API + Hangfire) via `scripts/smoke.sh` | Reproduire en local : `docker compose up -d db mailpit && dotnet run --project src/Api` puis `bash scripts/smoke.sh` |
 | `deps-audit.yml` | PR touchant les manifests de deps (`Directory.Packages.props`, `packages.lock.json`, `package.json`/`package-lock.json`) + cron hebdo (lundi 05h UTC) + manuel | Bloque sur CVE High/Critical — `dotnet-audit` (NuGet, direct + transitif) et `npm-audit` (par front, prod deps seulement) | Corriger (bump/pin) ou documenter une exception datée — voir § Procédure d'exception CVE ci-dessous |
-| `zizmor.yml` | Push/PR touchant `.github/workflows/**` | Lint de sécurité des workflows GitHub Actions (permissions, injections, cache-poisoning…) → SARIF dans l'onglet Security | Reproduire en local : `uvx zizmor .github/workflows/` ; corriger le finding (permissions minimales, pin SHA, échappement d'input) |
+| `zizmor.yml` | Push/PR touchant `.github/workflows/**` | Lint de sécurité des workflows GitHub Actions (permissions, injections, cache-poisoning…) — mode console (`advanced-security: false`, repo privé sans Advanced Security), exit non nul = bloquant | Reproduire en local : `uvx zizmor .github/workflows/` ; corriger le finding (permissions minimales, pin SHA, échappement d'input) |
 | `stryker.yml` | Cron hebdo + manuel | Mutation testing (Application + Domain) — **non bloquant actuellement** | Voir § Mutation testing ci-dessous (incompatibilité xunit.v3/MTP en cours) |
-| `release.yml` | Tag `v*` + manuel | Build + push image GHCR, attestation de provenance (SLSA build L2), SBOM (CycloneDX backend + npm natif par front) | Voir `DEPLOYMENT.md` § Release — image, SBOM, attestation |
+| `release.yml` | Tag `v*` + manuel | Build + push image GHCR, SBOM (CycloneDX backend + npm natif par front), attestation de provenance (SLSA build L2) | Voir `DEPLOYMENT.md` § Release — image, SBOM, attestation |
 | `generator.yml` | Push/PR touchant `tools/new-saas`, `scripts/test-generator.sh` ou `.github/**` | Génère les 2 variantes du template (Angular/React) et vérifie l'absence de résidu (nom du template, front retiré, ports) + build | Reproduire en local : `bash scripts/test-generator.sh` (quelques minutes, build .NET compris) |
 | `codeql.yml` / `security.yml` | Push/PR (préexistants) | SAST (CodeQL C#/TS) + secret scanning (gitleaks) | Voir l'onglet Security du repo |
+
+> **CodeQL sur repo privé** : `codeql.yml` requiert GitHub Advanced Security sur un
+> dépôt privé (payant hors Enterprise) — sans ça, le job `analyze` ressort rouge,
+> pré-existant à ce chantier. Activer Advanced Security ou désactiver le workflow
+> selon le plan GitHub du dépôt.
+
+> **Merge queue** : si la merge queue GitHub est activée sur `main`, ajouter le
+> déclencheur `merge_group:` à chaque workflow marqué comme required check (déjà
+> fait pour `ci.yml` — cf. tableau ci-dessus) ; sinon la queue attend indéfiniment
+> un statut qui ne sera jamais posté. Attention en particulier au filtre `paths:`
+> de `smoke.yml` : un run de merge queue n'a pas le même diff `paths` qu'une PR —
+> un required check qui ne se déclenche jamais bloquerait la queue indéfiniment.
 
 ### Renovate — mises à jour de dépendances
 
