@@ -162,7 +162,9 @@ if (app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
     // On vide donc ces listes : la validation est déléguée au fait que ce bloc est déjà
     // config-gated (ForwardedHeaders:Enabled, alias ASPNETCORE_FORWARDEDHEADERS_ENABLED) —
     // à n'activer que derrière un proxy de confiance qui ÉCRASE ces en-têtes pour les requêtes
-    // externes (sinon un client pourrait usurper X-Forwarded-* directement).
+    // externes. Conséquence d'un mauvais déploiement (flag actif + port API joignable en
+    // direct) : X-Forwarded-For forgeable → partitionnement IP du rate limiting faussé.
+    // Le port de l'API ne doit alors être joignable QUE depuis le réseau du proxy (DEPLOYMENT.md).
     forwardedHeadersOptions.KnownIPNetworks.Clear();
     forwardedHeadersOptions.KnownProxies.Clear();
     forwardedHeadersOptions.ForwardLimit = 1;

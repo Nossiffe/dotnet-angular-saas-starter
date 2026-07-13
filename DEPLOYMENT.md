@@ -45,7 +45,7 @@ Les variables marquées **Required** sont validées au démarrage (`builder.Conf
 | `DATABASE_READONLY_URL` | Optionnel | DSN Postgres lecture seule pour le MCP dbhub — pointer un rôle sans droits d'écriture |
 | `RateLimiting__DisableAuthPolicy` | **Ne pas activer** | Désactive le rate-limiter `/auth` — **doit rester `false` en production** (honoré uniquement en Development) |
 | `DataProtection__KeysPath` | Recommandé en prod | Répertoire du volume persistant pour les clés Data Protection — voir § dédiée ci-dessous |
-| `ForwardedHeaders__Enabled` | Recommandé derrière un proxy | `true` si l'API est derrière un reverse-proxy/ingress qui termine TLS — voir § dédiée ci-dessous |
+| `ForwardedHeaders__Enabled` | Recommandé derrière un proxy | `true` si l'API est derrière un reverse-proxy/ingress qui termine TLS — voir § dédiée ci-dessous. ⚠️ Avec ce flag actif, l'API fait confiance à `X-Forwarded-*` : son port ne doit être joignable **que** depuis le réseau du proxy (jamais exposé publiquement), sinon un client forgerait son IP et fausserait le rate limiting |
 
 ### Variables optionnelles (valeurs par défaut)
 
