@@ -69,6 +69,33 @@ le reverse-proxy de production doit servir le front et l'API sous le **même sch
 ne sera jamais envoyé vers l'API et le refresh échouera silencieusement. Documenté dans
 `DEPLOYMENT.md` § cookie/même-site.
 
+## Limites documentées
+
+- **`SameSite=Strict` est same-SITE, pas same-ORIGIN.** L'hypothèse implicite ci-dessus
+  (« pas de frontière cross-site à protéger ») repose sur des **sous-domaines maîtrisés** : un
+  cookie `SameSite=Strict` posé par `app.example.com` est aussi envoyé pour une requête initiée
+  depuis n'importe quel `*.example.com`. Un sous-domaine compromis (ex. XSS sur un site vitrine
+  ou une preview d'environnement partageant le domaine enregistrable) pourrait donc déclencher
+  des `POST /auth/refresh` ou `/auth/logout` — nuisance (rotation forcée, déconnexion) mais
+  **sans lecture possible** (la réponse va au domaine d'origine réel, pas à l'attaquant) : pas
+  d'exfiltration du refresh token via ce vecteur.
+- **`Path=/api/v1/auth` est codé en dur** dans `Saas.Api.Common.RefreshCookie`, pas dérivé de la
+  version d'API courante. Une future v2 (`/api/v2/auth/...`) doit soit **garder les routes
+  d'authentification en v1** (le cookie continue de matcher), soit **ré-émettre explicitement le
+  cookie** avec le nouveau `Path` au moment de la bascule — sinon le cookie posé par une v1
+  antérieure ne sera jamais envoyé sur les routes v2 (le refresh échouera silencieusement pour
+  les clients déjà authentifiés). Voir `Saas.Api.Common.RefreshCookie` au moment de cette bascule.
+
+## Logout — `AllowAnonymous`
+
+`/auth/logout` est délibérément `AllowAnonymous` (pas de `RequireAuthorization()`) : la
+credential réelle du logout est la **possession** du cookie HttpOnly `rt`, pas l'access token
+Bearer. Un access token expiré ou absent ne doit pas empêcher un utilisateur de se déconnecter ;
+la révocation est idempotente (rien à révoquer si pas de cookie → 204 quand même) et la
+suppression de cookie est sans effet de bord. Le logout-CSRF que `RequireAuthorization()`
+aurait empêché reste couvert par `SameSite=Strict` (§ ci-dessus) — au pire une nuisance
+(déconnexion forcée), jamais une fuite de données. Voir `AuthEndpoints.cs`.
+
 ## Alternatives écartées
 
 - **BFF (Backend-For-Frontend) complet** — un serveur intermédiaire par front qui détiendrait

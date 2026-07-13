@@ -75,7 +75,7 @@ server {
     server_name app.example.com;
 
     location /api/ {
-        proxy_pass http://api:8080/;
+        proxy_pass http://api:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -121,6 +121,12 @@ En Kubernetes, un `PersistentVolumeClaim` monté au même chemin. **En multi-ins
 volume doit être **partagé** entre les pods (ex. `ReadWriteMany`, ou un stockage réseau) —
 sinon chaque instance génère ses propres clés et ne peut pas déchiffrer les tokens émis par
 une autre instance.
+
+**Avertissement (démarrage)** : par défaut, ASP.NET Core Data Protection persiste les clés
+**en clair** sur le volume (aucun chiffrement au repos) — protéger l'accès au volume (permissions
+fichier, chiffrement du stockage sous-jacent) comme n'importe quel secret. Pour une cible ASVS
+Level 2, envisager `ProtectKeysWithCertificate` (chiffrement des clés elles-mêmes avec un
+certificat X.509) plutôt que la persistance en clair par défaut.
 
 ---
 
