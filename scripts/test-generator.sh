@@ -130,8 +130,10 @@ run_front() {
   fi
 
   # --- (d) dotnet restore --locked-mode + dotnet build --no-restore -----------
+  # En local, dotnet est fourni via mise ; en CI (setup-dotnet), mise n'existe pas.
+  if command -v mise >/dev/null 2>&1; then DOTNET_CMD=(mise exec -- dotnet); else DOTNET_CMD=(dotnet); fi
   info "Assertion (d): dotnet restore --locked-mode && dotnet build --no-restore..."
-  if ( cd "$DEST" && mise exec -- dotnet restore --locked-mode 2>&1 && mise exec -- dotnet build --no-restore 2>&1 ); then
+  if ( cd "$DEST" && "${DOTNET_CMD[@]}" restore --locked-mode 2>&1 && "${DOTNET_CMD[@]}" build --no-restore 2>&1 ); then
     pass "(d) dotnet restore --locked-mode && dotnet build --no-restore: OK"
   else
     fail "(d) dotnet restore/build failed (see output above)"
