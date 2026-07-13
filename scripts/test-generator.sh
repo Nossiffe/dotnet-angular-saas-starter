@@ -82,7 +82,7 @@ run_front() {
   # as they existed then) — rewriting it post-hoc to erase one front would
   # falsify the historical record. The generator does NOT touch ADRs.
   # Only assert on actual generated SaaS content.
-  info "Assertion (b): no references to removed front '$REMOVE' (excl. tools/, scripts/, .github/workflows/generator.yml, docs/adr/)..."
+  info "Assertion (b): no references to removed front '$REMOVE' (excl. tools/, scripts/, .github/workflows/generator.yml, docs/adr/0004)..."
   FRONT_RESIDUALS=$(grep -rnI "$REMOVE" "$DEST" \
     --exclude-dir=node_modules \
     --exclude-dir=bin \
@@ -93,7 +93,7 @@ run_front() {
     | grep -v "^$DEST/tools/" \
     | grep -v "^$DEST/scripts/" \
     | grep -v "^$DEST/.github/workflows/generator.yml:" \
-    | grep -v "^$DEST/docs/adr/" \
+    | grep -v "^$DEST/docs/adr/0004-refresh-cookie.md:" \
     || true)
   if [ -z "$FRONT_RESIDUALS" ]; then
     pass "(b) No '$REMOVE' references (outside meta-files)"
