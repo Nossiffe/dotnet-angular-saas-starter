@@ -314,7 +314,18 @@ Les domain events ne sont plus dispatchés directement après `SaveChanges`. Le 
 
 ### HybridCache (.NET 10)
 
-`AddHybridCache()` — **L1 en mémoire** par défaut. Cache-aside sur `GetProductByIdHandler` (clé `product:{tenantId}:{id}`), invalidation explicite (`RemoveAsync`) dans `UpdateProductHandler` / `DeleteProductHandler` après le save. Les « miss » (produit absent) ne sont pas conservés en cache.
+`AddHybridCache()` — **L1 en mémoire** par défaut. Cache **déclaratif opt-in** : décorer un
+`record XxxQuery` de `[CachedQuery(seconds, Tag = "…")]` active le `CachingBehavior<,>` du
+pipeline Mediator (enregistré après `ValidationBehavior`) — une query sans l'attribut traverse
+le behavior sans écriture de cache. Réservé aux queries **tenant-scoped** : clé
+(`q:{tenantId}:{Query}:{json}`) et tags (`t:{tenantId}` + `t:{tenantId}:{Tag}`) viennent
+d'`ITenantProvider` (fail-closed). Seuls les succès sont cachés (jamais l'erreur d'un
+`ErrorOr<T>`). Invalidation par write : `cache.RemoveByTagAsync($"t:{tenantId}:{tag}", ct)`
+(`UpdateProductHandler`/`DeleteProductHandler`) — **logique**, pas physique (doc officielle
+HybridCache : `RemoveByTagAsync` ignore toute entrée antérieure au point d'invalidation plutôt
+que de la supprimer). Migré : `GetProductByIdQuery` (`[CachedQuery(60, Tag = "products")]`).
+Détail complet (piège du contexte détaché `HttpContext`, citation verbatim de l'invalidation
+par tag) : `.claude/rules/dotnet.md` § Cache applicatif.
 
 **Passer en distribué (L2 Redis)** : ajouter `Microsoft.Extensions.Caching.StackExchangeRedis` puis :
 ```csharp

@@ -71,6 +71,35 @@ dotnet ef migrations add <NomMigration> --project src/Infrastructure --startup-p
 ```
 Toujours relire le fichier généré avant de commiter. Détail : `.claude/skills/add-migration/SKILL.md`
 
+### Modèles EF compilés (`dotnet ef dbcontext optimize`) — non activé par défaut
+
+**Qu'est-ce que c'est** : `dotnet ef dbcontext optimize` génère une version **compilée** du
+modèle EF Core (classes C# générées, `RuntimeModel`) au lieu de le construire par réflexion au
+premier accès au `DbContext`. Gain : temps de démarrage (le modèle n'est plus construit au
+runtime) — significatif seulement sur de **gros modèles** (centaines à milliers d'entity
+types/relations selon la doc officielle EF Core, § « Compiled models »).
+
+```bash
+dotnet ef dbcontext optimize --project src/Infrastructure --startup-project src/Api
+```
+
+**Quand l'utiliser** : modèle EF volumineux où le temps de démarrage devient sensible, ou
+publication **Native AOT** (`--nativeaot --precompile-queries`, requis pour AOT si le projet
+contient des requêtes).
+
+**Pourquoi PAS activé par défaut dans ce template** :
+- **Incompatible avec les global query filters** — limitation documentée par Microsoft
+  (« Advanced Performance Topics » § Compiled models, « Limitations ») : *"Global query filters
+  are not supported"*. Or l'isolation multi-tenant de ce template repose entièrement sur les
+  named query filters EF (`"TenantFilter"`/`"SoftDeleteFilter"`, cf. `.claude/rules/security.md`)
+  — activer un modèle compilé casserait cette garantie « par construction ». C'est la raison
+  bloquante, avant même la taille du modèle actuel.
+- Fichiers générés à maintenir : le modèle compilé doit être **régénéré manuellement** à chaque
+  changement de modèle/configuration (pas de détection automatique sans le package MSBuild
+  `Microsoft.EntityFrameworkCore.Tasks`) — un pas de process supplémentaire pour un gain non
+  mesuré ici (modèle actuel : quelques agrégats, très loin des « centaines/milliers » où le gain
+  devient perceptible). YAGNI au gabarit actuel.
+
 ### Regénérer les clients API (skill `/sync-api-client`)
 
 ```bash

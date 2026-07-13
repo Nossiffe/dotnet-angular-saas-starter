@@ -1,9 +1,8 @@
-import AxeBuilder from '@axe-core/playwright';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './axe-fixture';
 
-test('page login sans violation a11y critique', async ({ page }) => {
+test('page login sans violation a11y critique', async ({ page, makeAxeBuilder }) => {
   await page.goto('/login');
-  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  const results = await makeAxeBuilder().analyze();
   const blocking = results.violations.filter(
     (v) => v.impact === 'critical' || v.impact === 'serious',
   );

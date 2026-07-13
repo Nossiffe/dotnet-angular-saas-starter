@@ -9,6 +9,8 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 ### Added
 - Timeouts de requête globaux (`RequestTimeouts:DefaultSeconds`, 30 s par défaut) et output cache câblé opt-in strict (aucune policy par défaut — activation explicite par endpoint via `.CacheOutput(...)`).
 - Cache déclaratif `[CachedQuery]` : le `CachingBehavior` du pipeline Mediator cache les queries opt-in dans HybridCache avec clé et tags scopés au tenant (invalidation logique par tag sur write) ; la slice Products l'adopte.
+- Tests a11y (Angular + React) : fixture `makeAxeBuilder` (pattern officiel Playwright) étendant les tags à WCAG 2.2 AA (`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`).
+- Doc backend : `.claude/rules/dotnet.md` complété (citation verbatim de l'invalidation logique HybridCache par tag, note sur la non-activation délibérée de `AddValidation` natif Minimal APIs) ; `CONTRIBUTING.md` documente `dotnet ef dbcontext optimize` (modèles EF compilés) et pourquoi il reste désactivé (incompatible avec les global query filters tenant/soft-delete).
 
 ### Changed
 - Stack de test basculée sur le runner natif **Microsoft Testing Platform** (MTP) : `global.json` §test + `UseMicrosoftTestingPlatformRunner` sur xunit.v3, retrait de VSTest (`Microsoft.NET.Test.Sdk`, `xunit.runner.visualstudio`) et de `coverlet.collector`. Couverture désormais produite par `Microsoft.Testing.Extensions.CodeCoverage` (`dotnet test --coverage --coverage-output-format cobertura`) ; step CI et résumé de couverture adaptés (fichiers `<guid>.cobertura.xml`).
