@@ -12,6 +12,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 
 ### Changed
 - Stack de test basculée sur le runner natif **Microsoft Testing Platform** (MTP) : `global.json` §test + `UseMicrosoftTestingPlatformRunner` sur xunit.v3, retrait de VSTest (`Microsoft.NET.Test.Sdk`, `xunit.runner.visualstudio`) et de `coverlet.collector`. Couverture désormais produite par `Microsoft.Testing.Extensions.CodeCoverage` (`dotnet test --coverage --coverage-output-format cobertura`) ; step CI et résumé de couverture adaptés (fichiers `<guid>.cobertura.xml`).
+- Angular : retrait de `withFetch()` (fetch déjà par défaut en v22), `provideAnimationsAsync()` et du package `@angular/animations` — Material a abandonné sa dépendance au module animations depuis v19.2 (canari Playwright snack-bar validé sans le provider) ; verdicts sourcés Signal Forms (stable v22) et `@angular/aria` (stable v22, non installé — YAGNI) documentés dans `.claude/rules/angular.md`.
 
 ### Fixed
 - `OutboxProcessor` utilise `IDateTimeProvider` (testabilité).

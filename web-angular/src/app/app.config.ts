@@ -6,8 +6,7 @@ import {
   provideZonelessChangeDetection,
 } from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
-import { provideHttpClient, withInterceptors, withFetch } from '@angular/common/http';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth/auth.interceptor';
@@ -19,8 +18,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideZonelessChangeDetection(),
     provideRouter(routes, withComponentInputBinding()),
-    provideHttpClient(withFetch(), withInterceptors([authInterceptor, httpErrorInterceptor])),
-    provideAnimationsAsync(),
+    provideHttpClient(withInterceptors([authInterceptor, httpErrorInterceptor])),
     { provide: ErrorHandler, useClass: GlobalErrorHandler },
     // Restauration de session au boot : tentative silencieuse de refresh via
     // le cookie HttpOnly `rt`. 401 = non connecté, ne doit pas bloquer le
