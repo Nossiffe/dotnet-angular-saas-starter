@@ -28,10 +28,20 @@ jobs:
         with:
           dotnet-version: '10.x'
       - name: Restore
-        run: dotnet restore Saas.slnx
+        # TreatWarningsAsErrors=false + NuGetAudit=false : ce restore sert uniquement
+        # à alimenter l'audit ci-dessous, qui fait lui-même le tri de sévérité
+        # (High/Critical bloquant). Sans ça, le restore explose sur la moindre CVE
+        # Low/Moderate (Directory.Build.props impose NuGetAuditLevel=low +
+        # TreatWarningsAsErrors=true en build normal) avant même que le parseur ait
+        # pu trier — le triage ne se ferait jamais. Le garde-fou strict côté build
+        # normal reste inchangé (défense en profondeur, cf. security/README.md).
+        run: dotnet restore Saas.slnx -p:TreatWarningsAsErrors=false -p:NuGetAudit=false
       - name: Audit NuGet (fail sur High/Critical, direct + transitif)
         run: |
-          dotnet list Saas.slnx package --vulnerable --include-transitive --format json > audit.json
+          # `dotnet list package --vulnerable` peut sortir en exit non nul dès qu'une
+          # CVE existe (quelle que soit sa sévérité) — c'est le parseur Python
+          # ci-dessous qui décide du seuil bloquant (High/Critical), pas cette commande.
+          dotnet list Saas.slnx package --vulnerable --include-transitive --format json > audit.json || true
           cat audit.json
           HIGH=$(python3 - <<'EOF'
           import json

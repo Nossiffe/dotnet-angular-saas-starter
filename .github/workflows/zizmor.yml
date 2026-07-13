@@ -14,11 +14,20 @@ jobs:
   zizmor:
     runs-on: ubuntu-latest
     permissions:
-      contents: read # repo prive -> requis par zizmor-action en mode advanced-security
-      actions: read # idem (lecture des runs/artifacts pour l'analyse)
-      security-events: write # upload SARIF vers l'onglet Security
+      contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
+      # advanced-security: false -> mode console : le repo est privé et n'a pas
+      # GitHub Advanced Security (payant hors Enterprise), donc le mode SARIF
+      # par défaut ne peut pas uploader vers l'onglet Security et n'échoue de
+      # toute façon jamais sur des findings (c'est Advanced Security qui gate).
+      # En mode console, l'action ressort avec un exit code non nul dès qu'il y
+      # a des findings -> réellement bloquant. `security-events: write` (upload
+      # SARIF) devient inutile dans ce mode et est retiré. Repasser en mode
+      # SARIF (advanced-security: true) si le repo devient public ou passe sur
+      # un plan avec Advanced Security.
       - uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
+        with:
+          advanced-security: false

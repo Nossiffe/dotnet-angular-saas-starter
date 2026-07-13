@@ -76,12 +76,25 @@ d'audit.
 
 ## Seuils de sévérité
 
-| Sévérité | Action CI | Action humaine attendue |
-|---|---|---|
-| **Critical** | ❌ Bloque le merge (`deps-audit.yml`) | Corriger sous 24h ou exception documentée immédiate |
-| **High** | ❌ Bloque le merge (`deps-audit.yml`) | Corriger sous 7 jours ou exception documentée |
-| **Moderate** | 🟡 Signalé (warning `NuGetAuditLevel=low` côté NuGet ; non bloquant côté npm, `--audit-level=high`) | Revue à la prochaine échéance documentée |
-| **Low** | ℹ️ Signalé (warning `NuGetAuditLevel=low` côté NuGet uniquement) | Revue annuelle |
+Deux gardes-fous distincts, cumulatifs — c'est leur combinaison qui protège :
+
+- **`deps-audit.yml` (CI, triage)** : ne bloque que High/Critical, côté NuGet comme
+  côté npm (`--audit-level=high`). Le restore de ce workflow neutralise
+  volontairement `NuGetAuditLevel`/`TreatWarningsAsErrors`
+  (`-p:NuGetAudit=false -p:TreatWarningsAsErrors=false`) pour ne pas exploser sur
+  une CVE Low/Moderate avant que le parseur JSON ait pu faire le tri de sévérité.
+- **Build normal NuGet (`Directory.Build.props`, `NuGetAuditLevel=low` +
+  `TreatWarningsAsErrors=true`)** : plus strict — **toute** sévérité (y compris
+  Low/Moderate) remonte en warning puis erreur dès `dotnet build`/`dotnet restore`,
+  sans attendre le CI. Ce garde-fou local n'existe pas côté npm (pas d'équivalent
+  « audit à chaque build » configuré pour les fronts).
+
+| Sévérité | Action CI (`deps-audit.yml`, triage High/Critical) | Action build normal (NuGet uniquement) | Action humaine attendue |
+|---|---|---|---|
+| **Critical** | ❌ Bloque le merge | ❌ Bloque le build (`NuGetAuditLevel=low` + `TreatWarningsAsErrors`) | Corriger sous 24h ou exception documentée immédiate |
+| **High** | ❌ Bloque le merge | ❌ Bloque le build | Corriger sous 7 jours ou exception documentée |
+| **Moderate** | 🟡 Signalé côté npm (non bloquant, `--audit-level=high`) ; non remonté côté NuGet (le triage `deps-audit.yml` filtre sur High/Critical) | ❌ Bloque le build (NuGet) | Revue à la prochaine échéance documentée |
+| **Low** | Non remonté (ni NuGet ni npm — le triage CI filtre sur High/Critical) | ❌ Bloque le build (NuGet uniquement) | Revue annuelle |
 
 ---
 

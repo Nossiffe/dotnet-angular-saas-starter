@@ -64,6 +64,9 @@ jobs:
         with:
           dotnet-version: '10.x'
 
+      - name: Restaurer les outils .NET locaux (dotnet-ef)
+        run: dotnet tool restore
+
       - name: Build (--no-restore si cache disponible)
         run: dotnet build
 
