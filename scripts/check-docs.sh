@@ -87,7 +87,7 @@ path_exists_or_prefix() {
   local path="$1"
   # Chemins GÉNÉRÉS (gitignorés) : légitimement absents d'un checkout frais (CI).
   case "$path" in
-    web-angular/src/app/api/generated*|web-react/src/client*|web-react/src/routeTree.gen.ts)
+    web-angular/src/app/api/generated*|web-react/src/client*|web-react/src/routeTree.gen.ts|src/Api/Saas.Api.json)
       return 0 ;;
   esac
   # Vérification exacte d'abord

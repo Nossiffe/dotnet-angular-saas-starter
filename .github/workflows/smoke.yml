@@ -87,6 +87,7 @@ jobs:
           Email__Host=localhost \
           Email__Port=$MAILPIT_SMTP_PORT \
           Database__MigrateOnStartup=false \
+          Jwt__SigningKey="ci-smoke-only-not-a-secret-0123456789abcdef0123456789abcdef" \
           dotnet run --project src/Api --no-build &
           echo "API_PID=$!" >> $GITHUB_ENV
 
@@ -105,6 +106,8 @@ jobs:
         run: bash scripts/smoke.sh "$API_PORT"
         env:
           MAILPIT_UI_PORT: ${{ env.MAILPIT_UI_PORT }}
+          # Clé factice CI uniquement (base jetable du runner) — pas un secret.
+          Jwt__SigningKey: ci-smoke-only-not-a-secret-0123456789abcdef0123456789abcdef
 
       - name: Teardown (API + Docker)
         if: always()
