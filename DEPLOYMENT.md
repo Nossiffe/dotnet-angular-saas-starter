@@ -44,6 +44,8 @@ Les variables marquées **Required** sont validées au démarrage (`builder.Conf
 | `OTEL_SERVICE_NAME` | Optionnel | Nom du service pour les traces/métriques (défaut : `saas-api`) |
 | `DATABASE_READONLY_URL` | Optionnel | DSN Postgres lecture seule pour le MCP dbhub — pointer un rôle sans droits d'écriture |
 | `RateLimiting__DisableAuthPolicy` | **Ne pas activer** | Désactive le rate-limiter `/auth` — **doit rester `false` en production** (honoré uniquement en Development) |
+| `DataProtection__KeysPath` | Recommandé en prod | Répertoire du volume persistant pour les clés Data Protection — voir § dédiée ci-dessous |
+| `ForwardedHeaders__Enabled` | Recommandé derrière un proxy | `true` si l'API est derrière un reverse-proxy/ingress qui termine TLS — voir § dédiée ci-dessous |
 
 ### Variables optionnelles (valeurs par défaut)
 
@@ -55,6 +57,118 @@ Les variables marquées **Required** sont validées au démarrage (`builder.Conf
 | `Jwt__RefreshTokenDays` | `7` | Durée de vie du refresh token |
 
 ---
+
+## Cookie refresh & exigence même-site (SPA ↔ API)
+
+Le refresh token est transporté par un cookie `rt` `HttpOnly` + `Secure` + `SameSite=Strict`
++ `Path=/api/v1/auth` (décision complète : `docs/adr/0004-refresh-cookie.md`). `SameSite=Strict`
+signifie que le navigateur **n'envoie le cookie que si le front et l'API partagent le même
+site** (même schéma + même domaine enregistrable).
+
+**Conséquence pour le déploiement** : le reverse-proxy/ingress de production DOIT servir le
+SPA et l'API sous le **même host** (typiquement `app.example.com` avec `/api/*` réécrit vers
+le backend `api` interne). Exemple nginx :
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name app.example.com;
+
+    location /api/ {
+        proxy_pass http://api:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        root /usr/share/nginx/html; # build statique du SPA
+        try_files $uri /index.html;
+    }
+}
+```
+
+Si un déploiement cross-origin (domaines distincts pour le SPA et l'API) est un jour
+requis, `SameSite=Strict` ne fonctionnera plus (le cookie ne partira jamais) — il faudrait
+alors rouvrir l'ADR 0004 (`SameSite=None` + antiforgery, ou BFF), pas juste changer la valeur
+du cookie isolément.
+
+---
+
+## Data Protection — persistance des clés
+
+Les endpoints Identity (confirmation d'email, reset de mot de passe) chiffrent leurs tokens
+via **ASP.NET Core Data Protection**. Sans configuration explicite, les clés sont générées
+**en mémoire du conteneur** : elles disparaissent à chaque redémarrage/redéploiement, ce qui
+invalide silencieusement tous les tokens de confirmation/reset émis avant le redéploiement
+(l'utilisateur reçoit une erreur « lien invalide » sur un lien pourtant récent).
+
+**En production**, monter un volume persistant et pointer `DataProtection__KeysPath` dessus :
+
+```yaml
+services:
+  api:
+    volumes:
+      - dataprotection-keys:/app/keys
+    environment:
+      DataProtection__KeysPath: /app/keys
+
+volumes:
+  dataprotection-keys:
+```
+
+En Kubernetes, un `PersistentVolumeClaim` monté au même chemin. **En multi-instance**, ce
+volume doit être **partagé** entre les pods (ex. `ReadWriteMany`, ou un stockage réseau) —
+sinon chaque instance génère ses propres clés et ne peut pas déchiffrer les tokens émis par
+une autre instance.
+
+---
+
+## ForwardedHeaders derrière un reverse-proxy
+
+Quand l'API tourne derrière un reverse-proxy/ingress qui termine TLS (nginx, Traefik, ALB,
+Ingress Controller Kubernetes), Kestrel ne voit que la connexion **interne** (souvent HTTP,
+IP du proxy) — sans réécriture, `Request.Scheme` et `Connection.RemoteIpAddress` sont FAUX
+au niveau applicatif, ce qui casse `UseHsts`/`UseHttpsRedirection` (le HTTPS externe n'est
+pas vu par ASP.NET Core) et le calcul du `Secure` du cookie refresh.
+
+Activer explicitement :
+
+```
+ForwardedHeaders__Enabled=true
+```
+
+**Uniquement** quand un proxy de confiance est effectivement devant l'API (sinon un client
+pourrait usurper `X-Forwarded-For`/`X-Forwarded-Proto` directement — surface d'attaque si
+l'API est exposée sans proxy devant). Le middleware ne traite que `X-Forwarded-For` et
+`X-Forwarded-Proto`.
+
+---
+
+## Headers de sécurité — API vs SPA statique
+
+L'API applique déjà un preset de headers de sécurité (`NetEscapades.AspNetCore.SecurityHeaders`,
+`AddDefaultApiSecurityHeaders()` dans `Program.cs`) — rien à faire côté backend.
+
+Le **SPA statique** (Angular/React buildé, servi par nginx ou équivalent) a besoin de ses
+propres headers — notamment une CSP stricte, différente de celle de l'API (elle doit
+autoriser le runtime JS/CSS du bundle). Exemple nginx pour le hosting statique :
+
+```nginx
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+```
+
+- `style-src 'unsafe-inline'` : concession usuelle pour Angular (styles de composants
+  injectés inline) — à retirer et remplacer par des nonces/hashes si un audit ultérieur
+  l'exige pour React (qui en a généralement moins besoin selon la stack CSS utilisée).
+- `connect-src 'self'` fonctionne car le SPA et l'API sont même-origine (§ cookie ci-dessus)
+  — pas besoin d'y lister un host d'API distinct.
+- `frame-ancestors 'none'` : équivalent CSP de `X-Frame-Options: DENY`, redondant
+  volontairement (défense en profondeur pour les navigateurs qui ne supportent que l'un
+  des deux).
 
 ## Migrations de base de données
 
@@ -151,5 +265,5 @@ builder.Services.AddStackExchangeRedisCache(options =>
 
 La terminaison TLS est gérée au niveau du **reverse-proxy / ingress** (nginx, Traefik, ALB, Ingress Controller).
 
-- `HSTS` et `HttpsRedirection` sont actifs hors `Development` (cf. `Program.cs`).
-- En production, configurer le reverse-proxy pour forcer HTTPS et transmettre les headers `X-Forwarded-*` (`UseForwardedHeaders` si nécessaire selon la plateforme).
+- `HSTS` (`max-age` 730 jours, `includeSubDomains`) et `HttpsRedirection` sont actifs hors `Development` (cf. `Program.cs`). Le `preload` HSTS n'est **pas** activé par défaut (engagement quasi irréversible auprès des listes des navigateurs) — opt-in commenté dans `Program.cs`, à activer seulement après confirmation que le domaine reste HTTPS partout durablement.
+- En production, configurer le reverse-proxy pour forcer HTTPS et transmettre les headers `X-Forwarded-*`, et activer `ForwardedHeaders__Enabled=true` côté API (§ dédiée ci-dessus) pour qu'elle les interprète.
