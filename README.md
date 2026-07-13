@@ -17,11 +17,11 @@ new-saas demo --no-repo               # pas de création de repo distant
 
 ### Ce que fait `new-saas`
 
-1. **Copie** le template `~/dev/.templates/saas/` → `~/dev/<nom>/` (rsync, sans `bin/`, `obj/`, `node_modules/`, `docs/superpowers/`, etc.)
+1. **Copie** le template `~/dev/.templates/saas/` → `~/dev/<nom>/` (rsync, sans `bin/`, `obj/`, `node_modules/`, `docs/superpowers/`, `.superpowers/` (scratch de planification), etc.)
 2. **Tokenise l'identifiant** `Saas` → `<Pascal>` (namespaces, `.csproj`, `.slnx`, contenu des `.cs`, `.json`, `.ts`…) et renomme les fichiers.
 3. **Tokenise le nom lowercase** `saas` → `<nom>` (docker-compose, `.env.example`, appsettings, connection strings, labels JWT…).
-4. **Alloue un bloc de 10 ports** depuis le registre `~/dev/.saas-ports.tsv` (base depuis 5400, incrément de 10) et remplace les ports hardcodés dans launchSettings, proxy.conf, vite.config, appsettings, docker-compose, smoke.sh.
-5. **Retire le front non choisi** (`web-react/` ou `web-angular/`) et nettoie les références mortes : job CI (`.github/workflows/ci.yml`), hooks lefthook, règle `.claude/rules/`, CLAUDE.md.
+4. **Alloue un bloc de 10 ports** depuis le registre `~/dev/.saas-ports.tsv` (base depuis 5400, incrément de 10) et remplace les ports hardcodés dans launchSettings, proxy.conf, vite.config (dev server + proxy API), appsettings, docker-compose, smoke.sh, `.env.example`.
+5. **Retire le front non choisi** (`web-react/` ou `web-angular/`) et nettoie les références mortes : jobs CI (`ci.yml`, `deps-audit.yml`, `release.yml`), hooks lefthook, règle `.claude/rules/`, CLAUDE.md, `.claude/agents/doc-updater.md`, `security/README.md`, `security/deps-review-TEMPLATE.md`.
 6. **`git init` + commit initial** + `gh repo create` (si `gh` est authentifié et `--no-repo` non spécifié).
 7. **Met à jour le registre** `~/dev/.saas-ports.tsv` avec le nom et la base de ports allouée.
 

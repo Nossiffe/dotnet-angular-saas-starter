@@ -23,6 +23,34 @@ docker run --rm -p 8080:8080 \
 
 ---
 
+## Release — image, SBOM, attestation de provenance
+
+Le workflow `.github/workflows/release.yml` se déclenche sur un tag `v*` (ou manuellement) et,
+pour chaque release :
+
+1. **Build & push** l'image sur GHCR (`ghcr.io/<repo>`), taguée par semver + SHA court.
+2. **Attestation de provenance** (SLSA build L2, `actions/attest-build-provenance`) sur le
+   digest de l'image poussée — preuve vérifiable que l'image provient bien de ce repo/run/commit,
+   publiée sur le registre GHCR.
+3. **SBOM** (Software Bill of Materials) :
+   - Backend : `dotnet tool run dotnet-CycloneDX Saas.slnx -o sbom --filename sbom-backend.json --json`
+     (format CycloneDX ; ~151 composants sur ce template).
+   - Chaque front : `npm sbom --sbom-format cyclonedx --omit dev` (SBOM natif npm, dépendances
+     de prod uniquement).
+   - Tous les fichiers `sbom/*.json` sont publiés en artifact du run (`actions/upload-artifact`).
+
+### Vérifier l'attestation d'une image
+
+```bash
+gh attestation verify oci://ghcr.io/<owner>/<repo>:<tag> --owner <owner>
+```
+
+Une vérification réussie confirme que l'image a été construite par le workflow `release.yml`
+de ce dépôt (pas d'image substituée en amont du registre) — à faire avant tout déploiement
+d'une image tirée d'un registre partagé, ou en gate d'un pipeline de déploiement séparé.
+
+---
+
 ## Variables d'environnement / Secrets (production)
 
 Les variables marquées **Required** sont validées au démarrage (`builder.Configuration.GetRequired*`) — l'application refuse de démarrer si elles sont absentes ou vides. Utilisez un gestionnaire de secrets (Azure Key Vault, AWS Secrets Manager, Kubernetes Secrets, etc.) — **ne jamais committer ces valeurs**.

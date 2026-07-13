@@ -32,6 +32,11 @@ L'agent garde l'objectif en tête et ne se déclare pas fini tant que la gate n'
 
 **Docker est requis** pour les tests d'intégration (Testcontainers).
 
+**`dotnet tool restore` est requis une fois** (ou après tout `pull` qui touche
+`.config/dotnet-tools.json`) : installe les outils .NET locaux pinnés du manifest
+(`dotnet-ef`, `dotnet-stryker`, `dotnet-CycloneDX`). Sans ça, `dotnet ef migrations add`,
+`dotnet stryker` ou une génération de SBOM en local échouent (outil introuvable).
+
 ---
 
 ## Ajouter une feature
@@ -111,6 +116,43 @@ docs(adr): ADR-0003 slug uniqueness constraint
 dotnet test                    # tous
 dotnet test --filter "Unit"    # unit seulement (sans Docker)
 ```
+
+---
+
+## CI/CD — vue d'ensemble des workflows
+
+| Workflow | Déclencheur | Rôle | Si ça casse |
+|---|---|---|---|
+| `ci.yml` | Push/PR/`merge_group` sur `main` | Build + tests (unit/intégration/archi) + gate lint/format/typecheck des 2 fronts + couverture backend (coverlet → summary + artifact, **non bloquante** — cf. § Couverture) | Lire le log du job en échec (build/tests/front) ; une couverture qui baisse n'échoue jamais le job, c'est un signal |
+| `smoke.yml` | Push `main` + PR touchant le backend (`src/`, `Directory.Packages.props`, `scripts/smoke.sh`, `docker-compose.yml`) + manuel | Bout-en-bout réel (Postgres + Mailpit + API + Hangfire) via `scripts/smoke.sh` | Reproduire en local : `docker compose up -d db mailpit && dotnet run --project src/Api` puis `bash scripts/smoke.sh` |
+| `deps-audit.yml` | PR touchant les manifests de deps (`Directory.Packages.props`, `packages.lock.json`, `package.json`/`package-lock.json`) + cron hebdo (lundi 05h UTC) + manuel | Bloque sur CVE High/Critical — `dotnet-audit` (NuGet, direct + transitif) et `npm-audit` (par front, prod deps seulement) | Corriger (bump/pin) ou documenter une exception datée — voir § Procédure d'exception CVE ci-dessous |
+| `zizmor.yml` | Push/PR touchant `.github/workflows/**` | Lint de sécurité des workflows GitHub Actions (permissions, injections, cache-poisoning…) → SARIF dans l'onglet Security | Reproduire en local : `uvx zizmor .github/workflows/` ; corriger le finding (permissions minimales, pin SHA, échappement d'input) |
+| `stryker.yml` | Cron hebdo + manuel | Mutation testing (Application + Domain) — **non bloquant actuellement** | Voir § Mutation testing ci-dessous (incompatibilité xunit.v3/MTP en cours) |
+| `release.yml` | Tag `v*` + manuel | Build + push image GHCR, attestation de provenance (SLSA build L2), SBOM (CycloneDX backend + npm natif par front) | Voir `DEPLOYMENT.md` § Release — image, SBOM, attestation |
+| `generator.yml` | Push/PR touchant `tools/new-saas`, `scripts/test-generator.sh` ou `.github/**` | Génère les 2 variantes du template (Angular/React) et vérifie l'absence de résidu (nom du template, front retiré, ports) + build | Reproduire en local : `bash scripts/test-generator.sh` (quelques minutes, build .NET compris) |
+| `codeql.yml` / `security.yml` | Push/PR (préexistants) | SAST (CodeQL C#/TS) + secret scanning (gitleaks) | Voir l'onglet Security du repo |
+
+### Renovate — mises à jour de dépendances
+
+`renovate.json5` remplace Dependabot (`config:best-practices`, cooldown `minimumReleaseAge: 7 days`,
+groupage par écosystème, `@hey-api/openapi-ts` jamais groupé — pré-1.0, minors potentiellement
+breaking). **Action requise une seule fois côté utilisateur** : installer l'app GitHub
+*Mend Renovate* sur le dépôt (https://github.com/apps/renovate) — le fichier de config seul ne
+déclenche rien tant que l'app n'est pas installée sur le repo.
+
+### Procédure d'exception CVE
+
+Documentée intégralement dans `security/README.md` (§ Procédure d'exception) : ouvrir un ticket
+de suivi, documenter dans `security/deps-review-*.md` (copier `deps-review-TEMPLATE.md`), ne
+jamais désactiver `deps-audit.yml` pour contourner le blocage. `security/README.md` est écrit
+pour être lisible par un auditeur externe sans contexte préalable.
+
+### Couverture de code
+
+`ci.yml` collecte la couverture backend (coverlet, format Cobertura) à chaque run, l'affiche en
+summary et la publie en artifact (`coverage-backend`) — **volontairement non bloquante** : la
+qualité réelle des tests est gatée par Stryker (mutation testing), pas par un seuil de lignes
+couvertes (un seuil de couverture se contourne trivialement avec des tests sans assertion).
 
 ---
 
