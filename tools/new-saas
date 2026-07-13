@@ -500,6 +500,12 @@ if [ -f "$SKILL_MD" ]; then
   grep -v "$REMOVE" "$SKILL_MD" > "$SKILL_MD.tmp" && mv "$SKILL_MD.tmp" "$SKILL_MD"
 fi
 
+# .claude/patterns/README.md — drop the § Fronts row pointing at $REMOVE
+PATTERNS_MD="$DEST/.claude/patterns/README.md"
+if [ -f "$PATTERNS_MD" ]; then
+  grep -v "$REMOVE" "$PATTERNS_MD" > "$PATTERNS_MD.tmp" && mv "$PATTERNS_MD.tmp" "$PATTERNS_MD"
+fi
+
 # .dockerignore — remove the $REMOVE line
 DOCKERIGNORE="$DEST/.dockerignore"
 if [ -f "$DOCKERIGNORE" ]; then
