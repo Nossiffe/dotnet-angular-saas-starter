@@ -42,6 +42,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Une erreur de validation produisait trois logs d'erreur, dont un faux 500 ; elle est maintenant journalisée une fois, en 400.
 - Les logs n'atteignaient pas le provider OpenTelemetry : Serilog les transmet maintenant aux providers enregistrés.
 - Premier lancement sur une base vide : la migration automatique de développement ne journalise plus d'erreur EF (`Failed executing DbCommand`).
+- Sur un clone neuf, `npm start` échouait (`Cannot find module '../../api/generated'`) : `npm start` et `npm test` génèrent maintenant les types de l'API avant de démarrer.
 - Le build ne démarre plus de serveur Hangfire pendant la génération OpenAPI : une dizaine de lignes de log, dont deux avertissements, à chaque build.
 
 ### Removed
