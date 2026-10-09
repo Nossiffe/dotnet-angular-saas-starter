@@ -11,7 +11,7 @@ public sealed class DependencyRuleTests
     private const string Infrastructure = "Saas.Infrastructure";
     private const string Api = "Saas.Api";
 
-    private static readonly Assembly _domainAsm = typeof(Saas.Domain.Common.BaseEntity).Assembly;
+    private static readonly Assembly _domainAsm = typeof(Saas.Domain.Common.IDomainEvent).Assembly;
     private static readonly Assembly _applicationAsm = typeof(Saas.Application.DependencyInjection).Assembly;
 
     // Assemblies que le Domain a le droit de référencer : le runtime .NET, les types valeur

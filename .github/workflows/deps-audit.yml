@@ -2,6 +2,7 @@ name: Dependencies audit (CVE)
 
 on:
   pull_request:
+    branches: [main]
     paths:
       - 'Directory.Packages.props'
       - '**/packages.lock.json'
@@ -75,12 +76,9 @@ jobs:
 
   npm-audit:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        front: [web-angular]
     defaults:
       run:
-        working-directory: ${{ matrix.front }}
+        working-directory: web-angular
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
