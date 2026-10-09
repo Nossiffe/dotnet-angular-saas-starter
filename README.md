@@ -74,7 +74,7 @@ Confirmation and password reset e-mails land in Mailpit (http://localhost:8025).
 
 ## Documentation
 
-`README.md` and `web-angular/README.md` are in English, as are identifiers, test names and the commit messages since October 2026. Code comments, API error messages, the Angular interface, the documents listed below and the changelog are in French.
+`README.md`, `web-angular/README.md` and `SECURITY.md` are in English, as are identifiers, test names and the commit messages since October 2026. Code comments, API error messages, the Angular interface, the other documents listed below and the changelog are in French.
 
 | File | Content |
 |---|---|
@@ -83,6 +83,7 @@ Confirmation and password reset e-mails land in Mailpit (http://localhost:8025).
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | Docker image, production secrets, migration bundles, health probes, release |
 | [`docs/adr`](docs/adr) | Architecture decision records |
 | [`docs/error-codes.md`](docs/error-codes.md) | Business error registry |
+| [`SECURITY.md`](SECURITY.md) | How to report a vulnerability |
 | [`security/README.md`](security/README.md) | Dependency security policy |
 
 ## Local ports
