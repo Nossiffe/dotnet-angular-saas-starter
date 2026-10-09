@@ -5,7 +5,12 @@ public interface IIdentityService
     Task<CreateUserResult> CreateUserAsync(string email, string password, CancellationToken cancellationToken);
     Task<AppUser?> FindByEmailAsync(string email, CancellationToken cancellationToken);
     Task<AppUser?> FindByIdAsync(Guid userId, CancellationToken cancellationToken);
-    Task<bool> CheckPasswordAsync(Guid userId, string password, CancellationToken cancellationToken);
+    /// <summary>
+    /// Vérifie e-mail et mot de passe, avec verrouillage après échecs répétés. Renvoie null si les
+    /// identifiants sont invalides ou le compte verrouillé, en un temps qui ne dépend pas de
+    /// l'existence du compte.
+    /// </summary>
+    Task<AppUser?> CheckCredentialsAsync(string email, string password, CancellationToken cancellationToken);
     Task<IReadOnlyList<string>> GetRolesAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>Génère un token de confirmation d'email (Base64Url-encodé) pour le transport en lien.</summary>

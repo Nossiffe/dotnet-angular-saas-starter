@@ -35,15 +35,7 @@ public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> opti
         // Reuse detection: already-revoked token presented → theft signal → revoke all active tokens for user
         if (existing is not null && existing.RevokedAt is not null)
         {
-            var activeTokens = await db.RefreshTokens
-                .Where(t => t.UserId == existing.UserId && t.RevokedAt == null)
-                .ToListAsync(cancellationToken);
-            foreach (var active in activeTokens)
-            {
-                active.RevokedAt = clock.UtcNow;
-            }
-
-            await db.SaveChangesAsync(cancellationToken);
+            await RevokeAllAsync(existing.UserId, cancellationToken);
             return null;
         }
 
@@ -76,6 +68,14 @@ public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> opti
         }
 
         return new RotatedToken(existing.UserId, existing.TenantId, newRaw, _o.RefreshTokenDays);
+    }
+
+    public async Task RevokeAllAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var now = clock.UtcNow;
+        await db.RefreshTokens
+            .Where(t => t.UserId == userId && t.RevokedAt == null)
+            .ExecuteUpdateAsync(t => t.SetProperty(x => x.RevokedAt, now), cancellationToken);
     }
 
     public async Task RevokeAsync(string rawToken, CancellationToken cancellationToken)

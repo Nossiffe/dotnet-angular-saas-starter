@@ -139,6 +139,7 @@ public static class DependencyInjection
             .AddSignInManager()
             .AddDefaultTokenProviders(); // requis pour GenerateEmailConfirmationToken / GeneratePasswordResetToken
         services.AddScoped<IIdentityService, IdentityService>();
+        services.AddSingleton<DummyPasswordCheck>();
         // OWASP Password Storage Cheat Sheet : PBKDF2-SHA512 >= 210k itérations
         // (défaut Identity = 100k — insuffisant). Les hashes existants sont re-hashés
         // automatiquement au prochain login réussi (SuccessRehashNeeded).
