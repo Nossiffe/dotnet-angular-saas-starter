@@ -181,7 +181,7 @@ dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulemen
 | `smoke.yml` | Push `main` + PR touchant le backend (`src/`, `Directory.Packages.props`, `scripts/smoke.sh`, `docker-compose.yml`) + manuel | Bout-en-bout réel (Postgres + Mailpit + API + Hangfire) via `scripts/smoke.sh` | Reproduire en local : `docker compose up -d db mailpit && dotnet run --project src/Api` puis `bash scripts/smoke.sh` |
 | `deps-audit.yml` | PR touchant les manifests de deps (`Directory.Packages.props`, `packages.lock.json`, `package.json`/`package-lock.json`) + cron hebdo (lundi 05h UTC) + manuel | Bloque sur CVE High/Critical — `dotnet-audit` (NuGet, direct + transitif) et `npm-audit` (par front, prod deps seulement) | Corriger (bump/pin) ou documenter une exception datée — voir § Procédure d'exception CVE ci-dessous |
 | `zizmor.yml` | Push/PR touchant `.github/workflows/**` | Lint de sécurité des workflows GitHub Actions (permissions, injections, cache-poisoning…) — mode console (`advanced-security: false`), exit non nul = bloquant | Reproduire en local : `uvx zizmor .github/workflows/` ; corriger le finding (permissions minimales, pin SHA, échappement d'input) |
-| `stryker.yml` | Cron hebdo + manuel | Mutation testing des tests unitaires : Domain **bloquant** (seuil 60 %), Application mesuré seulement | Ouvrir le rapport HTML en artifact ; voir § Mutation testing ci-dessous |
+| `stryker.yml` | PR touchant le Domain ou ses tests (job Domain seul) + cron hebdo + manuel | Mutation testing des tests unitaires : Domain **bloquant** (seuil 60 %), Application mesuré seulement | Ouvrir le rapport HTML en artifact ; voir § Mutation testing ci-dessous |
 | `release.yml` | Tag `v*` + manuel | Build + push image GHCR, SBOM (CycloneDX backend + npm du front), attestation de provenance (SLSA build L2) | Voir `DEPLOYMENT.md` § Release — image, SBOM, attestation |
 | `codeql.yml` / `security.yml` | Push/PR sur `main` | SAST (CodeQL C#/TS) + secret scanning (gitleaks, règles par défaut) | Voir l'onglet Security du repo ; reproduire gitleaks en local : `gitleaks git .` |
 
@@ -237,8 +237,8 @@ handlers de l'Application sont couverts par les tests d'intégration sur Postgre
 survivent sans que la logique soit pour autant non testée. Le score est publié pour suivre son
 évolution, sans seuil.
 
-`stryker.yml` lance les deux mesures chaque lundi et à la demande ; le job Domain échoue sous le
-seuil. Stryker 5 utilise le runner Microsoft Testing Platform (`"test-runner": "mtp"`), celui
+`stryker.yml` lance les deux mesures chaque lundi et à la demande, et la mesure du Domain sur
+chaque PR qui touche le Domain ou ses tests ; le job Domain échoue sous le seuil. Stryker 5 utilise le runner Microsoft Testing Platform (`"test-runner": "mtp"`), celui
 des projets xunit.v3.
 
 ### Lancer une analyse

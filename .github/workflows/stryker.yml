@@ -1,14 +1,24 @@
 name: Stryker (mutation testing)
 
-# Mutation testing sur les tests unitaires, chaque semaine et à la demande.
+# Mutation testing sur les tests unitaires : chaque semaine, à la demande, et sur
+# les PR qui touchent le Domain ou ses tests (job Domain seul, ~3 min).
 # - Domain : bloquant. Le run échoue sous le seuil `break` de stryker-config-domain.json.
-# - Application : mesuré seulement (seuil `break` à 0). Ses handlers sont couverts
+# - Application : mesuré seulement (seuil `break` à 0), hors PR. Ses handlers sont couverts
 #   par les tests d'intégration sur PostgreSQL, que Stryker ne lance pas : un score
 #   bas y est attendu et n'est pas un signal de régression.
 # Stryker tourne depuis le projet de tests unitaires avec le runner Microsoft
 # Testing Platform (`test-runner: mtp`), celui des projets xunit.v3.
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/Domain/**'
+      - 'src/tests/UnitTests/**'
+      - 'stryker-config-domain.json'
+      - '.config/dotnet-tools.json'
+      - 'Directory.Packages.props'
+      - '.github/workflows/stryker.yml'
   schedule:
     - cron: '0 3 * * 1' # lundi 03h UTC
   workflow_dispatch:
@@ -40,6 +50,7 @@ jobs:
 
   application:
     name: Application (mesuré)
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
