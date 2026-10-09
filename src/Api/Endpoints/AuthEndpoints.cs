@@ -23,10 +23,11 @@ public sealed class AuthEndpoints : IEndpoint
             .AllowAnonymous()
             .WithCreatedResponses<RegisterResponse>();
 
+        // 400 : e-mail non confirmé (avec le bon mot de passe seulement).
         group.MapPost("/login", Login)
             .AllowAnonymous()
             .Produces<AuthResponse>(StatusCodes.Status200OK)
-            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/refresh", Refresh)

@@ -21,6 +21,7 @@ public sealed class InvitationEndpoints : IEndpoint
         var orgGroup = app.MapGroup("/organizations/{orgId:guid}/invitations")
             .WithTags("Invitations")
             .RequireAuthorization(AuthorizationPolicies.TenantAdmin)
+            .WithAuthorizationResponses()
             .AddEndpointFilter<OrganizationScopeFilter>();
 
         orgGroup.MapPost("/", InviteMember)
@@ -28,7 +29,8 @@ public sealed class InvitationEndpoints : IEndpoint
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         orgGroup.MapGet("/", ListPendingInvitations)
-            .Produces<IReadOnlyList<InvitationDto>>(StatusCodes.Status200OK);
+            .Produces<IReadOnlyList<InvitationDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         orgGroup.MapPost("/{id:guid}/resend", ResendInvitation)
             .WithNoContentResponses();

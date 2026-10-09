@@ -15,8 +15,8 @@ import { SKIP_ERROR_TOAST } from '../error/http-error.interceptor';
 
 // Réponse jeton = DTO généré `AuthResponse` (Hey API). Pas d'interface à la main.
 export type TokenResponse = AuthResponse;
-// Identifiants de connexion = DTO généré `LoginRequest` (tenantId facultatif côté UI).
-export type Credentials = Omit<LoginRequest, 'tenantId'> & Partial<Pick<LoginRequest, 'tenantId'>>;
+// Identifiants de connexion = DTO généré `LoginRequest` (tenantId facultatif).
+export type Credentials = LoginRequest;
 export interface CurrentUser {
   email: string;
 }

@@ -18,7 +18,8 @@ public sealed class ProductEndpoints : IEndpoint
     {
         ArgumentNullException.ThrowIfNull(app);
         var group = app.MapGroup("/products").WithTags("Products")
-            .RequireAuthorization(AuthorizationPolicies.HasTenant);
+            .RequireAuthorization(AuthorizationPolicies.HasTenant)
+            .WithAuthorizationResponses();
 
         group.MapPost("/", CreateProduct)
             .WithCreatedResponses<CreateProductResponse>();
@@ -29,8 +30,10 @@ public sealed class ProductEndpoints : IEndpoint
         group.MapGet("/{id:guid}", GetProduct)
             .WithStandardResponses<ProductDto>();
 
+        // 409 : le produit a été modifié par une autre requête entre la lecture et l'écriture.
         group.MapPut("/{id:guid}", UpdateProduct)
-            .WithNoContentResponses();
+            .WithNoContentResponses()
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapDelete("/{id:guid}", DeleteProduct)
             .WithNoContentResponses()

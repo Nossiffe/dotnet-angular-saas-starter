@@ -4,10 +4,23 @@ namespace Saas.Api.Common;
 /// Réponses standards des endpoints qui retournent `result.ToHttpResult()` :
 /// 200/201/204 succès ; 400 validation (ValidationProblemDetails du pipeline
 /// ou ProblemDetails ErrorOr Validation) ; 404 introuvable ; 409 conflit.
-/// 401/403/429 viennent de RequireAuthorization / rate limiting.
+/// Les groupes authentifiés ajoutent 401 et 403 (<see cref="WithAuthorizationResponses{TBuilder}"/>).
 /// </summary>
 public static class OpenApiEndpointExtensions
 {
+    /// <summary>
+    /// 401 sans access token valide, 403 quand la policy refuse : réponses sans corps, renvoyées
+    /// avant l'endpoint par l'authentification et l'autorisation.
+    /// </summary>
+    public static TBuilder WithAuthorizationResponses<TBuilder>(this TBuilder builder)
+        where TBuilder : IEndpointConventionBuilder
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        return builder.WithMetadata(
+            new ProducesResponseTypeMetadata(StatusCodes.Status401Unauthorized, typeof(void)),
+            new ProducesResponseTypeMetadata(StatusCodes.Status403Forbidden, typeof(void)));
+    }
+
     public static RouteHandlerBuilder WithStandardResponses<TSuccess>(this RouteHandlerBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);

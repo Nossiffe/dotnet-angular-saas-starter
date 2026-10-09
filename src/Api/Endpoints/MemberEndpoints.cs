@@ -15,6 +15,7 @@ public sealed class MemberEndpoints : IEndpoint
         var group = app.MapGroup("/organizations/{orgId:guid}/members")
             .WithTags("Members")
             .RequireAuthorization(AuthorizationPolicies.TenantOwner)
+            .WithAuthorizationResponses()
             .AddEndpointFilter<OrganizationScopeFilter>();
 
         group.MapPut("/{userId:guid}/role", ChangeMemberRole)
