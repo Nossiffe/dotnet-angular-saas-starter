@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Identity;
-using Saas.Domain.Identity;
 
 namespace Saas.Infrastructure.Identity;
 

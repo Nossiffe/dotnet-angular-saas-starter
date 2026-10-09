@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
-using Saas.Domain.Identity;
+using Saas.Infrastructure.Identity;
 
 namespace Saas.IntegrationTests.Auth;
 

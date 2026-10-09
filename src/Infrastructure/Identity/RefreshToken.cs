@@ -1,7 +1,8 @@
 using Saas.Domain.Common;
 
-namespace Saas.Domain.Identity;
+namespace Saas.Infrastructure.Identity;
 
+// Session de rafraîchissement persistée : un détail d'authentification, pas un concept métier.
 public sealed class RefreshToken : BaseEntity
 {
     public required Guid UserId { get; set; }

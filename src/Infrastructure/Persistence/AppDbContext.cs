@@ -4,9 +4,9 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Saas.Application.Common.Interfaces;
 using Saas.Domain.Common;
-using Saas.Domain.Identity;
 using Saas.Domain.Products;
 using Saas.Domain.Tenancy;
+using Saas.Infrastructure.Identity;
 using Saas.Infrastructure.Persistence.Converters;
 using Saas.Infrastructure.Persistence.Outbox;
 
@@ -22,6 +22,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
     internal DbSet<Invitation> Invitations => Set<Invitation>();
     internal DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    internal DbSet<OutboxMessageConsumer> OutboxMessageConsumers => Set<OutboxMessageConsumer>();
 
     public async Task ExecuteInTransactionAsync(Func<CancellationToken, Task> operation, CancellationToken cancellationToken)
     {

@@ -11,7 +11,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Saas.Application.Common.Interfaces;
-using Saas.Domain.Identity;
 using Saas.Infrastructure.Common;
 using Saas.Infrastructure.Email;
 using Saas.Infrastructure.Identity;

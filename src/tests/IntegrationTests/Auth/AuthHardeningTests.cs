@@ -4,7 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Saas.Domain.Identity;
+using Saas.Infrastructure.Identity;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Invitations;
 using Shouldly;

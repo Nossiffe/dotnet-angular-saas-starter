@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Saas.IntegrationTests" />
+    <InternalsVisibleTo Include="Saas.UnitTests" />
   </ItemGroup>
 
 </Project>

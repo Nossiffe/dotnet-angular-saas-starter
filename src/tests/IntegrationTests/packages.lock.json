@@ -713,7 +713,6 @@
         "type": "Project",
         "dependencies": {
           "ErrorOr": "[2.1.1, )",
-          "Mediator.Abstractions": "[3.0.2, )",
           "Vogen": "[8.0.6, )"
         }
       },

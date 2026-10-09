@@ -388,6 +388,16 @@
           "Microsoft.Extensions.Options": "10.0.9"
         }
       },
+      "Microsoft.Extensions.Identity.Stores": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "BhIDzh6apQFKcsbiA3OAPLR0eorngp6Ftl096k8TaeE34stXqt6zlkHbvzSNAhKwKUlVH5Nld6e69N/exhbTXA==",
+        "dependencies": {
+          "Microsoft.Extensions.Caching.Abstractions": "10.0.9",
+          "Microsoft.Extensions.Identity.Core": "10.0.9",
+          "Microsoft.Extensions.Logging": "10.0.9"
+        }
+      },
       "Microsoft.Extensions.Logging": {
         "type": "Transitive",
         "resolved": "10.0.9",
@@ -826,8 +836,6 @@
         "type": "Project",
         "dependencies": {
           "ErrorOr": "[2.1.1, )",
-          "Mediator.Abstractions": "[3.0.2, )",
-          "Microsoft.Extensions.Identity.Stores": "[10.0.9, )",
           "Vogen": "[8.0.6, )"
         }
       },
@@ -1029,17 +1037,6 @@
           "Microsoft.EntityFrameworkCore.Relational": "10.0.9",
           "Microsoft.Extensions.Diagnostics.HealthChecks": "10.0.9",
           "Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions": "10.0.9"
-        }
-      },
-      "Microsoft.Extensions.Identity.Stores": {
-        "type": "CentralTransitive",
-        "requested": "[10.0.9, )",
-        "resolved": "10.0.9",
-        "contentHash": "BhIDzh6apQFKcsbiA3OAPLR0eorngp6Ftl096k8TaeE34stXqt6zlkHbvzSNAhKwKUlVH5Nld6e69N/exhbTXA==",
-        "dependencies": {
-          "Microsoft.Extensions.Caching.Abstractions": "10.0.9",
-          "Microsoft.Extensions.Identity.Core": "10.0.9",
-          "Microsoft.Extensions.Logging": "10.0.9"
         }
       },
       "Microsoft.Extensions.Logging.Abstractions": {

@@ -3,7 +3,6 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Saas.Application.Common.Interfaces;
-using Saas.Domain.Identity;
 using Saas.Infrastructure.Persistence;
 
 namespace Saas.Infrastructure.Identity;

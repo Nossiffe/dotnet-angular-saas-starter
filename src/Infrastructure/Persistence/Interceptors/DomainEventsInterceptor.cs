@@ -7,19 +7,13 @@ using Saas.Infrastructure.Persistence.Outbox;
 
 namespace Saas.Infrastructure.Persistence.Interceptors;
 
-// TRANSACTIONAL OUTBOX — remplace le dispatch direct (post-save) par une écriture intra-transaction.
+// Transactional outbox : pendant SavingChanges(Async), les domain events des agrégats suivis sont
+// écrits en lignes OutboxMessage dans le même DbContext, donc dans la même transaction que l'agrégat.
+// Aucun event n'est perdu sur crash, et aucun n'est publié sans commit. L'OutboxProcessor les
+// transmet ensuite aux handlers.
 //
-// Pendant SavingChanges(Async), on collecte les domain events des agrégats trackés et on les
-// sérialise en lignes OutboxMessage AJOUTÉES au même DbContext : elles participent donc à la MÊME
-// transaction que l'agrégat → atomicité (aucun event perdu sur crash, aucun event publié sans commit).
-// Le dispatch effectif (IPublisher.Publish) est désormais propriété de l'OutboxProcessor.
-//
-// SEMANTIQUE AT-LEAST-ONCE : combiné avec la stratégie de retry EF (ExecuteInTransactionAsync),
-// une transaction rejouée peut produire des lignes outbox dupliquées → un même event peut être
-// dispatché PLUSIEURS FOIS. Les handlers de domain events DOIVENT donc être IDEMPOTENTS.
-//
-// Contrainte conservée : le dispatch passe par le générateur Mediator → l'assembly qui DÉFINIT le
-// type d'événement doit figurer dans options.AddMediator(... Assemblies ...).
+// Une transaction rejouée par la stratégie de retry EF peut écrire deux fois le même event : la
+// livraison est « au moins une fois », et les handlers doivent tolérer un doublon.
 public sealed class DomainEventsInterceptor(IDateTimeProvider clock) : SaveChangesInterceptor
 {
     public override InterceptionResult<int> SavingChanges(

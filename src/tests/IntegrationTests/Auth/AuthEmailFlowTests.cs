@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
-using Saas.Domain.Identity;
+using Saas.Infrastructure.Identity;
 using Shouldly;
 using Xunit;
 

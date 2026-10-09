@@ -9,12 +9,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Saas.Application.Common.Events;
 using Saas.Application.Common.Interfaces;
-using Saas.Domain.Identity;
+using Saas.Infrastructure.Identity;
 using Saas.Infrastructure.Jobs;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Auth;
 using Saas.IntegrationTests.Invitations;
+using Saas.IntegrationTests.Outbox;
 using Saas.IntegrationTests.Platform;
 using Testcontainers.PostgreSql;
 using Xunit;
@@ -71,6 +73,9 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddScoped<ProcessPasswordResetJob>();
             services.RemoveAll<IPasswordResetEnqueuer>();
             services.AddScoped<IPasswordResetEnqueuer, SynchronousPasswordResetEnqueuer>();
+
+            services.AddScoped<IDomainEventHandler<OutboxProbeEvent>, CountingProbeHandler>();
+            services.AddScoped<IDomainEventHandler<OutboxProbeEvent>, FailingOnceProbeHandler>();
 
             services.AddScoped<ProcessInvitationEmailJob>();
             services.RemoveAll<IInvitationEmailEnqueuer>();

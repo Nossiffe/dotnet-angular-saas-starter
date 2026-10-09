@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Saas.Domain.Identity;
+using Saas.Infrastructure.Identity;
 
 namespace Saas.Infrastructure.Persistence.Configurations;
 
@@ -18,7 +18,7 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
             .HasColumnName("xmin")
             .HasColumnType("xid")
             .IsRowVersion();
-        builder.HasOne<Saas.Domain.Identity.ApplicationUser>()
+        builder.HasOne<ApplicationUser>()
             .WithMany()
             .HasForeignKey(t => t.UserId)
             .OnDelete(DeleteBehavior.Cascade);

@@ -1,16 +1,16 @@
-using Mediator;
 using Microsoft.Extensions.Logging;
+using Saas.Application.Common.Events;
 using Saas.Domain.Products;
 
 namespace Saas.Application.Products.ProductCreated;
 
 public sealed partial class ProductCreatedHandler(ILogger<ProductCreatedHandler> logger)
-    : INotificationHandler<ProductCreatedDomainEvent>
+    : IDomainEventHandler<ProductCreatedDomainEvent>
 {
-    public ValueTask Handle(ProductCreatedDomainEvent notification, CancellationToken cancellationToken)
+    public ValueTask HandleAsync(ProductCreatedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(notification);
-        LogProductCreated(logger, notification.ProductId.Value);
+        ArgumentNullException.ThrowIfNull(domainEvent);
+        LogProductCreated(logger, domainEvent.ProductId.Value);
         return ValueTask.CompletedTask;
     }
 
