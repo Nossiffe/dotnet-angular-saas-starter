@@ -74,7 +74,7 @@ Confirmation and password reset e-mails land in Mailpit (http://localhost:8025).
 
 ## Documentation
 
-The architecture notes, ADRs and contribution guide are written in French.
+`README.md` and `web-angular/README.md` are in English, as are identifiers, test names and the commit messages since October 2026. Code comments, API error messages, the Angular interface, the documents listed below and the changelog are in French.
 
 | File | Content |
 |---|---|
