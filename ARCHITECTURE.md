@@ -227,7 +227,7 @@ HTTP POST /products
   → TypedResults.Created(...)
 
 Plus tard, hors requête :
-OutboxProcessor (toutes les 5 s) → IDomainEventHandler<ProductCreatedDomainEvent> (ProductCreatedHandler)
+OutboxPollingService (toutes les 5 s) → OutboxProcessor → IDomainEventHandler<ProductCreatedDomainEvent> (ProductCreatedHandler)
 ```
 
 ### Gestion des erreurs
@@ -323,31 +323,42 @@ Sentry.init({ dsn: '<DSN du projet Sentry front>' });
 
 Les domain events ne sont pas dispatchés pendant `SaveChanges`. Le `DomainEventsInterceptor` les sérialise (STJ : `Type` = `AssemblyQualifiedName` + `Content` = JSON) en lignes `OutboxMessages` **pendant `SavingChanges`**, donc dans la **même transaction** que l'agrégat (atomicité : aucun event perdu sur crash, aucun event publié sans commit).
 
-L'`OutboxProcessor` (`BackgroundService`) traite les lignes en attente toutes les 5 s :
+L'`OutboxPollingService` (`BackgroundService`) lance toutes les 5 s un lot de l'`OutboxProcessor`,
+qui traite jusqu'à 20 messages, un par un :
 
-- **Lecture verrouillée** : chaque lot est lu avec `FOR UPDATE SKIP LOCKED` dans une transaction.
-  Plusieurs instances de l'API se partagent les messages sans traiter deux fois le même.
+- **Un message, une transaction** : le message est lu avec `FOR UPDATE SKIP LOCKED`, ses handlers
+  sont appelés, puis son issue est validée. Plusieurs instances de l'API se partagent les messages
+  sans traiter le même en même temps. Un échec ou un arrêt de l'application ne défait pas les
+  messages déjà validés ; à l'arrêt, le message en cours reste à traiter, sans tentative comptée.
 - **Handlers** : chaque `IDomainEventHandler<TEvent>` de l'Application (enregistré par scan
-  d'assembly) reçoit l'event. Seuls les types qui implémentent `IDomainEvent` sont désérialisés.
-- **Échecs** : un message en échec est retenté (5 tentatives, l'erreur est stockée dans `Error`).
-  Les handlers déjà passés sont notés dans `OutboxMessageConsumers` et ne sont pas rappelés : si
-  l'e-mail de bienvenue est parti et qu'un autre handler échoue, l'e-mail ne repart pas.
+  d'assembly) reçoit l'event, dans son propre scope DI : il a son propre `DbContext` et valide ses
+  écritures lui-même. Seuls les types qui implémentent `IDomainEvent` sont désérialisés.
+- **Échecs** : le message est repris 1, 4, 16 puis 64 minutes plus tard (`NextAttemptOn`, erreur
+  dans `Error`). Les handlers déjà passés sont notés dans `OutboxMessageConsumers` et ne sont pas
+  rappelés : si l'e-mail de bienvenue est parti et qu'un autre handler échoue, l'e-mail ne repart
+  pas. Si l'issue du message ne peut pas être enregistrée, la tentative est comptée à part. Après
+  5 tentatives, le message est abandonné et journalisé en erreur (`DEPLOYMENT.md` explique comment
+  le relancer).
+- **Purge** : le job Hangfire quotidien `PurgeProcessedOutboxMessagesJob` supprime les messages
+  traités depuis plus de 7 jours. Les messages abandonnés restent en base.
 - **Garantie** : livraison « au moins une fois ». Un arrêt brutal entre un envoi externe et le
   commit fait rappeler ce handler ; un handler qui agit hors de la base doit le tolérer.
 
-`OutboxTests` couvre le traitement, le nouvel essai sans rappel des handlers passés et le message
-verrouillé par une autre instance. `ConventionTests` vérifie que chaque event a un handler et
-survit à l'aller-retour JSON de l'outbox.
+`OutboxTests` couvre le traitement, le délai avant une nouvelle tentative sans rappel des handlers
+passés, l'abandon après 5 tentatives, l'issue impossible à enregistrer, l'arrêt de l'application en
+cours de lot, le message verrouillé par une autre instance et la purge. Les tests d'intégration
+retirent l'`OutboxPollingService` et lancent les lots eux-mêmes, avec une horloge qu'ils avancent.
+`ConventionTests` vérifie que chaque event a un handler et survit à l'aller-retour JSON de l'outbox.
 
-> Conséquence : les handlers de domain events (`ProductCreatedHandler`, etc.) s'exécutent **de façon asynchrone**, au prochain tick du processor, et non pendant le `SaveChanges`.
+> Conséquence : les handlers de domain events (`ProductCreatedHandler`, etc.) s'exécutent **de façon asynchrone**, au lot suivant, et non pendant le `SaveChanges`.
 
 ### Hangfire (jobs persistés)
 
 `Hangfire.AspNetCore` + `Hangfire.PostgreSql` — Hangfire crée ses **propres tables** Postgres au démarrage (pas de migration EF). API de config version-sensible : `UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connString))`.
 
 - **Dashboard** : `/hangfire`, sécurisé par `HangfireDashboardAuthFilter`. Dev : loopback uniquement. Prod : claim `platform_role=PlatformAdmin` obligatoire.
-- **Recurring job réel** : `PurgeExpiredRefreshTokensJob` (purge quotidienne des refresh tokens expirés via `ExecuteDeleteAsync`).
-- **Fire-and-forget** : `BackgroundJob.Enqueue<PurgeExpiredRefreshTokensJob>(j => j.RunAsync())`.
+- **Recurring jobs** (quotidiens, `ExecuteDeleteAsync`) : `PurgeExpiredRefreshTokensJob` (refresh tokens expirés) et `PurgeProcessedOutboxMessagesJob` (messages de l'outbox traités depuis plus de 7 jours).
+- **Fire-and-forget** : `ProcessPasswordResetJob` et `ProcessInvitationEmailJob`, enfilés par la demande de réinitialisation et par l'invitation, pour que la réponse HTTP n'attende pas le SMTP.
 
 > **Sécurité dashboard** : le dashboard est **secure-by-default** — le claim `platform_role` n'est émis par aucun flow de login standard. Le claim `tenant_role=Owner` ne suffit pas : le dashboard montre les jobs de tous les tenants. En prod, personne n'accède au dashboard tant qu'un opérateur infra n'est pas explicitement provisionné avec `platform_role=PlatformAdmin` (seed admin ou config IdP). Alternative : ne monter le dashboard que hors-production.
 

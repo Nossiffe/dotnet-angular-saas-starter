@@ -14,7 +14,13 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
         builder.Property(m => m.Content).HasColumnType("text").IsRequired();
         builder.Property(m => m.Error).HasColumnType("text");
 
-        // Index pour le poll de l'OutboxProcessor (lignes non traitées, ordre d'occurrence).
+        // Messages à traiter, dans l'ordre où l'OutboxProcessor les lit ; les messages abandonnés
+        // n'y figurent pas.
+        builder.HasIndex(m => new { m.OccurredOn, m.Id })
+            .HasDatabaseName("IX_OutboxMessages_Pending")
+            .HasFilter(OutboxProcessor.PendingFilter);
+
+        // Messages traités, pour la purge.
         builder.HasIndex(m => m.ProcessedOn);
     }
 }

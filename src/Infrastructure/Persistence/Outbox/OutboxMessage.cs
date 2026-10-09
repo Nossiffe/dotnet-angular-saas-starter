@@ -20,4 +20,7 @@ internal sealed class OutboxMessage
     public string? Error { get; set; }
 
     public int Attempts { get; set; }
+
+    // Après un échec, le message n'est pas repris avant cette date. Null : à traiter dès que possible.
+    public DateTimeOffset? NextAttemptOn { get; set; }
 }

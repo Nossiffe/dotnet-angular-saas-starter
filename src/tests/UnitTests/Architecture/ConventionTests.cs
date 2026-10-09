@@ -111,4 +111,10 @@ public sealed class ConventionTests
             ?? throw new InvalidOperationException($"Pas de valeur d'exemple pour {type.Name}.");
         return from.Invoke(null, [Guid.CreateVersion7()])!;
     }
+
+    // Le filtre des messages à traiter écrit sa borne en littéral (index partiel) : elle doit rester
+    // égale au nombre maximal de tentatives.
+    [Fact]
+    public void The_pending_outbox_filter_stops_at_the_maximum_number_of_attempts()
+        => OutboxProcessor.PendingFilter.ShouldEndWith($"\"Attempts\" < {OutboxProcessor.MaxAttempts}");
 }

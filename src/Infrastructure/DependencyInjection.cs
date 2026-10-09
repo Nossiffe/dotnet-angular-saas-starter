@@ -74,6 +74,7 @@ public static class DependencyInjection
 
         // Jobs résolus par DI.
         services.AddScoped<PurgeExpiredRefreshTokensJob>();
+        services.AddScoped<PurgeProcessedOutboxMessagesJob>();
         services.AddScoped<ProcessPasswordResetJob>();
         services.AddScoped<ProcessInvitationEmailJob>();
 
@@ -82,7 +83,7 @@ public static class DependencyInjection
         services.AddScoped<IInvitationEmailEnqueuer, HangfireInvitationEmailEnqueuer>();
     }
 
-    // Enregistre les recurring jobs (référence le type interne PurgeExpiredRefreshTokensJob).
+    // Enregistre les recurring jobs (types internes à l'Infrastructure).
     // Appelé depuis Program.cs après Build() — IRecurringJobManager n'existe qu'au runtime.
     public static void RegisterRecurringJobs(IServiceProvider services)
     {
@@ -90,6 +91,10 @@ public static class DependencyInjection
         var manager = services.GetRequiredService<IRecurringJobManager>();
         manager.AddOrUpdate<PurgeExpiredRefreshTokensJob>(
             "purge-expired-refresh-tokens",
+            job => job.RunAsync(),
+            Cron.Daily());
+        manager.AddOrUpdate<PurgeProcessedOutboxMessagesJob>(
+            "purge-processed-outbox-messages",
             job => job.RunAsync(),
             Cron.Daily());
     }

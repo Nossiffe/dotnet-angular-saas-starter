@@ -12,8 +12,8 @@ using Saas.Infrastructure.Persistence;
 namespace Saas.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261009154047_AddOutboxMessageConsumers")]
-    partial class AddOutboxMessageConsumers
+    [Migration("20261009182934_OutboxConsumersAndRetries")]
+    partial class OutboxConsumersAndRetries
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -416,6 +416,9 @@ namespace Saas.Infrastructure.Persistence.Migrations
                     b.Property<string>("Error")
                         .HasColumnType("text");
 
+                    b.Property<DateTimeOffset?>("NextAttemptOn")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset>("OccurredOn")
                         .HasColumnType("timestamp with time zone");
 
@@ -429,6 +432,10 @@ namespace Saas.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ProcessedOn");
+
+                    b.HasIndex("OccurredOn", "Id")
+                        .HasDatabaseName("IX_OutboxMessages_Pending")
+                        .HasFilter("\"ProcessedOn\" IS NULL AND \"Attempts\" < 5");
 
                     b.ToTable("OutboxMessages", (string)null);
                 });

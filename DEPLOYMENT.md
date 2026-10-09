@@ -279,10 +279,29 @@ readinessProbe:
 
 ### Outbox en multi-instance
 
-Chaque instance de l'API fait tourner un `OutboxProcessor`. Les lots sont lus avec
-`FOR UPDATE SKIP LOCKED` : deux instances ne traitent jamais le même message, sans configuration
-particulière. La livraison reste « au moins une fois » (voir `ARCHITECTURE.md` § Transactional
-Outbox).
+Chaque instance de l'API fait tourner un `OutboxProcessor`. Chaque message est verrouillé avec
+`FOR UPDATE SKIP LOCKED` le temps de son traitement : deux instances ne traitent jamais le même
+message en même temps, sans configuration particulière. La livraison reste « au moins une fois »
+(voir `ARCHITECTURE.md` § Transactional Outbox).
+
+### Messages de l'outbox abandonnés
+
+Après 5 tentatives, un message est abandonné : il reste dans `OutboxMessages` avec
+`"ProcessedOn" IS NULL`, et l'API journalise l'erreur `Outbox : message {MessageId} abandonné`.
+Une fois la cause corrigée (SMTP indisponible, par exemple), on le relance :
+
+```sql
+-- Messages abandonnés et leur dernière erreur
+SELECT "Id", "Type", "OccurredOn", "Error" FROM "OutboxMessages"
+WHERE "ProcessedOn" IS NULL AND "Attempts" >= 5;
+
+-- Relance : repris au lot suivant ; les handlers déjà passés ne sont pas rappelés
+UPDATE "OutboxMessages" SET "Attempts" = 0, "NextAttemptOn" = NULL
+WHERE "Id" = '<id>';
+```
+
+Les messages traités sont supprimés après 7 jours par le job Hangfire
+`purge-processed-outbox-messages` ; les messages abandonnés ne sont jamais purgés.
 
 ### Hangfire Dashboard
 

@@ -79,7 +79,8 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             // milieu d'une vérification. Les tests de l'outbox lancent les lots eux-mêmes.
             services.Remove(services.Single(d => d.ImplementationType == typeof(OutboxPollingService)));
             services.AddScoped<IDomainEventHandler<OutboxProbeEvent>, CountingProbeHandler>();
-            services.AddScoped<IDomainEventHandler<OutboxProbeEvent>, FailingOnceProbeHandler>();
+            services.AddScoped<IDomainEventHandler<OutboxProbeEvent>, FailingProbeHandler>();
+            services.ConfigureDbContext<AppDbContext>(options => options.AddInterceptors(new UnsavableProbeInterceptor()));
 
             services.AddScoped<ProcessInvitationEmailJob>();
             services.RemoveAll<IInvitationEmailEnqueuer>();

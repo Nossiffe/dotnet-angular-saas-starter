@@ -6,11 +6,17 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Saas.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class AddOutboxMessageConsumers : Migration
+    public partial class OutboxConsumersAndRetries : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<DateTimeOffset>(
+                name: "NextAttemptOn",
+                table: "OutboxMessages",
+                type: "timestamp with time zone",
+                nullable: true);
+
             migrationBuilder.CreateTable(
                 name: "OutboxMessageConsumers",
                 columns: table => new
@@ -28,6 +34,12 @@ namespace Saas.Infrastructure.Persistence.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OutboxMessages_Pending",
+                table: "OutboxMessages",
+                columns: new[] { "OccurredOn", "Id" },
+                filter: "\"ProcessedOn\" IS NULL AND \"Attempts\" < 5");
         }
 
         /// <inheritdoc />
@@ -35,6 +47,14 @@ namespace Saas.Infrastructure.Persistence.Migrations
         {
             migrationBuilder.DropTable(
                 name: "OutboxMessageConsumers");
+
+            migrationBuilder.DropIndex(
+                name: "IX_OutboxMessages_Pending",
+                table: "OutboxMessages");
+
+            migrationBuilder.DropColumn(
+                name: "NextAttemptOn",
+                table: "OutboxMessages");
         }
     }
 }

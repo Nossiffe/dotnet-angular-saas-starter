@@ -413,6 +413,9 @@ namespace Saas.Infrastructure.Persistence.Migrations
                     b.Property<string>("Error")
                         .HasColumnType("text");
 
+                    b.Property<DateTimeOffset?>("NextAttemptOn")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset>("OccurredOn")
                         .HasColumnType("timestamp with time zone");
 
@@ -426,6 +429,10 @@ namespace Saas.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ProcessedOn");
+
+                    b.HasIndex("OccurredOn", "Id")
+                        .HasDatabaseName("IX_OutboxMessages_Pending")
+                        .HasFilter("\"ProcessedOn\" IS NULL AND \"Attempts\" < 5");
 
                     b.ToTable("OutboxMessages", (string)null);
                 });

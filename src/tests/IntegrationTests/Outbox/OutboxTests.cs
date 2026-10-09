@@ -3,8 +3,10 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Saas.Api.Contracts;
 using Saas.Domain.Products;
+using Saas.Infrastructure.Jobs;
 using Saas.Infrastructure.Persistence;
 using Saas.Infrastructure.Persistence.Outbox;
 using Saas.IntegrationTests.Auth;
@@ -16,20 +18,16 @@ namespace Saas.IntegrationTests.Outbox;
 [Collection("api")]
 public sealed class OutboxTests(PostgresApiFactory factory)
 {
-    private static HttpClient AuthedClient(PostgresApiFactory f)
-    {
-        var client = f.CreateClient();
-        client.DefaultRequestHeaders.Add(TestAuthHandler.TenantHeader,
-            Guid.Parse("00000000-0000-0000-0000-000000000001").ToString());
-        return client;
-    }
+    private readonly TestClock _clock = new();
 
     // L'event est écrit dans la transaction de la création, puis un lot le transmet à ses handlers.
     [Fact]
     public async Task A_created_product_event_is_written_to_the_outbox_then_dispatched()
     {
         var ct = TestContext.Current.CancellationToken;
-        var create = await AuthedClient(factory).PostAsJsonAsync(
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add(TestAuthHandler.TenantHeader, Guid.CreateVersion7().ToString());
+        var create = await client.PostAsJsonAsync(
             "/api/v1/products", new { name = $"Outbox-{Guid.NewGuid():N}", price = 4.2m }, ct);
         create.StatusCode.ShouldBe(HttpStatusCode.Created);
         var productId = (await create.Content.ReadFromJsonAsync<CreateProductResponse>(ct))!.Id.ToString();
@@ -45,23 +43,106 @@ public sealed class OutboxTests(PostgresApiFactory factory)
         dispatched.Attempts.ShouldBe(0);
     }
 
-    // Un handler a échoué, l'autre a réussi : au nouvel essai, seul celui qui a échoué est rappelé.
+    // Un handler a échoué, l'autre a réussi : le message est repris une minute plus tard, pas avant,
+    // et seul le handler qui a échoué est rappelé.
     [Fact]
-    public async Task A_retried_message_does_not_call_again_the_handlers_that_succeeded()
+    public async Task A_failed_message_is_retried_later_without_calling_again_the_handlers_that_succeeded()
     {
         var ct = TestContext.Current.CancellationToken;
-        var probeId = Guid.CreateVersion7();
-        var messageId = await InsertProbeAsync(probeId, ct);
+        var probe = new OutboxProbeEvent(Guid.CreateVersion7(), Failures: 1);
+        var messageId = await InsertAsync(probe, ct);
+        var firstRun = _clock.UtcNow;
 
-        await DrainUntilProcessedAsync(messageId, ct);
+        await RunBatchesUntilIdleAsync(ct);
+        var failed = await MessageAsync(messageId, ct);
+        _clock.Advance(TimeSpan.FromSeconds(59));
+        await RunBatchesUntilIdleAsync(ct);
+        var callsBeforeTheDelay = OutboxProbeCalls.Failing[probe.ProbeId];
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        await RunBatchesUntilIdleAsync(ct);
 
-        OutboxProbeCalls.FailingOnce[probeId].ShouldBe(2);
-        OutboxProbeCalls.Counting[probeId].ShouldBe(1);
-        await using var scope = factory.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var message = await db.OutboxMessages.AsNoTracking().SingleAsync(m => m.Id == messageId, ct);
+        failed.Attempts.ShouldBe(1);
+        failed.NextAttemptOn.ShouldBe(firstRun + TimeSpan.FromMinutes(1));
+        callsBeforeTheDelay.ShouldBe(1);
+        OutboxProbeCalls.Failing[probe.ProbeId].ShouldBe(2);
+        OutboxProbeCalls.Counting[probe.ProbeId].ShouldBe(1);
+        var processed = await MessageAsync(messageId, ct);
+        processed.ProcessedOn.ShouldNotBeNull();
+        processed.Attempts.ShouldBe(1);
+        (await ConsumerCountAsync(messageId, ct)).ShouldBe(2);
+    }
+
+    // Un message qui échoue toujours est repris 1, 4, 16 puis 64 minutes plus tard, puis abandonné à
+    // la cinquième tentative et journalisé en erreur.
+    [Fact]
+    public async Task A_message_that_keeps_failing_is_abandoned_after_five_attempts()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var probe = new OutboxProbeEvent(Guid.CreateVersion7(), Failures: int.MaxValue);
+        var messageId = await InsertAsync(probe, ct);
+
+        var delays = new List<TimeSpan?>();
+        for (var attempt = 1; attempt <= OutboxProcessor.MaxAttempts; attempt++)
+        {
+            await RunBatchesUntilIdleAsync(ct);
+            var message = await MessageAsync(messageId, ct);
+            delays.Add(message.NextAttemptOn - _clock.UtcNow);
+            _clock.UtcNow = message.NextAttemptOn ?? _clock.UtcNow;
+        }
+
+        _clock.Advance(TimeSpan.FromDays(1));
+        await RunBatchesUntilIdleAsync(ct);
+
+        delays.ShouldBe([
+            TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(4), TimeSpan.FromMinutes(16), TimeSpan.FromMinutes(64), null]);
+        OutboxProbeCalls.Failing[probe.ProbeId].ShouldBe(OutboxProcessor.MaxAttempts);
+        var abandoned = await MessageAsync(messageId, ct);
+        abandoned.ProcessedOn.ShouldBeNull();
+        abandoned.Attempts.ShouldBe(OutboxProcessor.MaxAttempts);
+        factory.Logs.Entries.ShouldContain(e => e.Level == LogLevel.Error
+            && e.Category.EndsWith(nameof(OutboxProcessor), StringComparison.Ordinal)
+            && e.Message.Contains(messageId.ToString(), StringComparison.Ordinal));
+    }
+
+    // L'issue du message n'a pas pu être enregistrée : la tentative est comptée à part. Sans cela, le
+    // même message serait repris à chaque lot, indéfiniment.
+    [Fact]
+    public async Task A_message_whose_outcome_cannot_be_saved_still_counts_an_attempt()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var probe = new OutboxProbeEvent(Guid.CreateVersion7(), FailsToSave: true);
+        var messageId = await InsertAsync(probe, ct);
+
+        await RunBatchesUntilIdleAsync(ct);
+
+        var message = await MessageAsync(messageId, ct);
+        message.ProcessedOn.ShouldBeNull();
         message.Attempts.ShouldBe(1);
-        (await db.OutboxMessageConsumers.CountAsync(c => c.MessageId == messageId, ct)).ShouldBe(2);
+        message.NextAttemptOn.ShouldBe(_clock.UtcNow + TimeSpan.FromMinutes(1));
+        OutboxProbeCalls.Counting[probe.ProbeId].ShouldBe(1);
+    }
+
+    // L'application s'arrête pendant un handler : le message en cours reste à traiter, sans tentative
+    // comptée, et le message validé juste avant reste validé. Au redémarrage, le message est repris.
+    [Fact]
+    public async Task An_application_stop_keeps_the_messages_already_processed()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var firstId = await InsertAsync(new OutboxProbeEvent(Guid.CreateVersion7()), ct);
+        var interrupted = new OutboxProbeEvent(Guid.CreateVersion7(), StopsApplication: true);
+        var interruptedId = await InsertAsync(interrupted, ct);
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        OutboxProbeCalls.ApplicationStops[interrupted.ProbeId] = stop;
+
+        await Should.ThrowAsync<OperationCanceledException>(() => RunBatchesUntilIdleAsync(stop.Token));
+
+        (await MessageAsync(firstId, ct)).ProcessedOn.ShouldNotBeNull();
+        var pending = await MessageAsync(interruptedId, ct);
+        pending.ProcessedOn.ShouldBeNull();
+        pending.Attempts.ShouldBe(0);
+        pending.Error.ShouldBeNull();
+        (await ConsumerCountAsync(interruptedId, ct)).ShouldBe(0);
+        await DrainUntilProcessedAsync(interruptedId, ct);
     }
 
     // Une autre instance traite déjà le message (ligne verrouillée) : ce lot la saute, sans attendre.
@@ -69,8 +150,8 @@ public sealed class OutboxTests(PostgresApiFactory factory)
     public async Task A_message_locked_by_another_instance_is_skipped()
     {
         var ct = TestContext.Current.CancellationToken;
-        var probeId = Guid.CreateVersion7();
-        var messageId = await InsertProbeAsync(probeId, ct);
+        var probe = new OutboxProbeEvent(Guid.CreateVersion7());
+        var messageId = await InsertAsync(probe, ct);
 
         await using (var otherInstance = factory.Services.CreateAsyncScope())
         {
@@ -79,17 +160,108 @@ public sealed class OutboxTests(PostgresApiFactory factory)
             await otherDb.Database.ExecuteSqlAsync(
                 $"""SELECT 1 FROM "OutboxMessages" WHERE "Id" = {messageId} FOR UPDATE""", ct);
 
-            await Processor().ProcessBatchAsync(ct);
+            await RunBatchesUntilIdleAsync(ct);
 
-            OutboxProbeCalls.Counting.ContainsKey(probeId).ShouldBeFalse();
+            OutboxProbeCalls.Counting.ContainsKey(probe.ProbeId).ShouldBeFalse();
             await transaction.RollbackAsync(ct);
         }
 
         await DrainUntilProcessedAsync(messageId, ct);
-        OutboxProbeCalls.Counting[probeId].ShouldBe(1);
+        OutboxProbeCalls.Counting[probe.ProbeId].ShouldBe(1);
     }
 
-    private OutboxProcessor Processor() => factory.Services.GetRequiredService<OutboxProcessor>();
+    // La purge supprime les messages traités depuis plus de 7 jours, avec leurs consommateurs. Elle
+    // garde les messages traités récemment et les messages abandonnés.
+    [Fact]
+    public async Task The_purge_deletes_only_the_messages_processed_more_than_seven_days_ago()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var now = DateTimeOffset.UtcNow;
+        var old = await InsertAsync(new OutboxProbeEvent(Guid.CreateVersion7()), ct, m => m.ProcessedOn = now.AddDays(-8));
+        var recent = await InsertAsync(new OutboxProbeEvent(Guid.CreateVersion7()), ct, m => m.ProcessedOn = now.AddDays(-6));
+        var abandoned = await InsertAsync(new OutboxProbeEvent(Guid.CreateVersion7()), ct, m =>
+        {
+            m.OccurredOn = now.AddDays(-30);
+            m.Attempts = OutboxProcessor.MaxAttempts;
+        });
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.OutboxMessageConsumers.Add(new OutboxMessageConsumer { MessageId = old, Handler = "Handler" });
+            await db.SaveChangesAsync(ct);
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<PurgeProcessedOutboxMessagesJob>().RunAsync();
+        }
+
+        await using var check = factory.Services.CreateAsyncScope();
+        var checkDb = check.ServiceProvider.GetRequiredService<AppDbContext>();
+        (await checkDb.OutboxMessages.Where(m => m.Id == old || m.Id == recent || m.Id == abandoned)
+            .Select(m => m.Id).ToListAsync(ct))
+            .ShouldBe([recent, abandoned], ignoreOrder: true);
+        (await ConsumerCountAsync(old, ct)).ShouldBe(0);
+    }
+
+    // Le processeur de l'application, avec une horloge que le test avance.
+    private OutboxProcessor Processor() => new(
+        factory.Services.GetRequiredService<IServiceScopeFactory>(),
+        _clock,
+        factory.Services.GetRequiredService<ILogger<OutboxProcessor>>());
+
+    // Lots successifs jusqu'à ce qu'aucun message ne soit dû. Les messages des autres tests de la
+    // collection sont traités au passage.
+    private async Task RunBatchesUntilIdleAsync(CancellationToken ct)
+    {
+        var processor = Processor();
+        while (await processor.ProcessBatchAsync(ct) > 0)
+        {
+            // Lot suivant.
+        }
+    }
+
+    // Avance l'horloge jusqu'à la tentative suivante tant que le message n'est pas traité.
+    private async Task DrainUntilProcessedAsync(Guid messageId, CancellationToken ct)
+    {
+        for (var attempt = 0; attempt < OutboxProcessor.MaxAttempts; attempt++)
+        {
+            await RunBatchesUntilIdleAsync(ct);
+            if ((await MessageAsync(messageId, ct)).ProcessedOn is not null)
+            {
+                return;
+            }
+
+            _clock.Advance(TimeSpan.FromHours(2));
+        }
+
+        throw new InvalidOperationException($"Message {messageId} non traité.");
+    }
+
+    private async Task<Guid> InsertAsync(
+        OutboxProbeEvent probe, CancellationToken ct, Action<OutboxMessage>? configure = null)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var message = new OutboxMessage
+        {
+            Type = typeof(OutboxProbeEvent).AssemblyQualifiedName!,
+            Content = JsonSerializer.Serialize(probe, OutboxJson.Options),
+            OccurredOn = DateTimeOffset.UtcNow,
+        };
+        configure?.Invoke(message);
+        db.OutboxMessages.Add(message);
+        await db.SaveChangesAsync(ct);
+        return message.Id;
+    }
+
+    private async Task<OutboxMessage> MessageAsync(Guid messageId, CancellationToken ct)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<AppDbContext>().OutboxMessages
+            .AsNoTracking()
+            .SingleAsync(m => m.Id == messageId, ct);
+    }
 
     private async Task<OutboxMessage> ProductCreatedMessageAsync(string productId, CancellationToken ct)
     {
@@ -99,35 +271,10 @@ public sealed class OutboxTests(PostgresApiFactory factory)
             .SingleAsync(m => m.Type.Contains(nameof(ProductCreatedDomainEvent)) && m.Content.Contains(productId), ct);
     }
 
-    private async Task<Guid> InsertProbeAsync(Guid probeId, CancellationToken ct)
+    private async Task<int> ConsumerCountAsync(Guid messageId, CancellationToken ct)
     {
         await using var scope = factory.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var message = new OutboxMessage
-        {
-            Type = typeof(OutboxProbeEvent).AssemblyQualifiedName!,
-            Content = JsonSerializer.Serialize(new OutboxProbeEvent(probeId), OutboxJson.Options),
-            OccurredOn = DateTimeOffset.UtcNow,
-        };
-        db.OutboxMessages.Add(message);
-        await db.SaveChangesAsync(ct);
-        return message.Id;
-    }
-
-    // Un message retenté n'est repris qu'au lot suivant.
-    private async Task DrainUntilProcessedAsync(Guid messageId, CancellationToken ct)
-    {
-        for (var attempt = 0; attempt < 10; attempt++)
-        {
-            await Processor().ProcessBatchAsync(ct);
-            await using var scope = factory.Services.CreateAsyncScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            if (await db.OutboxMessages.AnyAsync(m => m.Id == messageId && m.ProcessedOn != null, ct))
-            {
-                return;
-            }
-        }
-
-        throw new InvalidOperationException($"Message {messageId} non traité après 10 lots.");
+        return await scope.ServiceProvider.GetRequiredService<AppDbContext>().OutboxMessageConsumers
+            .CountAsync(c => c.MessageId == messageId, ct);
     }
 }
