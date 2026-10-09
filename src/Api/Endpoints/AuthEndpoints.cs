@@ -94,7 +94,13 @@ public sealed class AuthEndpoints : IEndpoint
                 RefreshCookie.Append(response, auth.RefreshToken, auth.RefreshTokenDays);
                 return TypedResults.Ok(new AuthResponse(auth.AccessToken, auth.ExpiresAt)) as IResult;
             },
-            _ => result.ToHttpResult());
+            _ =>
+            {
+                // Le token refusé ne doit pas rester dans le navigateur : présenté de nouveau, un token
+                // révoqué déclenche la détection de réutilisation, qui ferme toutes les sessions.
+                RefreshCookie.Delete(response);
+                return result.ToHttpResult();
+            });
     }
 
     private static async Task<IResult> Logout(ISender sender, HttpRequest request, HttpResponse response, CancellationToken ct)

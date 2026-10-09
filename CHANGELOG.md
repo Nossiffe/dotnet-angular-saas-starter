@@ -41,7 +41,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 ### Security
 - Connexion : même coût de hash pour un e-mail inconnu ou un compte verrouillé que pour un mauvais mot de passe (oracle de timing fermé).
 - Un jeton de confirmation ou de réinitialisation mal formé renvoie 400 au lieu de 500.
-- Le refresh token est refusé et révoqué si l'utilisateur n'est plus membre de l'organisation (il recevait le rôle Member).
+- Un utilisateur retiré d'une organisation perd ses sessions sur celle-ci (le rafraîchissement lui accordait le rôle Member) ; ses sessions sur ses autres organisations continuent. Un refresh refusé supprime le cookie.
 - Une réinitialisation de mot de passe révoque toutes les sessions ouvertes.
 - Organisation par défaut à la connexion : la plus ancienne adhésion, au lieu d'un ordre SQL indéterminé.
 - `TenantId`, l'audit et la suppression logique n'ont plus de setter public ; l'intercepteur couvre aussi `SaveChanges` synchrone et refuse un changement de tenant.

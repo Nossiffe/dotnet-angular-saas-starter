@@ -156,8 +156,10 @@ Request → LoggingBehavior → ValidationBehavior → Handler
   `IdentityService.CheckCredentialsAsync` vérifie quand même un hash factice de même coût
   (`DummyPasswordCheck`), pour que la durée de la réponse ne révèle pas l'existence du compte.
   Sans organisation demandée, la connexion ouvre la plus ancienne adhésion.
-- **Sessions** : le refresh token est refusé (et révoqué) si l'utilisateur n'est plus membre de
-  l'organisation ; une réinitialisation de mot de passe révoque toutes les sessions ouvertes.
+- **Sessions** : l'adhésion est vérifiée avant la rotation du refresh token. Un utilisateur
+  retiré d'une organisation perd toutes ses sessions sur celle-ci, et seulement celles-ci ; le
+  cookie refusé est supprimé, pour qu'il ne soit pas présenté de nouveau et pris pour une
+  réutilisation. Une réinitialisation de mot de passe révoque toutes les sessions ouvertes.
 - **Rôles d'organisation et policies** (`AuthorizationPolicies`) :
 
   | Policy | Claim exigé | Routes |

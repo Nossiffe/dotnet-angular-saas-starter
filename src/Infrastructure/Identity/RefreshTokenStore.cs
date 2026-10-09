@@ -25,6 +25,17 @@ public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> opti
         return (raw, _o.RefreshTokenDays);
     }
 
+    public async Task<RefreshSession?> FindActiveAsync(string rawToken, CancellationToken cancellationToken)
+    {
+        var hash = Hash(rawToken);
+        var now = clock.UtcNow;
+        return await db.RefreshTokens
+            .AsNoTracking()
+            .Where(t => t.TokenHash == hash && t.RevokedAt == null && t.ExpiresAt > now)
+            .Select(t => new RefreshSession(t.UserId, t.TenantId))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<RotatedToken?> ValidateAndRotateAsync(string rawToken, CancellationToken cancellationToken)
     {
         var hash = Hash(rawToken);
@@ -73,6 +84,14 @@ public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> opti
         var now = clock.UtcNow;
         await db.RefreshTokens
             .Where(t => t.UserId == userId && t.RevokedAt == null)
+            .ExecuteUpdateAsync(t => t.SetProperty(x => x.RevokedAt, now), cancellationToken);
+    }
+
+    public async Task RevokeTenantSessionsAsync(Guid userId, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var now = clock.UtcNow;
+        await db.RefreshTokens
+            .Where(t => t.UserId == userId && t.TenantId == tenantId && t.RevokedAt == null)
             .ExecuteUpdateAsync(t => t.SetProperty(x => x.RevokedAt, now), cancellationToken);
     }
 
