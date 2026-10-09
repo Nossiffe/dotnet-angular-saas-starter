@@ -1,6 +1,6 @@
 # Saas — template monorepo
 
-Template SaaS de production : **.NET 10** (Clean Architecture + DDD/CQRS) + **Angular 22** + **React 19** + **PostgreSQL 17**.
+Template SaaS de production : **.NET 10** (Clean Architecture + DDD/CQRS) + **Angular 22** + **PostgreSQL 17**.
 
 ## Générer un nouveau SaaS
 
@@ -37,8 +37,6 @@ mise exec -- dotnet run --project src/Api
 # Front Angular
 cd web-angular && npm install && npm start
 
-# Front React
-cd web-react && npm install && npm run dev
 ```
 
 Activer les plugins LSP (scope utilisateur) : `claude mcp add csharp-ls --scope user -- csharp-ls`.
@@ -65,9 +63,6 @@ dotnet run --project src/Api
 cd web-angular && npm install && npm start
 # → http://localhost:4200
 
-# 6. Front React (dans un terminal séparé)
-cd web-react && npm install && npm run dev
-# → http://localhost:5173
 ```
 
 ## Commandes clés
@@ -80,8 +75,6 @@ cd web-react && npm install && npm run dev
 | `dotnet ef migrations add <Nom> --project src/Infrastructure --startup-project src/Api` | Nouvelle migration EF |
 | `cd web-angular && npm run fix` | Lint + format Angular |
 | `cd web-angular && npm run check` | Gate CI Angular |
-| `cd web-react && npm run fix` | Lint + format React |
-| `cd web-react && npm run check` | Gate CI React |
 | `./.claude/hooks/check.sh` | Gate complète (build + tests + fronts) |
 
 ## Stack
@@ -96,7 +89,6 @@ cd web-react && npm install && npm run dev
 | Résilience | EnableRetryOnFailure + Http.Resilience |
 | Observabilité | Serilog + OpenTelemetry (OTLP) |
 | Front Angular | Angular 22, signal-first, Material, Hey API |
-| Front React | React 19, Vite, TanStack Router + Query, shadcn/Tailwind v4, Hey API |
 | Outillage | mise, direnv, docker-compose, lefthook, Vogen |
 
 ## Documentation
@@ -146,7 +138,6 @@ Remplacez ces valeurs après le scaffold. Si vous souhaitez open-sourcer le proj
 |---|---|
 | API .NET | http://localhost:5123 |
 | Angular | http://localhost:4200 |
-| React | http://localhost:5173 |
 | Adminer (DB) | http://localhost:8080 |
 | Mailpit (SMTP) | http://localhost:8025 |
 | Aspire dashboard | http://localhost:18888 |

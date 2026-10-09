@@ -10,7 +10,7 @@
     },
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
-  "postCreateCommand": "dotnet restore && (cd web-angular && npm ci) ; (cd web-react && npm ci) || true",
+  "postCreateCommand": "dotnet restore && (cd web-angular && npm ci)",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -22,5 +22,5 @@
       ]
     }
   },
-  "forwardPorts": [5001, 4200, 5173, 5432]
+  "forwardPorts": [5001, 4200, 5432]
 }

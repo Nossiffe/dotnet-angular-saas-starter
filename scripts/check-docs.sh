@@ -29,7 +29,6 @@ done < <(
     -print0
   find "$REPO/src" -maxdepth 1 -name "CLAUDE.md" -print0 2>/dev/null
   find "$REPO/web-angular" -maxdepth 1 -name "CLAUDE.md" -print0 2>/dev/null
-  find "$REPO/web-react" -maxdepth 1 -name "CLAUDE.md" -print0 2>/dev/null
   find "$REPO/.claude/rules" -name "*.md" -print0 2>/dev/null
   find "$REPO/.claude/skills" -name "SKILL.md" -print0 2>/dev/null
   find "$REPO/.claude/patterns" -maxdepth 1 -name "README.md" -print0 2>/dev/null
@@ -77,7 +76,7 @@ is_known_optional() {
     # Mentionnés dans REVIEW.md comme chemins générés à ignorer par la review,
     # au même titre que bin/, obj/ (déjà tolérés via le glob `**`) — même
     # nature d'artefact, mais écrits sans `*` donc non couverts par is_placeholder.
-    "web-angular/dist/"|"web-react/dist/") return 0 ;;
+    "web-angular/dist/") return 0 ;;
   esac
   return 1
 }
@@ -87,7 +86,7 @@ path_exists_or_prefix() {
   local path="$1"
   # Chemins GÉNÉRÉS (gitignorés) : légitimement absents d'un checkout frais (CI).
   case "$path" in
-    web-angular/src/app/api/generated*|web-react/src/client*|web-react/src/routeTree.gen.ts|src/Api/Saas.Api.json)
+    web-angular/src/app/api/generated*|src/Api/Saas.Api.json)
       return 0 ;;
   esac
   # Vérification exacte d'abord
@@ -131,7 +130,7 @@ check_paths() {
     # Ignorer si contient un placeholder
     is_placeholder "$token" && continue
 
-    # Ignorer les chemins frontend-relatifs courts (sans web-angular/ ou web-react/ en préfixe)
+    # Ignorer les chemins frontend-relatifs courts (sans web-angular/ en préfixe)
     # ex: src/routes/, src/client/, src/components/ui/ dans react.md
     if [[ "$token" =~ ^src/ ]]; then
       local second_seg
@@ -151,7 +150,7 @@ check_paths() {
       VIOLATIONS=$((VIOLATIONS + 1))
     fi
   done < <(
-    grep -oP '`\K(src|web-angular|web-react|\.claude|tools|scripts|docs|\.github)/[A-Za-z0-9._/-]+(?=`)' "$file" 2>/dev/null || true
+    grep -oP '`\K(src|web-angular|\.claude|tools|scripts|docs|\.github)/[A-Za-z0-9._/-]+(?=`)' "$file" 2>/dev/null || true
   )
 }
 
@@ -177,9 +176,9 @@ check_api_port() {
     [[ -z "$port_match" ]] && continue
     # Ignorer si c'est le bon port
     [[ "$port_match" == "$REAL_API_PORT" ]] && continue
-    # Ignorer les ports clairement non-API (Angular 4200, React 5173, Adminer 8080, Mailpit 8025/8125, Aspire 18888)
+    # Ignorer les ports clairement non-API (Angular 4200, Adminer 8080, Mailpit 8025/8125, Aspire 18888)
     case "$port_match" in
-      4200|5173|8080|8025|8125|18888|587|465|25|4317|7100) continue ;;
+      4200|8080|8025|8125|18888|587|465|25|4317|7100) continue ;;
     esac
     # Signaler comme port API suspect
     echo "  [port-api] $rel_file : localhost:$port_match cité (port API réel = $REAL_API_PORT)"

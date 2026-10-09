@@ -76,7 +76,6 @@ jobs:
       - name: SBOM fronts (npm sbom natif)
         run: |
           (cd web-angular && npm ci --ignore-scripts && npm sbom --sbom-format cyclonedx --omit dev > ../sbom/sbom-web-angular.json)
-          (cd web-react && npm ci --ignore-scripts && npm sbom --sbom-format cyclonedx --omit dev > ../sbom/sbom-web-react.json)
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sbom

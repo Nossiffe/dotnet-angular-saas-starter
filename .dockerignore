@@ -10,7 +10,6 @@
 .github
 .devcontainer
 web-angular
-web-react
 docs
 **/.env*
 **/*.user

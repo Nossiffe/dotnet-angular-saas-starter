@@ -31,7 +31,7 @@ High/Critical) :
   si un package (top-level ou transitif) a une vulnérabilité `High`/`Critical`.
   En cas d'échec sur une PR, un commentaire automatique est posté (job
   `dotnet-audit`, étape « Commentaire PR »).
-- **`npm-audit`** : matrice sur les deux fronts (`web-angular`, `web-react`),
+- **`npm-audit`** : front `web-angular`,
   `npm audit --omit=dev --audit-level=high` (dépendances de dev exclues — un
   CVE dans ESLint/Vitest ne part pas en prod).
 

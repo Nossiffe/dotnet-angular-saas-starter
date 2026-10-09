@@ -7,7 +7,6 @@ paths = [
   # Fichiers d'exemple — pas de vraies valeurs secrètes
   '''.env\.example$''',
   '''web-angular/\.env\.example$''',
-  '''web-react/\.env\.example$''',
   # Snapshots OpenAPI (pas de secrets dans les schémas)
   '''openapi\.json$''',
 ]

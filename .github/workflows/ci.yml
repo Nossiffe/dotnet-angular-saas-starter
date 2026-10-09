@@ -85,26 +85,6 @@ jobs:
       - run: npm test
       - run: npm run build
 
-  web-react:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web-react
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: web-react/package-lock.json
-      - run: npm ci
-      - run: npm run gen:api
-      - run: npm run check
-      - run: npm test
-      - run: npm run build
-
   e2e-angular:
     runs-on: ubuntu-latest
     # Specs are front-only: navigate to /login, check DOM/a11y — no backend required.
@@ -125,23 +105,3 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e
 
-  e2e-react:
-    runs-on: ubuntu-latest
-    # Specs are front-only: navigate to /login, check DOM/a11y — no backend required.
-    defaults:
-      run:
-        working-directory: web-react
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: web-react/package-lock.json
-      - run: npm ci
-      - run: npm run gen:api # client Hey API généré (gitignoré, absent du checkout)
-      - run: npx tsr generate # routeTree.gen.ts (gitignoré)
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e

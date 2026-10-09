@@ -77,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        front: [web-angular, web-react]
+        front: [web-angular]
     defaults:
       run:
         working-directory: ${{ matrix.front }}

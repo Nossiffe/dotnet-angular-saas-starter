@@ -51,7 +51,7 @@ _Si vide, écrire « Aucune »._
 ## 6. Santé des contrôles
 
 - **`dotnet-audit`** (deps-audit.yml) — dernier run vert : YYYY-MM-DD
-- **`npm-audit`** (deps-audit.yml, web-angular + web-react) — dernier run vert : YYYY-MM-DD
+- **`npm-audit`** (deps-audit.yml, web-angular) — dernier run vert : YYYY-MM-DD
 - **Runs rouges depuis la dernière revue** : N (lien vers les runs si pertinent)
 - **PR Renovate fusionnées depuis la dernière revue** : N
 

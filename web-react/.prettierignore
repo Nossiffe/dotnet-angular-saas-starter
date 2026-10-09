@@ -1,8 +1,0 @@
-# Generated files
-src/client/
-src/routeTree.gen.ts
-dist/
-node_modules/
-
-# Claude Code config (not React code)
-.claude/

@@ -1,6 +1,6 @@
 # Architecture — Saas template
 
-Template SaaS .NET 10 + Angular 22 + React 19, organisé en monorepo.
+Template SaaS .NET 10 + Angular 22, organisé en monorepo.
 
 ---
 
@@ -9,7 +9,6 @@ Template SaaS .NET 10 + Angular 22 + React 19, organisé en monorepo.
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  web-angular/   Angular 22 (signal-first, Material, Hey API)    │
-│  web-react/     React 19 (Vite, TanStack, shadcn, Hey API)      │
 └────────────────────────┬────────────────────────────────────────┘
                          │ HTTP/JSON (OpenAPI)
 ┌────────────────────────▼────────────────────────────────────────┐
@@ -216,14 +215,6 @@ HTTP POST /products
 - Angular Material seul.
 - Client Hey API généré (`npm run api:gen`).
 
-### React 19 (`web-react/`)
-
-- TanStack Router (file-based) + TanStack Query.
-- Hooks générés Hey API (`useQuery(getProductsOptions())`).
-- Zustand (auth), React Hook Form + Zod (formulaires).
-- shadcn + Tailwind v4.
-- Client Hey API généré (`npm run gen:api`).
-
 ---
 
 ## Outillage
@@ -274,18 +265,6 @@ Dans `main.ts` :
 ```typescript
 import * as Sentry from '@sentry/angular';
 Sentry.init({ dsn: import.meta.env['VITE_SENTRY_DSN'] });
-```
-
-### Front React (`@sentry/react`)
-
-```bash
-npm install @sentry/react
-```
-
-Dans `main.tsx` :
-```typescript
-import * as Sentry from '@sentry/react';
-Sentry.init({ dsn: import.meta.env.VITE_SENTRY_DSN });
 ```
 
 > **Per-SaaS uniquement** : ne pas committer le DSN dans le code. Utiliser les secrets GitHub Actions (prod) et les variables d'env locales (dev). Ce branchement est volontairement absent du template pour ne pas coupler tous les projets générés à un compte Sentry spécifique.
