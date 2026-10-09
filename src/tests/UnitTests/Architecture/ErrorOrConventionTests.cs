@@ -13,9 +13,8 @@ public sealed class ErrorOrConventionTests
     private static readonly Assembly _apiAsm = typeof(Saas.Api.Common.GlobalExceptionHandler).Assembly;
     private static readonly Assembly _domainAsm = typeof(Saas.Domain.Products.ProductErrors).Assembly;
 
-    // Tout ICommand<T>/IQuery<T> a un TResponse ErrorOr<>.
     [Fact]
-    public void Commands_et_Queries_retournent_ErrorOr()
+    public void Commands_and_queries_return_ErrorOr()
     {
         var violations = new List<string>();
         foreach (var type in _appAsm.GetTypes())
@@ -39,9 +38,9 @@ public sealed class ErrorOrConventionTests
         violations.ShouldBeEmpty($"Use-cases hors pattern ErrorOr : {string.Join(", ", violations)}");
     }
 
-    // Les exceptions métier supprimées ne doivent pas réapparaître.
+    // Une règle métier violée est une erreur ErrorOr : le Domain ne déclare aucune exception.
     [Fact]
-    public void Aucune_exception_metier_custom_dans_Domain()
+    public void The_Domain_declares_no_business_exception()
     {
         var offenders = Types.InAssembly(_domainAsm)
             .That().Inherit(typeof(Exception))
@@ -52,10 +51,32 @@ public sealed class ErrorOrConventionTests
             $"Exceptions custom dans Domain (utiliser ErrorOr) : {string.Join(", ", offenders)}");
     }
 
+    // Un refus métier est une erreur ErrorOr. ValidationException reste réservée au pipeline
+    // FluentValidation et aux refus d'Identity liés à un champ (docs/adr/0003).
+    [Fact]
+    public void ValidationException_is_thrown_only_at_the_input_boundary()
+    {
+        string[] allowed = ["ValidationBehavior.cs", "RegisterHandler.cs", "AcceptInvitationHandler.cs"];
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "Saas.slnx")))
+        {
+            root = root.Parent;
+        }
+
+        root.ShouldNotBeNull();
+        var throwers = Directory.EnumerateFiles(Path.Combine(root.FullName, "src", "Application"), "*.cs", SearchOption.AllDirectories)
+            .Where(f => File.ReadAllText(f).Contains("throw new ValidationException", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .ToList();
+
+        throwers.ShouldNotBeEmpty(); // le test lit bien le code source
+        throwers.Except(allowed, StringComparer.Ordinal).ShouldBeEmpty();
+    }
+
     // Contrat OpenAPI->TS : toute propriété non-nullable d'un contract Api est
     // requise dans le schéma — garanti par ctor positionnel (record) ou `required`.
     [Fact]
-    public void Contracts_Api_proprietes_non_nullables_requises()
+    public void Non_nullable_contract_properties_are_required()
     {
         var contractTypes = _apiAsm.GetTypes()
             .Where(t => t.Namespace?.StartsWith("Saas.Api.Contracts", StringComparison.Ordinal) == true
@@ -94,7 +115,7 @@ public sealed class ErrorOrConventionTests
 
     // Les DTOs appartiennent à Contracts/Application — jamais imbriqués dans un endpoint.
     [Fact]
-    public void Aucun_type_imbrique_dans_les_endpoints()
+    public void Endpoints_declare_no_nested_types()
     {
         var offenders = _apiAsm.GetTypes()
             .Where(t => t.Namespace?.StartsWith("Saas.Api.Endpoints", StringComparison.Ordinal) == true)

@@ -7,9 +7,6 @@ obj/
 artifacts/
 .vs/
 
-# Document OpenAPI généré au build (source commitée = web-*/openapi.json)
-src/Api/Saas.Api.json
-
 # NuGet
 *.nupkg
 .nuget-packages/
@@ -25,6 +22,8 @@ coverage/
 .env.*
 !.env.example
 appsettings.Development.json
+# Valeurs locales seulement (Postgres et Mailpit de docker-compose) : requis par le Quickstart.
+!src/Api/appsettings.Development.json
 appsettings.Staging.json
 appsettings.Production.json
 *.user.json

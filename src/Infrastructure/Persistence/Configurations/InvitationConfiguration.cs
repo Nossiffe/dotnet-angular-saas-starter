@@ -18,7 +18,7 @@ public sealed class InvitationConfiguration : IEntityTypeConfiguration<Invitatio
         builder.HasIndex(i => new { i.OrganizationId, i.Status });
         builder.Ignore(i => i.DomainEvents);
 
-        // FK vers Organizations (CASCADE) — pas de FK vers AspNetUsers (cohérent avec l'existant).
+        // FK vers Organizations (CASCADE) — pas de FK vers AspNetUsers (comme OrganizationMemberships).
         builder.HasOne<Organization>()
             .WithMany()
             .HasForeignKey(i => i.OrganizationId)

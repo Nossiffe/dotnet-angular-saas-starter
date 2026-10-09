@@ -1,7 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web"><PropertyGroup>  <UserSecretsId>a3f4dfdb-8837-461f-a52b-31dcfc469919</UserSecretsId>
-    <!-- Génère le document OpenAPI au build (src/Api/Saas.Api.json), sans serveur ni DB. -->
+<Project Sdk="Microsoft.NET.Sdk.Web"><PropertyGroup>  <UserSecretsId>a3f4dfdb-8837-461f-a52b-31dcfc469919</UserSecretsId>
+    <!-- Génère le contrat OpenAPI au build, sans serveur ni DB, directement dans
+         web-angular/openapi.json : le fichier versionné dont le front génère ses types. La CI
+         vérifie qu'il est à jour. Désactivé dans l'image Docker (-p:OpenApiGenerateDocuments=false). -->
     <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
-    <OpenApiDocumentsDirectory>$(MSBuildProjectDirectory)</OpenApiDocumentsDirectory>
+    <OpenApiDocumentsDirectory>$(MSBuildProjectDirectory)/../../web-angular</OpenApiDocumentsDirectory>
+    <OpenApiGenerateDocumentsOptions>--file-name openapi</OpenApiGenerateDocumentsOptions>
   </PropertyGroup>
 
   <ItemGroup>

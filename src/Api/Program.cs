@@ -24,6 +24,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Serilog écrit sur la console et transmet aussi chaque événement aux providers enregistrés
 // (writeToProviders) : sans cela, le provider OpenTelemetry ne reçoit aucun log et l'export OTLP
 // des logs reste vide. Les providers par défaut sont retirés pour ne pas doubler la console.
+// preserveStaticLogger : chaque hôte garde son propre logger au lieu de passer par Log.Logger,
+// statique et donc partagé par tous les hôtes du processus (les tests en lancent plusieurs).
 builder.Logging.ClearProviders();
 builder.Host.UseSerilog(
     (context, config) =>
@@ -31,15 +33,15 @@ builder.Host.UseSerilog(
               .Enrich.FromLogContext()
               .Enrich.WithSpan() // TraceId/SpanId depuis Activity.Current → corrélation logs ↔ traces OTel
               .WriteTo.Console(formatProvider: System.Globalization.CultureInfo.InvariantCulture),
+    preserveStaticLogger: true,
     writeToProviders: true);
 
 builder.WebHost.ConfigureKestrel(o => o.AddServerHeader = false);
 
-// Génération OpenAPI au BUILD (outil GetDocument.Insider) : il lance ce Program.cs avec un
+// Génération OpenAPI au build (outil GetDocument.Insider) : il lance ce Program.cs avec un
 // serveur mock, donc tout le démarrage s'exécute. Sans DB ni config réelle au build, on
 // fournit une DSN factice (enregistrement DbContext paresseux, aucune connexion ouverte) et
 // on désactive l'auto-migration. No-op en `dotnet run`/`dotnet test` (entry assembly ≠ outil).
-// True quand le build génère le document OpenAPI (l'outil GetDocument.Insider lance ce Program.cs).
 var isBuildTimeOpenApi = string.Equals(
     System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name,
     "GetDocument.Insider",
@@ -56,6 +58,7 @@ if (isBuildTimeOpenApi)
     builder.Configuration["Jwt:SigningKey"] = new string('x', 32); // satisfait [MinLength(32)] sans littéral « secret »
     builder.Configuration["App:BaseUrl"] = "https://build.local";
     builder.Configuration["Email:Host"] = "build";
+    builder.Configuration["Email:Port"] = "25";
     builder.Configuration["Email:FromAddress"] = "build@build.local";
 }
 
@@ -65,17 +68,12 @@ builder.Services.AddEndpoints();
 
 builder.Services.AddMediator(options =>
 {
-    options.Assemblies =
-    [
-        typeof(Saas.Application.DependencyInjection).Assembly,
-        typeof(Saas.Domain.Common.IDomainEvent).Assembly,
-    ];
+    options.Assemblies = [typeof(Saas.Application.DependencyInjection).Assembly];
     options.ServiceLifetime = ServiceLifetime.Scoped;
     options.PipelineBehaviors =
     [
         typeof(LoggingBehavior<,>),
         typeof(ValidationBehavior<,>),
-        typeof(CachingBehavior<,>),
     ];
 });
 
@@ -99,12 +97,16 @@ builder.Services.Configure<Microsoft.AspNetCore.Builder.ExceptionHandlerOptions>
     options => options.SuppressDiagnosticsCallback = context =>
         context.HttpContext.Response.StatusCode < StatusCodes.Status500InternalServerError);
 builder.Services.AddProblemDetails(options =>
-    // Injecte traceId dans TOUS les ProblemDetails (validation, status-code pages, etc.),
+    // Injecte traceId dans tous les ProblemDetails (validation, status-code pages, etc.),
     // pas seulement ceux du GlobalExceptionHandler — pour la corrélation logs/traces OTel.
     options.CustomizeProblemDetails = context =>
         context.ProblemDetails.Extensions["traceId"] =
             System.Diagnostics.Activity.Current?.Id ?? context.HttpContext.TraceIdentifier);
-builder.Services.AddOpenApi(options => options.AddDocumentTransformer<BearerSecuritySchemeTransformer>());
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+    options.AddOperationTransformer<BearerSecuritySchemeTransformer>();
+});
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>(name: "db", tags: ["ready"]);
@@ -121,7 +123,7 @@ if (!string.IsNullOrEmpty(dpPath))
 }
 
 // HSTS 2 ans (recommandation OWASP) : appliqué par le UseHsts() existant hors Development.
-// Preload volontairement PAS activé par défaut : engagement quasi irréversible (listes
+// Preload non activé par défaut : engagement quasi irréversible (listes
 // navigateurs), à faire opt-in une fois le domaine confirmé stable en HTTPS partout.
 builder.Services.AddHsts(o =>
 {
@@ -140,8 +142,8 @@ builder.Services.AddRequestTimeouts(options =>
         Timeout = TimeSpan.FromSeconds(timeoutSeconds),
     });
 
-// Output cache : câblé SANS policy par défaut — opt-in strict par endpoint
-// (.CacheOutput(...)). ⚠️ Multi-tenant : ne JAMAIS l'appliquer à un endpoint
+// Output cache : câblé sans policy par défaut — opt-in strict par endpoint
+// (.CacheOutput(...)). Multi-tenant : ne jamais l'appliquer à un endpoint
 // authentifié/tenant-scoped sans VaryBy explicite sur le tenant — le défaut
 // (les requêtes authentifiées ne sont pas cachées) protège, ne pas le contourner.
 builder.Services.AddOutputCache();
@@ -152,7 +154,7 @@ AddOpenTelemetry(builder);
 
 var app = builder.Build();
 
-// Auto-migration au démarrage UNIQUEMENT en Development (confort dotnet run).
+// Auto-migration au démarrage uniquement en Development (confort dotnet run).
 // En prod : utiliser le migration bundle (pas d'auto-migrate en multi-instance).
 // Guard double : IsDevelopment() + Database:MigrateOnStartup (les tests le désactivent via UseSetting).
 if (app.Environment.IsDevelopment()
@@ -173,7 +175,7 @@ app.UseSecurityHeaders(new HeaderPolicyCollection().AddDefaultApiSecurityHeaders
 
 // Derrière un reverse-proxy (nginx/Traefik/ALB), Kestrel ne voit que la connexion interne
 // (souvent HTTP, IP du proxy) : sans réécriture, UseHsts (redirection interne) et le
-// `Secure` du cookie refresh évalueraient le MAUVAIS scheme. UseForwardedHeaders DOIT donc
+// `Secure` du cookie refresh évalueraient le mauvais scheme. UseForwardedHeaders doit donc
 // s'exécuter avant UseHsts/UseHttpsRedirection pour que HttpContext.Request.Scheme/
 // Connection.RemoteIpAddress reflètent le client réel. Config-gated (faux par défaut) :
 // à activer uniquement quand un proxy de confiance est effectivement devant l'API (sinon
@@ -184,16 +186,16 @@ if (app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
     {
         ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
     };
-    // Les défauts (KnownIPNetworks/KnownProxies = loopback uniquement) ignorent SILENCIEUSEMENT
+    // Les défauts (KnownIPNetworks/KnownProxies = loopback uniquement) ignorent silencieusement
     // X-Forwarded-* dès que le proxy n'est pas sur la même machine (cas courant : nginx dans un
     // conteneur séparé, IP interne du réseau docker) — UseForwardedHeaders ne ferait alors rien,
-    // sans erreur, et Program.cs ci-dessus (commentaire "DOIT s'exécuter avant") serait un no-op.
+    // sans erreur.
     // On vide donc ces listes : la validation est déléguée au fait que ce bloc est déjà
     // config-gated (ForwardedHeaders:Enabled, alias ASPNETCORE_FORWARDEDHEADERS_ENABLED) —
-    // à n'activer que derrière un proxy de confiance qui ÉCRASE ces en-têtes pour les requêtes
+    // à n'activer que derrière un proxy de confiance qui écrase ces en-têtes pour les requêtes
     // externes. Conséquence d'un mauvais déploiement (flag actif + port API joignable en
     // direct) : X-Forwarded-For forgeable → partitionnement IP du rate limiting faussé.
-    // Le port de l'API ne doit alors être joignable QUE depuis le réseau du proxy (DEPLOYMENT.md).
+    // Le port de l'API ne doit alors être joignable que depuis le réseau du proxy (DEPLOYMENT.md).
     forwardedHeadersOptions.KnownIPNetworks.Clear();
     forwardedHeadersOptions.KnownProxies.Clear();
     forwardedHeadersOptions.ForwardLimit = 1;
@@ -213,11 +215,9 @@ app.UseCors("spa");
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
-// Ordre officiel (learn.microsoft.com/aspnet/core/performance/caching/output, .NET 10),
-// verbatim : « In apps that use authentication or authorization, the UseOutputCache method
-// must be called after the UseAuthentication and UseAuthorization methods. Otherwise, the
-// output caching middleware can serve content cached for unauthorized users. »
-// Également requis par la même page : après UseCors et après UseRouting — satisfait ici.
+// Après UseRouting, UseCors, UseAuthentication et UseAuthorization : sinon le cache peut servir
+// à un utilisateur une réponse mise en cache pour un autre
+// (learn.microsoft.com/aspnet/core/performance/caching/output).
 app.UseOutputCache();
 
 if (app.Environment.IsDevelopment())
@@ -244,7 +244,7 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
     Authorization = [new Saas.Api.Common.HangfireDashboardAuthFilter(app.Environment)],
 });
 
-// Recurring jobs (purge quotidienne des refresh tokens). Hangfire crée ses tables au 1er run.
+// Jobs récurrents (purges quotidiennes des refresh tokens et de l'outbox). Hangfire crée ses tables au 1er run.
 // Sauté pendant la génération OpenAPI au build (sinon AddOrUpdate ouvre une connexion Postgres).
 if (!isBuildTimeOpenApi)
 {
@@ -272,7 +272,7 @@ static void AddRateLimiter(WebApplicationBuilder b)
             return ValueTask.CompletedTask;
         };
         // En tests d'intégration, tous les appels passent par TestServer avec une IP nulle (non loopback)
-        // → ils tombent tous dans la MÊME partition globale et la fenêtre de 100/min finit par déclencher
+        // → ils tombent tous dans la même partition globale et la fenêtre de 100/min finit par déclencher
         // des 429 parasites quand la suite grossit. RateLimiting:DisableGlobalLimiter (posé uniquement par
         // la factory de test) neutralise le limiteur global.
         var disableGlobalLimit = b.Environment.IsDevelopment()
@@ -326,7 +326,7 @@ static void AddOpenTelemetry(WebApplicationBuilder b)
             .AddHttpClientInstrumentation()
             .AddRuntimeInstrumentation());
 
-    // Active le signal "logging" UNIQUEMENT quand l'export OTLP est configuré : sinon UseOtlpExporter
+    // Active le signal "logging" uniquement quand l'export OTLP est configuré : sinon UseOtlpExporter
     // n'exporterait aucun log (seul un signal activé est exporté). En dev sans OTLP, on garde Serilog/console.
     if (otlpEnabled)
     {

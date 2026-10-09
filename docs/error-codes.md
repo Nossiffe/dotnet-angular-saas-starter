@@ -19,16 +19,16 @@ Une ressource qui existe mais appartient à un **autre tenant** doit renvoyer
 l'existence de la ressource à un tenant qui ne devrait même pas savoir qu'elle
 existe.
 
-Cas concret : `EndpointHelpers.CheckTenantScope` (vérifie qu'un `orgId` de route
+Cas concret : `OrganizationScopeFilter` (vérifie qu'un `orgId` de route
 correspond au tenant du token) réutilise **`OrganizationErrors.NotFound`** en cas de
 mismatch — pas de nouvelle entrée dans le registre, c'est la même erreur « organisation
 introuvable » qui s'applique, que l'organisation n'existe pas ou qu'elle appartienne à
 un autre tenant.
 
-## Registre (16 entrées)
+## Registre
 
-Miroir exact du `TheoryData` de
-`src/tests/UnitTests/Common/DomainErrorsTests.cs`.
+Comparé au code par `src/tests/UnitTests/Common/ErrorRegistryTests.cs` : membre, type, code et
+description.
 
 | Classe.Membre | Type | Code | Description |
 |---|---|---|---|
@@ -37,6 +37,8 @@ Miroir exact du `TheoryData` de
 | `OrganizationErrors.MemberNotFound` | NotFound | `Membership.NotFound` | Membre introuvable. |
 | `OrganizationErrors.LastOwner` | Validation | `Organization.LastOwner` | Impossible de rétrograder le dernier Owner de l'organisation. |
 | `OrganizationErrors.AlreadyMember` | Validation | `Membership.AlreadyMember` | Cette personne est déjà membre de l'organisation. |
+| `OrganizationErrors.CannotChangeOwnRole` | Validation | `Membership.CannotChangeOwnRole` | Vous ne pouvez pas modifier votre propre rôle. |
+| `OrganizationErrors.InvalidRole` | Validation | `Membership.InvalidRole` | Rôle invalide. Valeurs acceptées : Member, Admin. |
 | `InvitationErrors.NotFound` | NotFound | `Invitation.NotFound` | Invitation introuvable. |
 | `InvitationErrors.OwnerRole` | Validation | `Invitation.OwnerRole` | Impossible d'inviter un membre avec le rôle Owner. |
 | `InvitationErrors.AlreadyPending` | Conflict | `Invitation.AlreadyPending` | Une invitation est déjà en attente pour cet email. |
@@ -45,9 +47,12 @@ Miroir exact du `TheoryData` de
 | `InvitationErrors.NotPendingRefresh` | Validation | `Invitation.NotPending` | Seule une invitation en attente peut être renouvelée. |
 | `InvitationErrors.Expired` | Validation | `Invitation.Expired` | Cette invitation a expiré. |
 | `InvitationErrors.Invalid` | Validation | `Invitation.Invalid` | Invitation invalide ou expirée. |
+| `InvitationErrors.PasswordRequired` | Validation | `Invitation.PasswordRequired` | Un mot de passe est requis pour finaliser la création du compte. |
 | `AuthErrors.InvalidCredentials` | Unauthorized | `Auth.InvalidCredentials` | Identifiants invalides. |
 | `AuthErrors.SessionExpired` | Unauthorized | `Auth.SessionExpired` | Session expirée, reconnectez-vous. |
 | `AuthErrors.InvalidConfirmationLink` | Validation | `Auth.InvalidConfirmationLink` | Lien de confirmation invalide ou expiré. |
+| `AuthErrors.InvalidResetLink` | Validation | `Auth.InvalidResetLink` | Lien de réinitialisation invalide ou expiré. |
+| `AuthErrors.EmailNotConfirmed` | Validation | `Auth.EmailNotConfirmed` | Veuillez confirmer votre adresse e-mail avant de vous connecter. |
 
 Notes :
 - `InvitationErrors.AlreadyPending` est en **Conflict → 409** (pas Validation → 400) :
@@ -58,11 +63,11 @@ Notes :
   `AcceptInvitationHandler` : **avant** vérification du token, un seul message
   (invitation inexistante, token faux, révoquée). Une fois le token valide
   (l'appelant détient la preuve), les messages précis `Expired`/`NotPending`
-  s'appliquent — pas un oracle, comportement identique à l'avant-migration.
+  s'appliquent : ce n'est pas un oracle.
 - Pas de `OrganizationErrors.AlreadyJoined` : le cas « déjà membre pendant l'accept »
   est un accept **idempotent** (retourne un succès), pas une erreur.
 
-## Workflow « chercher avant d'inventer »
+## Ajouter une erreur
 
 Avant d'ajouter une nouvelle erreur, vérifier qu'elle n'existe pas déjà :
 
@@ -72,7 +77,5 @@ grep -rn 'static Error ' src/ --include='*Errors.cs'
 
 ## Le test fait foi
 
-`src/tests/UnitTests/Common/DomainErrorsTests.cs` (`DomainErrorsTests.Registre`, un
-`TheoryData<Error, ErrorType, string>`) est la **source de vérité exécutable** du
-registre : toute nouvelle erreur = une nouvelle ligne dans ce `TheoryData` (sinon
-le point est relevé en revue de code).
+`ErrorRegistryTests` compare ce tableau au code : une erreur ajoutée, renommée ou reformulée
+sans mise à jour de ce fichier fait échouer la CI.

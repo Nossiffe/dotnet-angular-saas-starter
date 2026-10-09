@@ -8,11 +8,11 @@ namespace Saas.UnitTests.Domain;
 public sealed class ProductTests
 {
     [Fact]
-    public void Create_nom_vide_lance() =>
+    public void Create_with_an_empty_name_throws() =>
         Should.Throw<ArgumentException>(() => Product.Create("", Money.From(1m)));
 
     [Fact]
-    public void Create_valide_leve_domain_event()
+    public void Create_raises_ProductCreatedDomainEvent()
     {
         var product = Product.Create("Stylo", Money.From(2.5m));
 
@@ -22,7 +22,7 @@ public sealed class ProductTests
     }
 
     [Fact]
-    public void Rename_met_a_jour_le_nom()
+    public void Rename_updates_the_name()
     {
         var product = Product.Create("Stylo", Money.From(1m));
 
@@ -32,7 +32,7 @@ public sealed class ProductTests
     }
 
     [Fact]
-    public void ChangePrice_remplace_le_prix()
+    public void ChangePrice_replaces_the_price()
     {
         var product = Product.Create("Stylo", Money.From(1m));
 
@@ -43,7 +43,7 @@ public sealed class ProductTests
     }
 
     [Fact]
-    public void ClearDomainEvents_vide_la_collection()
+    public void ClearDomainEvents_empties_the_list()
     {
         var product = Product.Create("Stylo", Money.From(1m));
 

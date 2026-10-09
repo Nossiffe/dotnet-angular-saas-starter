@@ -1,17 +1,16 @@
-using Mediator;
 using Microsoft.Extensions.Logging;
+using Saas.Application.Common.Events;
 using Saas.Domain.Tenancy;
 
 namespace Saas.Application.Tenancy.MemberJoined;
 
-// Hook d'audit/extensibilité outbox : Mediator exige un handler par INotification — intentionnel.
 public sealed partial class MemberJoinedHandler(ILogger<MemberJoinedHandler> logger)
-    : INotificationHandler<MemberJoinedDomainEvent>
+    : IDomainEventHandler<MemberJoinedDomainEvent>
 {
-    public ValueTask Handle(MemberJoinedDomainEvent notification, CancellationToken cancellationToken)
+    public ValueTask HandleAsync(MemberJoinedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(notification);
-        LogMemberJoined(logger, notification.UserId, notification.OrganizationId.Value);
+        ArgumentNullException.ThrowIfNull(domainEvent);
+        LogMemberJoined(logger, domainEvent.UserId, domainEvent.OrganizationId.Value);
         return ValueTask.CompletedTask;
     }
 

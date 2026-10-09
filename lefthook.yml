@@ -6,7 +6,7 @@ pre-commit:
     gitleaks:
       run: |
         if command -v gitleaks >/dev/null 2>&1; then
-          gitleaks protect --staged --redact --no-banner --config .gitleaks.toml
+          gitleaks git --pre-commit --staged --redact --no-banner --config .gitleaks.toml
         else
           echo "gitleaks absent : scan local des secrets ignoré (la CI le fait)."
         fi

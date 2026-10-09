@@ -33,15 +33,14 @@ pour chaque release :
    - Backend : `dotnet tool run dotnet-CycloneDX -- Saas.slnx -o sbom --filename sbom-backend.json --json`
      (format CycloneDX ; le `--` sépare les arguments de `dotnet tool run` de ceux passés à
      l'outil).
-   - Chaque front : `npm sbom --sbom-format cyclonedx --omit dev` (SBOM natif npm, dépendances
+   - Front Angular : `npm sbom --sbom-format cyclonedx --omit dev` (SBOM natif npm, dépendances
      de prod uniquement).
    - Tous les fichiers `sbom/*.json` sont publiés en artifact du run (`actions/upload-artifact`).
 3. **Attestation de provenance** (SLSA build L2, `actions/attest-build-provenance`) sur le
    digest de l'image poussée — preuve vérifiable que l'image provient bien de ce repo/run/commit,
-   publiée sur le registre GHCR. Placée **après** les SBOM dans le workflow : sur ce repo privé
-   (hors GitHub Enterprise), cette étape échoue par construction (transparence log requiert
-   Advanced Security) — un échec attendu ici ne doit pas priver de leurs SBOM les images déjà
-   poussées.
+   publiée sur le registre GHCR. Placée **après** les SBOM dans le workflow : sur un dépôt
+   privé hors GitHub Enterprise, cette étape échoue (les attestations y exigent GitHub
+   Enterprise Cloud) ; les SBOM des images déjà poussées restent alors publiés.
 
 ### Vérifier l'attestation d'une image
 
@@ -57,7 +56,13 @@ d'une image tirée d'un registre partagé, ou en gate d'un pipeline de déploiem
 
 ## Variables d'environnement / Secrets (production)
 
-Les variables marquées **Required** sont validées au démarrage (`builder.Configuration.GetRequired*`) — l'application refuse de démarrer si elles sont absentes ou vides. Utilisez un gestionnaire de secrets (Azure Key Vault, AWS Secrets Manager, Kubernetes Secrets, etc.) — **ne jamais committer ces valeurs**.
+`appsettings.json` ne contient aucune valeur propre à un environnement : les valeurs de
+développement (base locale, Mailpit, `http://localhost:4200`) sont dans
+`appsettings.Development.json`, lu seulement quand `ASPNETCORE_ENVIRONMENT=Development`. Hors
+Development, l'API refuse donc de démarrer si une variable **Required** manque : la chaîne de
+connexion est contrôlée explicitement, les autres par la validation des options au démarrage
+(`ValidateDataAnnotations().ValidateOnStart()`). Utilisez un gestionnaire de secrets (Azure Key
+Vault, AWS Secrets Manager, Kubernetes Secrets, etc.) — **ne jamais committer ces valeurs**.
 
 | Variable | Obligatoire | Description |
 |---|---|---|
@@ -70,8 +75,8 @@ Les variables marquées **Required** sont validées au démarrage (`builder.Conf
 | `Email__UseSslOnConnect` | Optionnel | `true` pour TLS implicite (port 465) |
 | `Email__Username` | Optionnel | Identifiant SMTP si auth requise |
 | `Email__Password` | Optionnel | Mot de passe SMTP — secret |
-| `App__BaseUrl` | **Required** | URL publique du front (liens dans les emails — ex. `https://app.example.com`) |
-| `Cors__AllowedOrigins` | **Required** | Origines CORS autorisées (JSON array — ex. `["https://app.example.com"]`) |
+| `App__BaseUrl` | **Required** | URL publique du front, absolue (liens dans les emails — ex. `https://app.example.com`) |
+| `Cors__AllowedOrigins__0`, `__1`… | Optionnel | Origines autorisées à appeler l'API depuis un autre domaine. Vide par défaut : le front est servi depuis la même origine que l'API (`docs/adr/0004`) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Optionnel | Endpoint OTLP (ex. `https://otel-collector:4317`) |
 | `OTEL_SERVICE_NAME` | Optionnel | Nom du service pour les traces/métriques (défaut : `saas-api`) |
 | `RateLimiting__DisableAuthPolicy` | **Ne pas activer** | Désactive le rate-limiter `/auth` — **doit rester `false` en production** (honoré uniquement en Development) |
@@ -96,7 +101,7 @@ Le refresh token est transporté par un cookie `rt` `HttpOnly` + `Secure` + `Sam
 signifie que le navigateur **n'envoie le cookie que si le front et l'API partagent le même
 site** (même schéma + même domaine enregistrable).
 
-**Conséquence pour le déploiement** : le reverse-proxy/ingress de production DOIT servir le
+**Conséquence pour le déploiement** : le reverse-proxy/ingress de production doit servir le
 SPA et l'API sous le **même host** (typiquement `app.example.com` avec `/api/*` réécrit vers
 le backend `api` interne). Exemple nginx :
 
@@ -165,7 +170,7 @@ certificat X.509) plutôt que la persistance en clair par défaut.
 
 Quand l'API tourne derrière un reverse-proxy/ingress qui termine TLS (nginx, Traefik, ALB,
 Ingress Controller Kubernetes), Kestrel ne voit que la connexion **interne** (souvent HTTP,
-IP du proxy) — sans réécriture, `Request.Scheme` et `Connection.RemoteIpAddress` sont FAUX
+IP du proxy) — sans réécriture, `Request.Scheme` et `Connection.RemoteIpAddress` sont faux
 au niveau applicatif, ce qui casse `UseHsts`/`UseHttpsRedirection` (le HTTPS externe n'est
 pas vu par ASP.NET Core) et le calcul du `Secure` du cookie refresh.
 
@@ -225,7 +230,7 @@ dotnet ef migrations bundle \
   --startup-project src/Api \
   -o efbundle
 
-# Appliquer les migrations (étape CI/CD AVANT le déploiement de l'app)
+# Appliquer les migrations (étape CI/CD, avant le déploiement de l'app)
 ./efbundle --connection "$DATABASE_URL"
 ```
 
@@ -271,13 +276,31 @@ readinessProbe:
 
 ## Scaling & caveats
 
-### Outbox (poll single-instance)
+### Outbox en multi-instance
 
-Le `OutboxProcessor` (background service) interroge la table `OutboxMessages` en boucle. En déploiement **multi-instance (plusieurs pods)**, plusieurs workers peuvent traiter les mêmes messages simultanément.
+Chaque instance de l'API fait tourner un `OutboxProcessor`. Chaque message est verrouillé avec
+`FOR UPDATE SKIP LOCKED` le temps de son traitement : deux instances ne traitent jamais le même
+message en même temps, sans configuration particulière. La livraison reste « au moins une fois »
+(voir `ARCHITECTURE.md` § Transactional Outbox).
 
-**Options :**
-- Dédier un seul pod au worker Outbox (flag feature/env var).
-- Ajouter `SELECT ... FOR UPDATE SKIP LOCKED` dans la requête Outbox, pour que deux instances ne prennent jamais les mêmes messages.
+### Messages de l'outbox abandonnés
+
+Après 5 tentatives, un message est abandonné : il reste dans `OutboxMessages` avec
+`"ProcessedOn" IS NULL`, et l'API journalise l'erreur `Outbox : message {MessageId} abandonné`.
+Une fois la cause corrigée (SMTP indisponible, par exemple), on le relance :
+
+```sql
+-- Messages abandonnés et leur dernière erreur
+SELECT "Id", "Type", "OccurredOn", "Error" FROM "OutboxMessages"
+WHERE "ProcessedOn" IS NULL AND "Attempts" >= 5;
+
+-- Relance : repris au lot suivant ; les handlers déjà passés ne sont pas rappelés
+UPDATE "OutboxMessages" SET "Attempts" = 0, "NextAttemptOn" = NULL
+WHERE "Id" = '<id>';
+```
+
+Les messages traités sont supprimés après 7 jours par le job Hangfire
+`purge-processed-outbox-messages` ; les messages abandonnés ne sont jamais purgés.
 
 ### Hangfire Dashboard
 

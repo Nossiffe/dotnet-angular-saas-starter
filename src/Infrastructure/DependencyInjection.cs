@@ -11,7 +11,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Saas.Application.Common.Interfaces;
-using Saas.Domain.Identity;
 using Saas.Infrastructure.Common;
 using Saas.Infrastructure.Email;
 using Saas.Infrastructure.Identity;
@@ -63,7 +62,7 @@ public static class DependencyInjection
 
     private static void AddBackgroundJobs(IServiceCollection services, IConfiguration configuration)
     {
-        // Hangfire crée ses PROPRES tables Postgres au démarrage (pas de migration EF).
+        // Hangfire crée ses propres tables Postgres au démarrage (pas de migration EF).
         // API version-sensible (Hangfire.PostgreSql 1.20+) : UsePostgreSqlStorage(c => c.UseNpgsqlConnection(...)).
         services.AddHangfire(config => config
             .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
@@ -73,8 +72,8 @@ public static class DependencyInjection
                 opt.UseNpgsqlConnection(configuration.GetConnectionString("Default"))));
         services.AddHangfireServer();
 
-        // Jobs résolus par DI.
         services.AddScoped<PurgeExpiredRefreshTokensJob>();
+        services.AddScoped<PurgeProcessedOutboxMessagesJob>();
         services.AddScoped<ProcessPasswordResetJob>();
         services.AddScoped<ProcessInvitationEmailJob>();
 
@@ -83,7 +82,7 @@ public static class DependencyInjection
         services.AddScoped<IInvitationEmailEnqueuer, HangfireInvitationEmailEnqueuer>();
     }
 
-    // Enregistre les recurring jobs (référence le type interne PurgeExpiredRefreshTokensJob).
+    // Enregistre les recurring jobs (types internes à l'Infrastructure).
     // Appelé depuis Program.cs après Build() — IRecurringJobManager n'existe qu'au runtime.
     public static void RegisterRecurringJobs(IServiceProvider services)
     {
@@ -93,10 +92,20 @@ public static class DependencyInjection
             "purge-expired-refresh-tokens",
             job => job.RunAsync(),
             Cron.Daily());
+        manager.AddOrUpdate<PurgeProcessedOutboxMessagesJob>(
+            "purge-processed-outbox-messages",
+            job => job.RunAsync(),
+            Cron.Daily());
     }
 
     private static void AddPersistence(IServiceCollection services, IConfiguration configuration)
     {
+        if (string.IsNullOrWhiteSpace(configuration.GetConnectionString("Default")))
+        {
+            throw new InvalidOperationException(
+                "ConnectionStrings:Default est requis (variable d'environnement ConnectionStrings__Default).");
+        }
+
         services.AddScoped<AuditableEntityInterceptor>();
         services.AddScoped<DomainEventsInterceptor>();
         services.AddDbContext<AppDbContext>((sp, options) =>
@@ -113,8 +122,9 @@ public static class DependencyInjection
         });
         services.AddScoped<IDbConnectionFactory, NpgsqlConnectionFactory>();
 
-        // Transactional Outbox : dispatch fiable des domain events (remplace le dispatch direct).
-        services.AddHostedService<OutboxProcessor>();
+        // Transmet les domain events de l'outbox à leurs handlers (voir OutboxProcessor).
+        services.AddSingleton<OutboxProcessor>();
+        services.AddHostedService<OutboxPollingService>();
 
         // Repositories (write) + Unit of Work — pas de DbSet exposé à l'Application.
         services.AddScoped<IProductRepository, ProductRepository>();
@@ -129,7 +139,7 @@ public static class DependencyInjection
             {
                 options.User.RequireUniqueEmail = true;
                 options.Password.RequiredLength = 12;
-                // Lockout : défauts Identity rendus EXPLICITES (contrat testé par LockoutTests).
+                // Lockout : défauts Identity rendus explicites (contrat testé par LockoutTests).
                 options.Lockout.AllowedForNewUsers = true;
                 options.Lockout.MaxFailedAccessAttempts = 5;
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);

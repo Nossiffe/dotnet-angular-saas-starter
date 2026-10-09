@@ -2,7 +2,7 @@ namespace Saas.Api.Common;
 
 /// <summary>
 /// Transport du refresh token : cookie HttpOnly, jamais exposé au JS (anti-XSS).
-/// SameSite=Strict + CORS origins explicites + fronts même-origine → pas d'antiforgery
+/// SameSite=Strict + CORS origins explicites + front servi en même origine → pas d'antiforgery
 /// (ADR 0004). Path limité aux endpoints auth : le cookie ne circule pas ailleurs.
 /// </summary>
 internal static class RefreshCookie

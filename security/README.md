@@ -27,7 +27,7 @@ Deux jobs indépendants, tous deux bloquants (`exit 1` si vulnérabilité
 High/Critical) :
 
 - **`dotnet-audit`** : `dotnet list Saas.slnx package --vulnerable --include-transitive --format json`,
-  parsing du JSON (schéma vérifié localement — voir le rapport de tâche), échoue
+  parsing du JSON, échoue
   si un package (top-level ou transitif) a une vulnérabilité `High`/`Critical`.
   En cas d'échec sur une PR, un commentaire automatique est posté (job
   `dotnet-audit`, étape « Commentaire PR »).

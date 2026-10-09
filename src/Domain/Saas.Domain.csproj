@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Le Domain ne dépend d'aucun framework : seulement des types valeur (Vogen) et des résultats
+       métier (ErrorOr). Vérifié par DependencyRuleTests. -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Identity.Stores" />
-    <PackageReference Include="Mediator.Abstractions" />
     <PackageReference Include="Vogen" />
     <PackageReference Include="ErrorOr" />
   </ItemGroup>

@@ -3,8 +3,7 @@
 - **Statut** : Accepté (2026-07-13)
 - **Contexte** : le refresh token circulait dans le body JSON (`AuthResponse.RefreshToken`)
   et vivait en `localStorage` côté front — accessible à tout script exécuté dans la page
-  (XSS). Le chantier sécurité migre son transport vers un cookie posé par l'API, jamais lu
-  par le JS applicatif.
+  (XSS). Il passe dans un cookie posé par l'API, jamais lu par le JS applicatif.
 
 ## Décision
 
@@ -13,15 +12,15 @@ posé/lu **uniquement** par les endpoints `/auth/*` :
 
 | Attribut | Valeur | Pourquoi |
 |---|---|---|
-| `HttpOnly` | `true` | Inaccessible à `document.cookie` — élimine le vol par XSS (le risque que la migration adresse). |
+| `HttpOnly` | `true` | Inaccessible à `document.cookie` — élimine le vol par XSS. |
 | `Secure` | `true` (toujours, y compris en dev via HTTPS local) | Le cookie ne quitte jamais le canal chiffré ; pas de dérogation dev qui se retrouverait oubliée en prod. |
-| `SameSite` | `Strict` | Le cookie n'est envoyé que sur une navigation/require **même-site** — bloque le CSRF cross-site par construction (un formulaire ou un script sur un autre site ne peut pas déclencher un envoi du cookie). |
-| `Path` | `/api/v1/auth` | Le cookie ne circule sur AUCUNE autre route de l'API (surface d'attaque minimale, pas de fuite vers `/products`, `/organizations`, etc.). |
+| `SameSite` | `Strict` | Le cookie n'est envoyé que sur une navigation ou une requête **même-site** — bloque le CSRF cross-site par construction (un formulaire ou un script sur un autre site ne peut pas déclencher un envoi du cookie). |
+| `Path` | `/api/v1/auth` | Le cookie ne circule sur aucune autre route de l'API (surface d'attaque minimale, pas de fuite vers `/products`, `/organizations`, etc.). |
 | `MaxAge` | `Jwt:RefreshTokenDays` | Aligné sur la durée de vie métier existante du refresh token. |
 
-`AuthResponse` perd son champ `RefreshToken` ; `LogoutRequest` disparaît ; `/auth/refresh`
-et `/auth/logout` n'ont plus de body — le cookie est la seule source de vérité pour la
-rotation/révocation (mécanique `RefreshTokenStore` inchangée, seul le **transport** change).
+`AuthResponse` ne contient pas le refresh token, et `/auth/refresh` et `/auth/logout` n'ont pas
+de body : le cookie est la seule source de vérité pour la rotation et la révocation
+(`RefreshTokenStore`).
 
 ## Pourquoi pas d'antiforgery (anti-CSRF token classique)
 

@@ -18,7 +18,8 @@ public sealed class ProductEndpoints : IEndpoint
     {
         ArgumentNullException.ThrowIfNull(app);
         var group = app.MapGroup("/products").WithTags("Products")
-            .RequireAuthorization(AuthorizationPolicies.HasTenant);
+            .RequireAuthorization(AuthorizationPolicies.HasTenant)
+            .WithAuthorizationResponses();
 
         group.MapPost("/", CreateProduct)
             .WithCreatedResponses<CreateProductResponse>();
@@ -29,8 +30,10 @@ public sealed class ProductEndpoints : IEndpoint
         group.MapGet("/{id:guid}", GetProduct)
             .WithStandardResponses<ProductDto>();
 
+        // 409 : le produit a été modifié par une autre requête entre la lecture et l'écriture.
         group.MapPut("/{id:guid}", UpdateProduct)
-            .WithNoContentResponses();
+            .WithNoContentResponses()
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapDelete("/{id:guid}", DeleteProduct)
             .WithNoContentResponses()
@@ -38,11 +41,10 @@ public sealed class ProductEndpoints : IEndpoint
     }
 
     private static async Task<IResult> CreateProduct(
-        CreateProductCommand command, ISender sender, CancellationToken ct)
+        CreateProductRequest request, ISender sender, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(command);
-        var result = await sender.Send(command, ct);
-        // enveloppe dans le contract existant sur le chemin succès
+        ArgumentNullException.ThrowIfNull(request);
+        var result = await sender.Send(new CreateProductCommand(request.Name, request.Price), ct);
         return result.Match(
             id => Results.Created($"/api/v1/products/{id}", new CreateProductResponse(id)),
             _ => result.ToHttpResult());
@@ -56,10 +58,10 @@ public sealed class ProductEndpoints : IEndpoint
         => (await sender.Send(new GetProductByIdQuery(id), ct)).ToHttpResult();
 
     private static async Task<IResult> UpdateProduct(
-        Guid id, UpdateProductBody body, ISender sender, CancellationToken ct)
+        Guid id, UpdateProductRequest request, ISender sender, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(body);
-        return (await sender.Send(new UpdateProductCommand(id, body.Name, body.Price), ct))
+        ArgumentNullException.ThrowIfNull(request);
+        return (await sender.Send(new UpdateProductCommand(id, request.Name, request.Price), ct))
             .ToNoContentHttpResult();
     }
 

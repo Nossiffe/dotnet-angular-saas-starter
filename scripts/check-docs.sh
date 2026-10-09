@@ -6,7 +6,7 @@
 #   2. Port API citant un port ≠ launchSettings.json
 #   3. Routes /api/v1/... qui ne correspondent à aucun endpoint défini
 #
-# Philosophie : ZÉRO faux positif > complétude. Tolérer les placeholders/globs.
+# Priorité : aucun faux positif, quitte à laisser passer des cas. Tolérer les placeholders/globs.
 # Exit 0 si aucune violation, exit 1 si ≥1 violation.
 
 set -euo pipefail
@@ -55,8 +55,7 @@ is_placeholder() {
   leaf="$(basename "$token")"
   [[ "$leaf" == Foo* ]] && return 0
   [[ "$leaf" == Bar* ]] && return 0
-  # Placeholder numérique conventionnel (ex. `docs/adr/NNNN` = "prochain numéro
-  # d'ADR", jamais un fichier réel) — convention déjà utilisée ailleurs dans le repo.
+  # Placeholder numérique (ex. `docs/adr/NNNN` = "prochain numéro d'ADR", jamais un fichier réel).
   [[ "$leaf" == "NNNN" ]] && return 0
   return 1
 }
@@ -75,9 +74,9 @@ is_known_optional() {
 # Pour les ADR-style : docs/adr/0001 → chercher un fichier commençant par docs/adr/0001
 path_exists_or_prefix() {
   local path="$1"
-  # Chemins GÉNÉRÉS (gitignorés) : légitimement absents d'un checkout frais (CI).
+  # Chemins générés (gitignorés) : légitimement absents d'un checkout frais (CI).
   case "$path" in
-    web-angular/src/app/api/generated*|src/Api/Saas.Api.json)
+    web-angular/src/app/api/generated*)
       return 0 ;;
   esac
   # Vérification exacte d'abord
@@ -141,7 +140,7 @@ check_paths() {
       VIOLATIONS=$((VIOLATIONS + 1))
     fi
   done < <(
-    grep -oP '`\K(src|web-angular|tools|scripts|docs|\.github)/[A-Za-z0-9._/-]+(?=`)' "$file" 2>/dev/null || true
+    grep -oP '`\K(src|web-angular|scripts|docs|\.github)/[A-Za-z0-9._/-]+(?=`)' "$file" 2>/dev/null || true
   )
 }
 
@@ -167,9 +166,9 @@ check_api_port() {
     [[ -z "$port_match" ]] && continue
     # Ignorer si c'est le bon port
     [[ "$port_match" == "$REAL_API_PORT" ]] && continue
-    # Ignorer les ports clairement non-API (Angular 4200, Adminer 8080, Mailpit 8025/8125, Aspire 18888)
+    # Ignorer les ports clairement non-API (Angular 4200, Adminer 8080, Mailpit 8025, Aspire 18888, HTTPS local 7100)
     case "$port_match" in
-      4200|8080|8025|8125|18888|587|465|25|4317|7100) continue ;;
+      4200|8080|8025|18888|587|465|25|4317|7100) continue ;;
     esac
     # Signaler comme port API suspect
     echo "  [port-api] $rel_file : localhost:$port_match cité (port API réel = $REAL_API_PORT)"
@@ -182,30 +181,24 @@ check_api_port() {
 # ---------------------------------------------------------------------------
 # CHECK 3 — Endpoints /api/v1/...
 # ---------------------------------------------------------------------------
-# Collecter les routes déclarées dans src/Api/Endpoints/
-# On cherche les groupes MapGroup + les MapXxx pour reconstituer les chemins
-# Heuristique : chercher la string /api/v1 dans les sources (EndpointExtensions)
-# et vérifier le préfixe global
+# Vérifie le préfixe global /api/v1, puis que le premier segment de chaque route /api/v1/...
+# citée dans la doc correspond à un groupe déclaré avec MapGroup dans src/Api/Endpoints/.
 
 API_PREFIX_OK=false
 if grep -qr '/api/v{version:apiVersion}\|/api/v1' "$REPO/src/Api/" 2>/dev/null; then
   API_PREFIX_OK=true
 fi
 
-# Collecter les segments de route définis dans les endpoints
-# On extrait les chaînes passées à MapGroup et MapXxx (heuristique)
+# Groupes de routes déclarés avec MapGroup (/auth, /products...).
 collect_endpoint_routes() {
-  # Retourne une liste de chemins complets /api/v1/...
   local routes=()
 
-  # Chercher dans tous les IEndpoint le groupe de base + les routes
   while IFS= read -r line; do
     # MapGroup("/auth") → /auth
     if [[ "$line" =~ MapGroup\(\"(/[^\"]+)\"\) ]]; then
       routes+=("${BASH_REMATCH[1]}")
     fi
-    # MapPost/MapGet/MapPut/MapDelete("/register") → combine with group
-  done < <(grep -rh 'MapGroup\|MapPost\|MapGet\|MapPut\|MapDelete' "$REPO/src/Api/Endpoints/" 2>/dev/null)
+  done < <(grep -rh 'MapGroup' "$REPO/src/Api/Endpoints/" 2>/dev/null)
 
   # Retourner les groupes trouvés (auth, products...)
   for r in "${routes[@]}"; do

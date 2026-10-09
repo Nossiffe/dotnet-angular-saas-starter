@@ -11,7 +11,7 @@ public sealed class AuthFlowTests(PostgresApiFactory factory)
     private sealed record AuthResponse(string AccessToken, DateTimeOffset ExpiresAt);
 
     [Fact]
-    public async Task Register_login_donne_un_token_utilisable()
+    public async Task Register_then_login_returns_a_usable_token()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = AuthTestFlow.HttpsClient(factory);
@@ -36,14 +36,14 @@ public sealed class AuthFlowTests(PostgresApiFactory factory)
     }
 
     [Fact]
-    public async Task Login_email_non_confirme_est_refuse()
+    public async Task Login_with_an_unconfirmed_email_is_refused()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
         var email = $"unconfirmed-{Guid.NewGuid():N}@saas.local";
         const string password = "Sup3rSecret!!42";
 
-        // Inscription SANS confirmation d'email.
+        // Inscription sans confirmation d'email.
         var register = await client.PostAsJsonAsync("/api/v1/auth/register", new { email, password }, ct);
         register.StatusCode.ShouldBe(HttpStatusCode.Created);
 

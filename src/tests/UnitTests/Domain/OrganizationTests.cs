@@ -7,7 +7,7 @@ namespace Saas.UnitTests.Domain;
 public sealed class OrganizationTests
 {
     [Fact]
-    public void Create_ajoute_un_membre_Owner()
+    public void Create_adds_the_owner_as_member()
     {
         var ownerId = Guid.CreateVersion7();
 
@@ -21,7 +21,7 @@ public sealed class OrganizationTests
     }
 
     [Fact]
-    public void AddMember_est_idempotent_par_utilisateur()
+    public void AddMember_is_idempotent_per_user()
     {
         var ownerId = Guid.CreateVersion7();
         var organization = Organization.Create("Acme", Slug.From("acme"), ownerId);
@@ -32,11 +32,11 @@ public sealed class OrganizationTests
     }
 
     [Fact]
-    public void Slug_vide_lance() =>
+    public void An_empty_slug_throws() =>
         Should.Throw<Vogen.ValueObjectValidationException>(() => Slug.From(" "));
 
     [Fact]
-    public void ChangeMemberRole_promeut_un_membre()
+    public void ChangeMemberRole_promotes_a_member()
     {
         var ownerId = Guid.CreateVersion7();
         var memberId = Guid.CreateVersion7();
@@ -50,7 +50,7 @@ public sealed class OrganizationTests
     }
 
     [Fact]
-    public void ChangeMemberRole_du_dernier_Owner_retourne_une_erreur()
+    public void Demoting_the_last_owner_returns_an_error()
     {
         var ownerId = Guid.CreateVersion7();
         var organization = Organization.Create("Acme", Slug.From("acme"), ownerId);
@@ -62,7 +62,7 @@ public sealed class OrganizationTests
     }
 
     [Fact]
-    public void ChangeMemberRole_utilisateur_introuvable_retourne_une_erreur()
+    public void Changing_the_role_of_an_unknown_user_returns_an_error()
     {
         var ownerId = Guid.CreateVersion7();
         var organization = Organization.Create("Acme", Slug.From("acme"), ownerId);

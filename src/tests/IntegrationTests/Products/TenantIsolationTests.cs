@@ -11,7 +11,7 @@ namespace Saas.IntegrationTests.Products;
 public sealed class TenantIsolationTests(PostgresApiFactory factory)
 {
     [Fact]
-    public async Task Un_tenant_ne_voit_pas_les_produits_dun_autre()
+    public async Task A_tenant_does_not_see_the_products_of_another()
     {
         var ct = TestContext.Current.CancellationToken;
         var tenantA = Guid.CreateVersion7();

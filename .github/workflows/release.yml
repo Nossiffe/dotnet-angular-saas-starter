@@ -65,7 +65,7 @@ jobs:
         run: |
           dotnet tool restore
           dotnet tool run dotnet-CycloneDX -- Saas.slnx -o sbom --filename sbom-backend.json --json
-      - name: SBOM fronts (npm sbom natif)
+      - name: SBOM front (npm sbom natif)
         run: |
           (cd web-angular && npm ci --ignore-scripts && npm sbom --sbom-format cyclonedx --omit dev > ../sbom/sbom-web-angular.json)
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

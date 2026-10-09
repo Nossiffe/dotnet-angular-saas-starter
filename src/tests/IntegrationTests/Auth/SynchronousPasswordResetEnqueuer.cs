@@ -6,7 +6,7 @@ namespace Saas.IntegrationTests.Auth;
 
 /// <summary>
 /// Remplaçant de test de IPasswordResetEnqueuer : exécute ProcessPasswordResetJob
-/// SYNCHRONEMENT dans le même scope DI, de sorte que CapturingEmailSender capture
+/// synchronement dans le même scope DI, de sorte que CapturingEmailSender capture
 /// le mail avant que le test n'aille lire factory.Emails.For(email).
 /// </summary>
 internal sealed class SynchronousPasswordResetEnqueuer(IServiceProvider sp) : IPasswordResetEnqueuer

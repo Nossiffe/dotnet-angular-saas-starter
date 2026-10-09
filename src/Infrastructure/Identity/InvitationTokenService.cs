@@ -14,8 +14,7 @@ public sealed class InvitationTokenService : IInvitationTokenService
     public string GenerateRawToken()
         => WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
 
-    public string HashToken(string rawToken)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawToken))).ToLowerInvariant();
+    public string HashToken(string rawToken) => TokenHash.Sha256(rawToken);
 
     public bool VerifyToken(string rawToken, string storedHash)
         => CryptographicOperations.FixedTimeEquals(

@@ -23,7 +23,6 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
 
     private static string UniqueEmail(string prefix) => $"{prefix}-{Guid.NewGuid():N}@saas.local";
 
-    // ── Happy path : nouvel utilisateur invité → accept (+password) → login ─────────
     [Fact]
     public async Task Invite_new_user_then_accept_creates_membership_and_allows_login()
     {
@@ -63,7 +62,6 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         ReadJwtClaim(auth.AccessToken, "tenant_role").ShouldBe("Member");
     }
 
-    // ── Happy path : utilisateur existant → accept sans password ────────────────────
     [Fact]
     public async Task Invite_existing_user_then_accept_without_password()
     {
@@ -90,7 +88,6 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         body!.IsNewUser.ShouldBeFalse();
     }
 
-    // ── Doublon d'invitation pending → 409 ──────────────────────────────────────────
     // InvitationErrors.AlreadyPending est un Error.Conflict, comme la branche 23505 du
     // GlobalExceptionHandler qui couvre la même règle en cas de course.
     [Fact]
@@ -111,7 +108,6 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         second.StatusCode.ShouldBe(HttpStatusCode.Conflict);
     }
 
-    // ── Déjà membre → 400 ───────────────────────────────────────────────────────────
     [Fact]
     public async Task Invite_when_already_member_returns_400()
     {
@@ -137,7 +133,6 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         reinvite.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
-    // ── Revoke puis accept → 400 ────────────────────────────────────────────────────
     [Fact]
     public async Task Revoke_then_accept_returns_400()
     {
@@ -163,7 +158,6 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         accept.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
-    // ── Resend invalide l'ancien token ──────────────────────────────────────────────
     [Fact]
     public async Task Resend_invalidates_previous_token()
     {
@@ -197,7 +191,6 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         acceptNew.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
-    // ── List pending (3 invitées, 1 révoquée → 2) ───────────────────────────────────
     [Fact]
     public async Task List_pending_excludes_revoked()
     {
@@ -227,7 +220,6 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         list.ShouldAllBe(i => i.Email != null);
     }
 
-    // ── ChangeMemberRole → Admin (vérifié au re-login) ──────────────────────────────
     [Fact]
     public async Task ChangeMemberRole_promotes_member_to_admin_reflected_on_relogin()
     {
@@ -268,7 +260,6 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         ReadJwtClaim(reAuth!.AccessToken, "tenant_role").ShouldBe("Admin");
     }
 
-    // ── Non-Owner ne peut pas inviter → 403 ─────────────────────────────────────────
     [Fact]
     public async Task Non_owner_cannot_invite_returns_403()
     {
@@ -282,7 +273,6 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         invite.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
-    // ── orgId de la route ≠ tenant du token → 404 (anti-énumération) ────────────────
     // OrganizationScopeFilter renvoie OrganizationErrors.NotFound : la réponse est la même que
     // pour une organisation inexistante, et ne révèle pas qu'une autre organisation existe.
     [Fact]
@@ -299,7 +289,6 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         invite.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
-    // ── Token expiré → 400 (ExpiresAt mis dans le passé en base) ────────────────────
     [Fact]
     public async Task Expired_invitation_accept_returns_400()
     {
@@ -331,10 +320,9 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         accept.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
-    // ── Régression Fix 1 : invitation expirée + nouvel email → 400 ET aucun user orphelin ──
-    // Le handler créait autrefois le compte Identity avant la vérification d'expiration, et un
+    // Si le compte Identity était créé avant la vérification d'expiration, un
     // early-return ErrorOr ne déclenche pas le rollback de la transaction (seule une exception le
-    // fait), donc le compte restait persisté malgré l'échec de l'acceptation. On vérifie ici
+    // fait) : le compte resterait en base malgré l'échec de l'acceptation. On vérifie ici
     // qu'une tentative de connexion avec ce couple email/mot de passe échoue.
     [Fact]
     public async Task Expired_invitation_with_new_email_creates_no_orphan_user()
@@ -372,10 +360,9 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         login.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
-    // ── Accept idempotent : invitee déjà membre → succès silencieux (comportement d'origine) ──
     // On seed directement une invitation Pending pour un email déjà membre de l'organisation
     // (impossible à obtenir via l'endpoint d'invite, qui refuse avec AlreadyMember — cf.
-    // Invite_when_already_member_returns_400) pour reproduire le cas concurrentiel/legacy où
+    // Invite_when_already_member_returns_400) pour reproduire le cas concurrent où
     // l'invitee accepte alors qu'il est déjà membre : Organization.AddMember est un no-op idempotent,
     // l'invitation passe quand même à Accepted, et l'endpoint renvoie 200.
     [Fact]

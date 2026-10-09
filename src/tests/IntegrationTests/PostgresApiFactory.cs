@@ -9,12 +9,15 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Saas.Application.Common.Events;
 using Saas.Application.Common.Interfaces;
-using Saas.Domain.Identity;
+using Saas.Infrastructure.Identity;
 using Saas.Infrastructure.Jobs;
 using Saas.Infrastructure.Persistence;
+using Saas.Infrastructure.Persistence.Outbox;
 using Saas.IntegrationTests.Auth;
 using Saas.IntegrationTests.Invitations;
+using Saas.IntegrationTests.Outbox;
 using Saas.IntegrationTests.Platform;
 using Testcontainers.PostgreSql;
 using Xunit;
@@ -71,6 +74,13 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddScoped<ProcessPasswordResetJob>();
             services.RemoveAll<IPasswordResetEnqueuer>();
             services.AddScoped<IPasswordResetEnqueuer, SynchronousPasswordResetEnqueuer>();
+
+            // Pas de lots de l'outbox en arrière-plan : ils prendraient les messages des tests au
+            // milieu d'une vérification. Les tests de l'outbox lancent les lots eux-mêmes.
+            services.Remove(services.Single(d => d.ImplementationType == typeof(OutboxPollingService)));
+            services.AddScoped<IDomainEventHandler<OutboxProbeEvent>, CountingProbeHandler>();
+            services.AddScoped<IDomainEventHandler<OutboxProbeEvent>, FailingProbeHandler>();
+            services.ConfigureDbContext<AppDbContext>(options => options.AddInterceptors(new UnsavableProbeInterceptor()));
 
             services.AddScoped<ProcessInvitationEmailJob>();
             services.RemoveAll<IInvitationEmailEnqueuer>();

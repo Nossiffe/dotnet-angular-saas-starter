@@ -32,7 +32,10 @@ Starter SaaS .NET 10 + Angular 22, organisé en monorepo.
 ```
 Api → Infrastructure → Application → Domain
 ```
-`Domain` n'a aucune dépendance sur EF, ASP.NET ou autre framework. Vérifié par `DependencyRuleTests` (NetArchTest).
+`Domain` ne référence que le runtime .NET, `Vogen` (identifiants typés) et `ErrorOr` (résultats
+métier) : ni EF, ni ASP.NET, ni Identity, ni Mediator. `DependencyRuleTests` le vérifie sur les
+références réelles de l'assembly. Le compte utilisateur (`ApplicationUser`, Identity) et le refresh
+token vivent dans l'Infrastructure : le Domain ne connaît un utilisateur que par son `Guid`.
 
 ### Agrégats
 
@@ -78,12 +81,11 @@ Application/<Feature>/<UseCase>/
 ### Pipeline Mediator
 
 ```
-Request → LoggingBehavior → ValidationBehavior → CachingBehavior → Handler
+Request → LoggingBehavior → ValidationBehavior → Handler
 ```
 
 - `ValidationBehavior` exécute tous les `IValidator<T>` enregistrés automatiquement.
 - Ne jamais valider manuellement dans un handler.
-- `CachingBehavior` ne s'applique qu'aux queries marquées `[CachedQuery]` (voir « HybridCache »).
 
 ### Interfaces clés
 
@@ -134,14 +136,16 @@ Request → LoggingBehavior → ValidationBehavior → CachingBehavior → Handl
   `SaveChanges` comme en `SaveChangesAsync`, et refuse qu'une entité existante change de tenant.
   `TenantId`, l'audit et la suppression logique n'ont pas de setter public dans le Domain.
 - **Lectures Dapper** : elles ne passent pas par les query filters EF, donc chaque requête filtre
-  elle-même sur `"TenantId" = @TenantId`. `TenantGuardTests` vérifie que toute requête SQL du code
-  qui lit une table d'entité `ITenantOwned` contient ce filtre.
+  elle-même sur `"TenantId" = @TenantId`. `TenantGuardTests` lit les raw string literals (`"""`)
+  de `src/` et vérifie que chaque requête qui vise une table d'entité `ITenantOwned` contient ce
+  filtre. Une requête écrite autrement (chaîne simple, concaténation) échappe au test : la
+  convention est d'écrire le SQL en raw string literal.
 - **Routes `/organizations/{orgId}/...`** : `OrganizationScopeFilter` compare l'`orgId` de la route
   au tenant du token et répond 404 sinon.
 
 ### Identité & Auth
 
-- ASP.NET Core Identity (`ApplicationUser`, `IdentityRole<Guid>`) stocké en Postgres.
+- ASP.NET Core Identity (`ApplicationUser`, `IdentityRole<Guid>`, dans l'Infrastructure) stocké en Postgres.
 - JWT maison : `JwtTokenService` (access token 15min) + `RefreshTokenStore` (refresh token en base).
 - **Refresh token transporté par cookie `HttpOnly` + `Secure` + `SameSite=Strict` +
   `Path=/api/v1/auth`** (`Saas.Api.Common.RefreshCookie`), jamais dans le body JSON ni
@@ -150,12 +154,22 @@ Request → LoggingBehavior → ValidationBehavior → CachingBehavior → Handl
   `docs/adr/0004`.
 - **Hardening mots de passe** : PBKDF2-SHA512, `IterationCount = 210_000` (OWASP Password
   Storage Cheat Sheet) ; **lockout** après 5 tentatives échouées, verrouillage 5 minutes.
-- **Connexion sans oracle de timing** : pour un e-mail inconnu ou un compte verrouillé,
+- **Connexion sans oracle de timing sur le hash** : pour un e-mail inconnu ou un compte verrouillé,
   `IdentityService.CheckCredentialsAsync` vérifie quand même un hash factice de même coût
-  (`DummyPasswordCheck`), pour que la durée de la réponse ne révèle pas l'existence du compte.
+  (`DummyPasswordCheck`) : le calcul PBKDF2, qui fait l'essentiel de la durée de la réponse, a
+  lieu dans tous les cas. Un écart bien plus faible subsiste : un échec sur un compte existant
+  enregistre aussi la tentative en base (`AccessFailedCount`).
   Sans organisation demandée, la connexion ouvre la plus ancienne adhésion.
-- **Sessions** : le refresh token est refusé (et révoqué) si l'utilisateur n'est plus membre de
-  l'organisation ; une réinitialisation de mot de passe révoque toutes les sessions ouvertes.
+- **Limite connue : l'inscription révèle un e-mail déjà pris.** Elle répond par l'erreur
+  `DuplicateEmail` d'Identity, un compromis d'ergonomie courant. La fermer demanderait une
+  inscription qui répond toujours de la même façon et prévient par e-mail le titulaire du compte.
+- **Sessions** : chaque refresh fait tourner le refresh token. Présenter de nouveau un token déjà
+  remplacé par une rotation est un signe de vol : toutes les sessions de l'utilisateur sont
+  révoquées. Un token révoqué autrement (logout, réinitialisation, retrait d'une organisation)
+  est seulement refusé, et un refresh refusé supprime le cookie. L'adhésion est vérifiée avant
+  la rotation : un utilisateur retiré d'une organisation perd ses sessions sur celle-ci, sur
+  chaque appareil, et garde celles de ses autres organisations. Une réinitialisation de mot de
+  passe révoque toutes les sessions ouvertes.
 - **Rôles d'organisation et policies** (`AuthorizationPolicies`) :
 
   | Policy | Claim exigé | Routes |
@@ -173,8 +187,8 @@ Request → LoggingBehavior → ValidationBehavior → CachingBehavior → Handl
 - **OpenTelemetry** : traces ASP.NET Core + HTTP client + métriques runtime. Exporte via OTLP si `OTEL_EXPORTER_OTLP_ENDPOINT` configuré.
 - **Serilog** : structuré, lit la config JSON, écrit sur la console et transmet aux providers
   enregistrés, dont OpenTelemetry (export OTLP des logs). Un journal par requête, avec le statut
-  final : une erreur de validation est un 400 journalisé en Information, pas une erreur ; seule
-  une vraie erreur serveur produit un log d'erreur (`ErrorLoggingTests`).
+  final : une erreur de validation est un 400 journalisé en Information, sans log d'erreur
+  (`ErrorLoggingTests`) ; une vraie erreur serveur garde son log d'erreur.
 - **Rate limiter** : sliding window 100 req/min par user ou IP, fixed window 10 req/30s sur `/auth`.
 
 ---
@@ -198,7 +212,15 @@ public sealed class ProductEndpoints : IEndpoint
 }
 ```
 
-Enregistrement auto via `AddEndpoints()` / `MapEndpoints()` (scan de l'assembly Api).
+Enregistrement auto via `AddEndpoints()` / `MapEndpoints()` (scan de l'assembly Api). Les
+endpoints reçoivent des contrats `Saas.Api.Contracts` (`XxxRequest`) et les traduisent en commandes :
+le contrat HTTP ne dépend pas des types de l'Application.
+
+### Contrat OpenAPI
+
+Le build de l'API écrit le document OpenAPI dans `web-angular/openapi.json`, dont le front
+génère ses types TypeScript (Hey API). La CI reconstruit le document et échoue s'il diffère du
+fichier versionné. Le schéma Bearer n'est exigé que sur les opérations authentifiées.
 
 ### Cycle de vie d'une requête
 
@@ -215,7 +237,7 @@ HTTP POST /products
   → TypedResults.Created(...)
 
 Plus tard, hors requête :
-OutboxProcessor (toutes les 5 s) → IPublisher.Publish(ProductCreatedDomainEvent) → handlers de l'event
+OutboxPollingService (toutes les 5 s) → OutboxProcessor → IDomainEventHandler<ProductCreatedDomainEvent> (ProductCreatedHandler)
 ```
 
 ### Gestion des erreurs
@@ -230,23 +252,26 @@ OutboxProcessor (toutes les 5 s) → IPublisher.Publish(ProductCreatedDomainEven
   (ne révèle pas son existence).
 - **`GlobalExceptionHandler` reste responsable des exceptions légitimes restantes** (frontière
   forme/métier, `docs/adr/0003`) : `ValidationException` du pipeline FluentValidation ou des
-  erreurs Identity field-tied (→ 400 `ProblemDetails` par champ), `DbUpdateException`/`DbUpdateConcurrencyException`
+  refus d'Identity liés à un champ, à l'inscription et à l'acceptation d'une invitation (→ 400
+  `ProblemDetails` par champ), `DbUpdateException`/`DbUpdateConcurrencyException`
   côté infrastructure (→ 409, ex. contrainte d'unicité Postgres 23505 en défense en profondeur
   derrière une vérification applicative `ErrorOr`), toute autre exception non prévue → 500 (Serilog
   la logue).
 - Vérifié par `ErrorOrConventionTests` (test d'archi) : tout `ICommand<T>`/`IQuery<T>` doit
-  retourner `ErrorOr<>`, et aucune exception métier custom ne doit réapparaître dans `Domain`.
+  retourner `ErrorOr<>`, le `Domain` ne déclare aucune exception métier, et
+  aucun handler ne lève de `ValidationException` hors des cas ci-dessus.
+- Le registre `docs/error-codes.md` est comparé au code par `ErrorRegistryTests`.
 
 ---
 
-## Fronts
+## Front end
 
 ### Angular 22 (`web-angular/`)
 
 - Signal-first (signals, `httpResource`, `input()`/`output()`).
 - Standalone + zoneless. Control flow `@if`/`@for`.
 - Angular Material seul.
-- Client Hey API généré (`npm run api:gen`).
+- Types TypeScript générés par Hey API depuis `openapi.json` (`npm run api:gen`) ; les appels passent par `HttpClient`.
 
 ---
 
@@ -259,7 +284,7 @@ OutboxProcessor (toutes les 5 s) → IPublisher.Publish(ProductCreatedDomainEven
 | `docker-compose` | Postgres + Adminer + Mailpit + Aspire dashboard |
 | `lefthook` | Hooks git avant commit : format, lint, scan des secrets (gitleaks) |
 | `Vogen` | Strongly-typed IDs + value objects mono-valeur |
-| `openapi-ts` (Hey API) | Génération des clients TypeScript |
+| `openapi-ts` (Hey API) | Génération des types TypeScript de l'API |
 
 ---
 
@@ -306,17 +331,44 @@ Sentry.init({ dsn: '<DSN du projet Sentry front>' });
 
 ### Transactional Outbox
 
-Les domain events ne sont pas dispatchés pendant `SaveChanges`. Le `DomainEventsInterceptor` les sérialise (STJ : `Type` = `AssemblyQualifiedName` + `Content` = JSON) en lignes `OutboxMessages` **pendant `SavingChanges`**, donc dans la **même transaction** que l'agrégat (atomicité : aucun event perdu sur crash, aucun event publié sans commit). Un `OutboxProcessor : BackgroundService` poll les lignes non traitées toutes les 5 s, désérialise sur le type concret, publie via `IPublisher.Publish` dans un scope DI, puis renseigne `ProcessedOn`. Retry borné via `Attempts < 5` (l'erreur est stockée dans `Error`).
+Les domain events ne sont pas dispatchés pendant `SaveChanges`. Le `DomainEventsInterceptor` les sérialise (STJ : `Type` = `AssemblyQualifiedName` + `Content` = JSON) en lignes `OutboxMessages` **pendant `SavingChanges`**, donc dans la **même transaction** que l'agrégat (atomicité : aucun event perdu sur crash, aucun event publié sans commit).
 
-> Conséquence : les handlers de domain events (`ProductCreatedHandler`, etc.) s'exécutent **de façon asynchrone**, au prochain tick du processor, et non pendant le `SaveChanges`.
+L'`OutboxPollingService` (`BackgroundService`) lance toutes les 5 s un lot de l'`OutboxProcessor`,
+qui traite jusqu'à 20 messages, un par un :
+
+- **Un message, une transaction** : le message est lu avec `FOR UPDATE SKIP LOCKED`, ses handlers
+  sont appelés, puis son issue est validée. Plusieurs instances de l'API se partagent les messages
+  sans traiter le même en même temps. Un échec ou un arrêt de l'application ne défait pas les
+  messages déjà validés ; à l'arrêt, le message en cours reste à traiter, sans tentative comptée.
+- **Handlers** : chaque `IDomainEventHandler<TEvent>` de l'Application (enregistré par scan
+  d'assembly) reçoit l'event, dans son propre scope DI : il a son propre `DbContext` et valide ses
+  écritures lui-même. Seuls les types qui implémentent `IDomainEvent` sont désérialisés.
+- **Échecs** : le message est repris 1, 4, 16 puis 64 minutes plus tard (`NextAttemptOn`, erreur
+  dans `Error`). Les handlers déjà passés sont notés dans `OutboxMessageConsumers` et ne sont pas
+  rappelés : si l'e-mail de bienvenue est parti et qu'un autre handler échoue, l'e-mail ne repart
+  pas. Si l'issue du message ne peut pas être enregistrée, la tentative est comptée à part. Après
+  5 tentatives, le message est abandonné et journalisé en erreur (`DEPLOYMENT.md` explique comment
+  le relancer).
+- **Purge** : le job Hangfire quotidien `PurgeProcessedOutboxMessagesJob` supprime les messages
+  traités depuis plus de 7 jours. Les messages abandonnés restent en base.
+- **Garantie** : livraison « au moins une fois ». Un arrêt brutal entre un envoi externe et le
+  commit fait rappeler ce handler ; un handler qui agit hors de la base doit le tolérer.
+
+`OutboxTests` couvre le traitement, le délai avant une nouvelle tentative sans rappel des handlers
+passés, l'abandon après 5 tentatives, l'issue impossible à enregistrer, l'arrêt de l'application en
+cours de lot, le message verrouillé par une autre instance et la purge. Les tests d'intégration
+retirent l'`OutboxPollingService` et lancent les lots eux-mêmes, avec une horloge qu'ils avancent.
+`ConventionTests` vérifie que chaque event a un handler et survit à l'aller-retour JSON de l'outbox.
+
+> Conséquence : les handlers de domain events (`ProductCreatedHandler`, etc.) s'exécutent **de façon asynchrone**, au lot suivant, et non pendant le `SaveChanges`.
 
 ### Hangfire (jobs persistés)
 
 `Hangfire.AspNetCore` + `Hangfire.PostgreSql` — Hangfire crée ses **propres tables** Postgres au démarrage (pas de migration EF). API de config version-sensible : `UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connString))`.
 
 - **Dashboard** : `/hangfire`, sécurisé par `HangfireDashboardAuthFilter`. Dev : loopback uniquement. Prod : claim `platform_role=PlatformAdmin` obligatoire.
-- **Recurring job réel** : `PurgeExpiredRefreshTokensJob` (purge quotidienne des refresh tokens expirés via `ExecuteDeleteAsync`).
-- **Fire-and-forget** : `BackgroundJob.Enqueue<PurgeExpiredRefreshTokensJob>(j => j.RunAsync())`.
+- **Recurring jobs** (quotidiens, `ExecuteDeleteAsync`) : `PurgeExpiredRefreshTokensJob` (refresh tokens expirés) et `PurgeProcessedOutboxMessagesJob` (messages de l'outbox traités depuis plus de 7 jours).
+- **Fire-and-forget** : `ProcessPasswordResetJob` et `ProcessInvitationEmailJob`, enfilés par la demande de réinitialisation et par l'invitation, pour que la réponse HTTP n'attende pas le SMTP.
 
 > **Sécurité dashboard** : le dashboard est **secure-by-default** — le claim `platform_role` n'est émis par aucun flow de login standard. Le claim `tenant_role=Owner` ne suffit pas : le dashboard montre les jobs de tous les tenants. En prod, personne n'accède au dashboard tant qu'un opérateur infra n'est pas explicitement provisionné avec `platform_role=PlatformAdmin` (seed admin ou config IdP). Alternative : ne monter le dashboard que hors-production.
 
@@ -324,16 +376,13 @@ Les domain events ne sont pas dispatchés pendant `SaveChanges`. Le `DomainEvent
 
 ### HybridCache (.NET 10)
 
-`AddHybridCache()` — **L1 en mémoire** par défaut. Cache **déclaratif opt-in** : décorer un
-`record XxxQuery` de `[CachedQuery(seconds, Tag = "…")]` active le `CachingBehavior<,>` du
-pipeline Mediator (enregistré après `ValidationBehavior`) — une query sans l'attribut traverse
-le behavior sans écriture de cache. Réservé aux queries **tenant-scoped** : clé
-(`q:{tenantId}:{Query.FullName}:{json}`) et tags (`t:{tenantId}` + `t:{tenantId}:{Tag}`) viennent
-d'`ITenantProvider` (fail-closed). Seuls les succès sont cachés (jamais l'erreur d'un
-`ErrorOr<T>`). Invalidation par write : `cache.RemoveByTagAsync($"t:{tenantId}:{tag}", ct)`
-(`UpdateProductHandler`/`DeleteProductHandler`) — **logique**, pas physique (doc officielle
-HybridCache : `RemoveByTagAsync` ignore toute entrée antérieure au point d'invalidation plutôt
-que de la supprimer). Exemple : `GetProductByIdQuery` (`[CachedQuery(60, Tag = "products")]`).
+`AddHybridCache()` — **L1 en mémoire** par défaut. Le handler qui veut un cache l'utilise
+explicitement : `GetProductByIdHandler` appelle `GetOrCreateAsync` avec une clé et un tag qui
+contiennent le tenant (`ProductCache`), et `UpdateProductHandler`/`DeleteProductHandler`
+invalident ce tag avec `RemoveByTagAsync`. L'invalidation est **logique**, pas physique : la doc
+HybridCache précise que `RemoveByTagAsync` ignore toute entrée antérieure au point
+d'invalidation plutôt que de la supprimer. Un produit absent est mis en cache comme absent : les
+identifiants étant des UUID v7, aucun produit n'apparaît plus tard sous un identifiant demandé.
 
 **Passer en distribué (L2 Redis)** : ajouter `Microsoft.Extensions.Caching.StackExchangeRedis` puis :
 ```csharp

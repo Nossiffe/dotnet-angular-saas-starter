@@ -5,7 +5,7 @@ import { throwError, catchError } from 'rxjs';
 
 /**
  * When set to `true` on an HTTP request's context, the httpErrorInterceptor will
- * NOT show a snackbar for that request's errors. Use this on calls that handle
+ * not show a snackbar for that request's errors. Use this on calls that handle
  * errors inline (e.g. register, forgot-password, reset-password, products mutations).
  */
 export const SKIP_ERROR_TOAST = new HttpContextToken<boolean>(() => false);
@@ -19,7 +19,7 @@ interface ProblemDetails {
 
 /**
  * Parses an HttpErrorResponse body as ProblemDetails and returns a user-friendly message.
- * Returns null if the error should NOT be toasted (e.g. 401 handled by authInterceptor).
+ * Returns null if the error should not be toasted (e.g. 401 handled by authInterceptor).
  */
 function extractMessage(err: HttpErrorResponse): string | null {
   // 401 is handled by authInterceptor (token refresh) — do not toast

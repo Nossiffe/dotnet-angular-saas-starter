@@ -23,10 +23,11 @@ public sealed class AuthEndpoints : IEndpoint
             .AllowAnonymous()
             .WithCreatedResponses<RegisterResponse>();
 
+        // 400 : e-mail non confirmé (avec le bon mot de passe seulement).
         group.MapPost("/login", Login)
             .AllowAnonymous()
             .Produces<AuthResponse>(StatusCodes.Status200OK)
-            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/refresh", Refresh)
@@ -34,7 +35,7 @@ public sealed class AuthEndpoints : IEndpoint
             .Produces<AuthResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
-        // Logout : AllowAnonymous délibéré. La credential réelle du logout EST le cookie HttpOnly
+        // Logout : AllowAnonymous délibéré. La credential réelle du logout est le cookie HttpOnly
         // `rt` (possession), pas l'access token — la révocation est idempotente et la suppression du
         // cookie est inoffensive ; un access token expiré/absent ne doit donc jamais empêcher un
         // utilisateur de se déconnecter. SameSite=Strict couvre déjà le logout-CSRF (nuisance
@@ -59,19 +60,20 @@ public sealed class AuthEndpoints : IEndpoint
             .ProducesProblem(StatusCodes.Status400BadRequest);
     }
 
-    private static async Task<IResult> Register(RegisterCommand cmd, ISender sender, CancellationToken ct)
+    // 201 sans Location : l'API n'expose pas de ressource « utilisateur » à lire.
+    private static async Task<IResult> Register(RegisterRequest request, ISender sender, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(cmd);
-        var result = await sender.Send(cmd, ct);
+        ArgumentNullException.ThrowIfNull(request);
+        var result = await sender.Send(new RegisterCommand(request.Email, request.Password), ct);
         return result.Match(
-            id => Results.Created($"/users/{id}", new RegisterResponse(id)),
+            id => Results.Created((string?)null, new RegisterResponse(id)),
             _ => result.ToHttpResult());
     }
 
-    private static async Task<IResult> Login(LoginCommand cmd, ISender sender, HttpResponse response, CancellationToken ct)
+    private static async Task<IResult> Login(LoginRequest request, ISender sender, HttpResponse response, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(cmd);
-        var result = await sender.Send(cmd, ct);
+        ArgumentNullException.ThrowIfNull(request);
+        var result = await sender.Send(new LoginCommand(request.Email, request.Password, request.TenantId), ct);
         return result.Match(
             auth =>
             {
@@ -93,7 +95,12 @@ public sealed class AuthEndpoints : IEndpoint
                 RefreshCookie.Append(response, auth.RefreshToken, auth.RefreshTokenDays);
                 return TypedResults.Ok(new AuthResponse(auth.AccessToken, auth.ExpiresAt)) as IResult;
             },
-            _ => result.ToHttpResult());
+            _ =>
+            {
+                // Le token refusé ne servira plus : le navigateur n'a pas à le garder.
+                RefreshCookie.Delete(response);
+                return result.ToHttpResult();
+            });
     }
 
     private static async Task<IResult> Logout(ISender sender, HttpRequest request, HttpResponse response, CancellationToken ct)
@@ -128,7 +135,6 @@ public sealed class AuthEndpoints : IEndpoint
         ResetPasswordRequest request, ISender sender, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
-        // Échec → ValidationException (400) ou ErrorOr (ToHttpResult) selon la cause.
         var result = await sender.Send(
             new ResetPasswordCommand(request.UserId, request.Token, request.NewPassword), ct);
         return result.Match(_ => Results.Ok(), _ => result.ToHttpResult());

@@ -8,9 +8,9 @@ A SaaS starter with Clean Architecture, DDD and CQRS: **.NET 10**, **Angular 22*
 
 ## What it demonstrates
 
-- **Architecture**: Clean Architecture layers, rich DDD aggregates with strongly-typed IDs (Vogen), CQRS with Mediator and FluentValidation, EF Core for writes and Dapper for reads, ErrorOr results instead of business exceptions.
+- **Architecture**: Clean Architecture layers with a framework-free Domain, rich DDD aggregates with strongly-typed IDs (Vogen), CQRS with Mediator and FluentValidation, EF Core for writes and Dapper for reads, ErrorOr results instead of business exceptions.
 - **Multi-tenancy**: EF Core global query filters driven by a `tenant` claim. A resource owned by another tenant returns 404, never 403, so its existence is not disclosed.
-- **Robustness**: transactional outbox for domain events, Hangfire background jobs, HybridCache, database retry on transient failures.
+- **Robustness**: transactional outbox for domain events with at-least-once delivery: one transaction per message, several API instances sharing the work through row locks, delayed retries that skip the handlers that already succeeded. Hangfire background jobs, HybridCache, database retry on transient failures.
 - **Observability**: Serilog and OpenTelemetry (OTLP), with the Aspire dashboard locally.
 - **API and front end**: minimal APIs with versioning and OpenAPI, TypeScript API types generated from the OpenAPI contract with Hey API, Angular 22 signal-first and zoneless with Angular Material.
 - **Security by default**: ASP.NET Core Identity with PBKDF2 at 210,000 iterations (OWASP), account lockout, rate limiting, JWT access tokens with the refresh token in an HttpOnly cookie, HSTS.
@@ -22,7 +22,8 @@ Every change has to pass these gates, whoever or whatever wrote it:
 | Gate | Tooling | When |
 |---|---|---|
 | Build | .NET analyzers, warnings treated as errors | Every build |
-| Architecture rules | Architecture tests: dependency rules, conventions, ErrorOr usage, security conventions | Every CI run |
+| Architecture rules | Architecture tests: dependency rules on the assemblies' actual references, conventions, ErrorOr usage, security conventions, tenant filter on every SQL read | Every CI run |
+| API contract | OpenAPI document rebuilt and compared with the committed one the front end types come from | Every CI run |
 | Behaviour | Unit tests, integration tests against a real PostgreSQL (Testcontainers), end-to-end smoke test (API + PostgreSQL + Mailpit + Hangfire) | Every CI run; smoke test on backend changes |
 | Front end | Lint, format, type check, unit tests, Playwright tests of the login page with axe accessibility checks (API mocked) | Every CI run |
 | Test quality | Stryker mutation testing of the unit tests: blocking for the Domain, measured for the Application | Pull requests touching the Domain, weekly |
@@ -32,9 +33,9 @@ Every change has to pass these gates, whoever or whatever wrote it:
 | CI security | zizmor workflow linting, actions pinned by SHA | Workflow changes |
 | Supply chain | CycloneDX SBOM and build provenance attestation | Every release |
 
-Mutation testing runs on the unit tests only. The Domain scores 82 % against a blocking threshold of 60 %. The Application scores about 8 % and is not gated: its handlers are covered by the integration tests against PostgreSQL, which Stryker does not run.
+Mutation testing runs on the unit tests only. The Domain scores 84 % against a blocking threshold of 60 %. The Application scores about 35 % and is not gated: the handlers that read with Dapper (login, refresh, invitations, queries) are covered by the integration tests against PostgreSQL, which Stryker does not run.
 
-Design decisions are recorded as ADRs in [`docs/adr`](docs/adr). The whole history was written with the agent; the `Co-Authored-By` trailer was only adopted for the latest commits.
+Design decisions are recorded as ADRs in [`docs/adr`](docs/adr). How the project got here is in [Project history](#project-history).
 
 ## Quickstart
 
@@ -96,6 +97,14 @@ The architecture notes, ADRs and contribution guide are written in French.
 | Adminer | http://localhost:8080 |
 | Mailpit | http://localhost:8025 |
 | Aspire dashboard | http://localhost:18888 |
+
+## Project history
+
+- **June–July 2026: first version.** Built with an AI coding agent, under my direction. Commit subjects from that period still use the agent's working vocabulary (numbered plans, agent configuration): the history is kept as it was written. The `Co-Authored-By` trailer was adopted later, so those commits do not carry it.
+- **October 2026: hardening.** A review of the whole repository by a separate AI agent, which had not written the code, then three pull requests acting on its findings, each reviewed and merged by me:
+  - [#7](https://github.com/Nossiffe/dotnet-angular-saas-starter/pull/7): CI, Quickstart, mutation testing and documentation brought in line with what this README claims.
+  - [#8](https://github.com/Nossiffe/dotnet-angular-saas-starter/pull/8): authentication and multi-tenant isolation: login timing oracle, malformed tokens, sessions after a removal from an organization, a single organization scope check, a working Admin role, one log per request.
+  - [#9](https://github.com/Nossiffe/dotnet-angular-saas-starter/pull/9): architecture guarantees: a framework-free Domain, ErrorOr for every business refusal, an outbox with one transaction per message and delayed retries, an OpenAPI contract checked by the CI, integration tests with a single possible outcome.
 
 ## License
 

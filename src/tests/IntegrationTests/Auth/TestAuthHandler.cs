@@ -25,9 +25,9 @@ public sealed class TestAuthHandler(
 
     /// <summary>
     /// Émet un claim <c>platform_role</c> (ex. "PlatformAdmin") si le header est présent.
-    /// AUCUN défaut : contrairement à tenant_role, ce claim n'existe dans aucun flow de login
+    /// Aucune valeur par défaut : contrairement à tenant_role, ce claim n'existe dans aucun flow de login
     /// standard — c'est le contrat de prod (voir HangfireDashboardAuthFilter). Un test qui ne
-    /// pose pas ce header simule donc un utilisateur authentifié SANS ce claim.
+    /// pose pas ce header simule donc un utilisateur authentifié sans ce claim.
     /// </summary>
     public const string PlatformRoleHeader = "X-Test-PlatformRole";
 

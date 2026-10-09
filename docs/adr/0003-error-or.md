@@ -47,26 +47,28 @@ Les deux mécanismes coexistent donc, chacun sur sa frontière :
 
 | Couche | Mécanisme | Quand |
 |---|---|---|
-| Forme (validation d'entrée) | `ValidationException` (pipeline) | Champ manquant/mal formé — erreurs Identity field-tied |
+| Forme (validation d'entrée) | `ValidationException` | Champ manquant ou mal formé (pipeline FluentValidation) ; refus d'Identity liés à un champ (règles de mot de passe, e-mail déjà pris) à l'inscription et à l'acceptation d'une invitation |
 | Métier (règle de domaine) | `ErrorOr<T>` | Ressource absente, règle violée, conflit d'état |
 | Infrastructure (contrainte DB) | `DbUpdateException`/`DbUpdateConcurrencyException` | Race condition au-delà du check applicatif (ex. 23505 en défense en profondeur) |
+
+Un handler ne lève pas d'autre `ValidationException` : un refus métier (e-mail non confirmé à la
+connexion, lien de réinitialisation invalide, changement de son propre rôle, mot de passe manquant
+à l'acceptation d'une invitation) est une erreur `ErrorOr`. `ErrorOrConventionTests` le vérifie
+sur le code source de l'Application.
 
 ## Classes d'erreurs centralisées (`XxxErrors`)
 
 Pattern recommandé par ErrorOr lui-même : chaque erreur métier est un membre statique d'une
 classe `XxxErrors` (`ProductErrors`, `OrganizationErrors`, `InvitationErrors`, `AuthErrors`)
 — jamais un `Error.X(...)` construit inline dans un handler. Ça donne un **registre
-grep-able** (`grep -rn 'static Error ' src/ --include='*Errors.cs'`), un point unique pour
-relire les messages exposés à l'utilisateur, et un test de contrat (`DomainErrorsTests`)
-qui vérifie que chaque erreur a le bon `ErrorType`, un `Code` stable et une `Description`
-correcte. Détail complet du registre (16 entrées) : `docs/error-codes.md`.
+grep-able** (`grep -rn 'static Error ' src/ --include='*Errors.cs'`) et un point unique pour
+relire les messages exposés à l'utilisateur. Le registre complet est dans
+`docs/error-codes.md`, que `ErrorRegistryTests` compare au code (type, code, description).
 
-**Contrat HTTP touché par cette décision** : `InvitationErrors.AlreadyPending` (« invitation déjà
-en attente ») est passée de **400** (`Validation`) à **409** (`Conflict`) — alignée avec la
-branche `DbUpdateException` (contrainte d'unicité Postgres 23505) du `GlobalExceptionHandler`,
-qui protège la même règle en cas de race entre le check applicatif et l'insert. Les deux
-chemins (check applicatif `ErrorOr` et contrainte DB en filet de sécurité) renvoient
-maintenant le même code HTTP pour la même situation métier.
+**Contrat HTTP** : `InvitationErrors.AlreadyPending` (« invitation déjà en attente ») est un
+`Conflict` (409), comme la branche `DbUpdateException` (contrainte d'unicité Postgres 23505) du
+`GlobalExceptionHandler`, qui protège la même règle en cas de course entre le check applicatif
+et l'insert : les deux chemins renvoient le même code pour la même situation métier.
 
 ## Dépendance `ErrorOr` dans `Domain`
 
@@ -77,9 +79,9 @@ zéro dépendance framework » — mais `ErrorOr` n'est **pas** un framework app
 une librairie pure (aucune dépendance ASP.NET/EF, pas d'IO, pas de DI requise), au même titre
 que `Vogen` (strongly-typed IDs, déjà dans `Domain`) ou `Mediator.Abstractions`
 (marker interfaces `ICommand<T>`/`IQuery<T>`, déjà dans `Application`). Le test d'architecture
-`DependencyRuleTests` continue de bloquer toute dépendance EF/ASP.NET dans `Domain` ;
-`ErrorOrConventionTests.Aucune_exception_metier_custom_dans_Domain` bloque le retour en
-arrière vers des exceptions custom.
+`DependencyRuleTests` vérifie que `Domain` ne référence que le runtime .NET, `Vogen` et `ErrorOr` ;
+`ErrorOrConventionTests.The_Domain_declares_no_business_exception` vérifie que le `Domain` ne
+déclare aucune exception métier.
 
 ## Asymétrie des factories : `ErrorOr` pour les règles métier, `ArgumentException` pour les gardes techniques
 
@@ -108,8 +110,6 @@ sur des erreurs impossibles), tout en gardant les vraies règles métier dans le
   `ToCreatedHttpResult`) pour tous les `ErrorType` — cohérent par construction.
 - Deux mécanismes d'erreur coexistent (`ErrorOr` métier, exceptions forme/infra) — documenté
   ci-dessus pour éviter la confusion ; vérifié par `ErrorOrConventionTests`.
-- Contrat HTTP changé pour l'invitation déjà en attente (400 → 409) — un client de cet
-  endpoint doit traiter le 409.
 
 ## Alternatives écartées
 

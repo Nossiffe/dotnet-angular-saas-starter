@@ -1,9 +1,7 @@
 using System.Security.Cryptography;
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Saas.Application.Common.Interfaces;
-using Saas.Domain.Identity;
 using Saas.Infrastructure.Persistence;
 
 namespace Saas.Infrastructure.Identity;
@@ -27,19 +25,35 @@ public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> opti
         return (raw, _o.RefreshTokenDays);
     }
 
+    public async Task<RefreshSession?> FindActiveAsync(string rawToken, CancellationToken cancellationToken)
+    {
+        var hash = Hash(rawToken);
+        var now = clock.UtcNow;
+        return await db.RefreshTokens
+            .AsNoTracking()
+            .Where(t => t.TokenHash == hash && t.RevokedAt == null && t.ExpiresAt > now)
+            .Select(t => new RefreshSession(t.UserId, t.TenantId))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<RotatedToken?> ValidateAndRotateAsync(string rawToken, CancellationToken cancellationToken)
     {
         var hash = Hash(rawToken);
         var existing = await db.RefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == hash, cancellationToken);
 
-        // Reuse detection: already-revoked token presented → theft signal → revoke all active tokens for user
-        if (existing is not null && existing.RevokedAt is not null)
+        // Détection de réutilisation : un token déjà remplacé par une rotation est présenté de nouveau,
+        // signe de vol, et toutes les sessions de l'utilisateur sont révoquées. Un token révoqué sans
+        // rotation (logout, réinitialisation, retrait d'une organisation) est seulement refusé.
+        if (existing is { RevokedAt: not null })
         {
-            await RevokeAllAsync(existing.UserId, cancellationToken);
+            if (existing.ReplacedByTokenId is not null)
+            {
+                await RevokeAllAsync(existing.UserId, cancellationToken);
+            }
+
             return null;
         }
 
-        // Token not found or expired
         if (existing is null || clock.UtcNow >= existing.ExpiresAt)
         {
             return null;
@@ -78,6 +92,14 @@ public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> opti
             .ExecuteUpdateAsync(t => t.SetProperty(x => x.RevokedAt, now), cancellationToken);
     }
 
+    public async Task RevokeTenantSessionsAsync(Guid userId, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var now = clock.UtcNow;
+        await db.RefreshTokens
+            .Where(t => t.UserId == userId && t.TenantId == tenantId && t.RevokedAt == null)
+            .ExecuteUpdateAsync(t => t.SetProperty(x => x.RevokedAt, now), cancellationToken);
+    }
+
     public async Task RevokeAsync(string rawToken, CancellationToken cancellationToken)
     {
         var hash = Hash(rawToken);
@@ -100,6 +122,5 @@ public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> opti
         }
     }
 
-    private static string Hash(string raw)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
+    private static string Hash(string raw) => TokenHash.Sha256(raw);
 }

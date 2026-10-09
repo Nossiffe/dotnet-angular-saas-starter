@@ -1,7 +1,5 @@
 using Dapper;
 using ErrorOr;
-using FluentValidation;
-using FluentValidation.Results;
 using Mediator;
 using Saas.Application.Common.Interfaces;
 
@@ -23,20 +21,12 @@ public sealed class LoginHandler(
             return AuthErrors.InvalidCredentials;
         }
 
-        // Mot de passe valide mais email non confirmé → refus explicite (400) avec un message clair.
-        // Le mot de passe ayant déjà été validé, l'existence du compte n'est pas un secret supplémentaire
-        // (le login révèle déjà la validité via le mauvais mot de passe) — message borné à « email non confirmé ».
-        //
-        // Tradeoff 400 vs 401 — décision délibérée, acceptable :
-        // Renvoyer 400 ici (au lieu de 401) constitue un micro-oracle d'existence du compte, mais
-        // uniquement pour un attaquant qui connaît déjà le mot de passe valide. Ce gating par le
-        // mot de passe rend l'information marginalement plus sensible qu'un 401 générique, mais le
-        // risque est jugé acceptable : la confirmation d'email est une friction volontaire (UX),
-        // et le message aide l'utilisateur légitime à diagnostiquer son problème.
+        // Mot de passe valide, e-mail non confirmé : refus explicite (400). Le message ne révèle
+        // l'existence du compte qu'à qui connaît déjà le bon mot de passe, et il aide l'utilisateur
+        // légitime à comprendre pourquoi il ne peut pas se connecter.
         if (!user.EmailConfirmed)
         {
-            throw new ValidationException(
-                [new ValidationFailure("email", "Veuillez confirmer votre adresse email avant de vous connecter.")]);
+            return AuthErrors.EmailNotConfirmed;
         }
 
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);

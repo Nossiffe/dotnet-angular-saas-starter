@@ -8,27 +8,23 @@ namespace Saas.IntegrationTests.Auth;
 [Collection("api")]
 public sealed class AuthSecurityTests(PostgresApiFactory factory)
 {
-    // ── Email dupliqué → 400 ─────────────────────────────────────────────
     [Fact]
-    public async Task Duplicate_email_register_renvoie_400()
+    public async Task Registering_an_email_already_taken_returns_400()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
         var email = $"dup-{Guid.NewGuid():N}@saas.local";
         const string password = "Sup3rSecret!!42";
 
-        // Première inscription → 201
         var first = await client.PostAsJsonAsync("/api/v1/auth/register", new { email, password }, ct);
         first.StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        // Deuxième inscription avec le même email → 400 (email déjà pris)
         var second = await client.PostAsJsonAsync("/api/v1/auth/register", new { email, password }, ct);
         second.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
-    // ── Mauvais password → 401 ───────────────────────────────────────────
     [Fact]
-    public async Task Mauvais_password_login_renvoie_401()
+    public async Task Login_with_a_wrong_password_returns_401()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
@@ -37,20 +33,18 @@ public sealed class AuthSecurityTests(PostgresApiFactory factory)
 
         await AuthTestFlow.RegisterAndConfirmAsync(client, factory, email, password, ct);
 
-        // Login avec un mauvais mot de passe → 401
         var login = await client.PostAsJsonAsync(
             "/api/v1/auth/login", new { email, password = "WrongPass!!00" }, ct);
         login.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
-    // ── Refresh-token reuse → révocation famille ─────────────────────────
     // Rotation et détection de réutilisation : RefreshTokenStore. Le refresh token voyage dans le
     // cookie `rt` HttpOnly. Le client par défaut de WebApplicationFactory rejoue le cookie automatiquement pour le
-    // login + le premier refresh légitime ; la présentation de l'ANCIEN cookie révoqué doit en revanche
-    // être manuelle (le cookie-jar automatique l'aurait déjà écrasé par la rotation), via un client SANS
+    // login + le premier refresh légitime ; la présentation de l'ancien cookie révoqué doit en revanche
+    // être manuelle (le cookie-jar automatique l'aurait déjà écrasé par la rotation), via un client sans
     // cookie-jar (`HandleCookies = false`) et un header `Cookie` explicite portant la valeur capturée.
     [Fact]
-    public async Task Refresh_token_reuse_declenche_revocation_famille()
+    public async Task Reusing_a_refresh_token_revokes_every_session()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = AuthTestFlow.HttpsClient(factory);
@@ -69,16 +63,15 @@ public sealed class AuthSecurityTests(PostgresApiFactory factory)
         refresh1.StatusCode.ShouldBe(HttpStatusCode.OK);
         var currentRefreshToken = AuthTestFlow.ExtractRefreshCookieValue(refresh1);
 
-        // Vérifier que la rotation a bien eu lieu
         currentRefreshToken.ShouldNotBe(originalRefreshToken);
 
-        // Re-présenter l'ANCIEN cookie révoqué (client sans cookie-jar, header Cookie manuel)
+        // Re-présenter l'ancien cookie révoqué (client sans cookie-jar, header Cookie manuel)
         // → détection de réutilisation → révocation de tous les tokens actifs de l'utilisateur → 401
         var reuseAttempt = await AuthTestFlow.RawCookieClient(factory, originalRefreshToken)
             .PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);
         reuseAttempt.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
 
-        // Le cookie COURANT (issu de la rotation légale) doit aussi être révoqué
+        // Le cookie courant (issu de la rotation légale) doit aussi être révoqué
         // par la cascade de révocation famille déclenchée par la réutilisation
         var currentAfterRevocation = await AuthTestFlow.RawCookieClient(factory, currentRefreshToken)
             .PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);

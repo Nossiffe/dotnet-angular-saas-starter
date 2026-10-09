@@ -19,7 +19,7 @@ public sealed class InvitationTests
             expiresAt ?? DateTimeOffset.UtcNow.AddDays(7)).Value;
 
     [Fact]
-    public void Create_invitation_valide()
+    public void Create_returns_a_pending_invitation()
     {
         var invitation = CreatePending();
 
@@ -30,7 +30,7 @@ public sealed class InvitationTests
     }
 
     [Fact]
-    public void Create_avec_role_Owner_retourne_une_erreur()
+    public void Create_with_the_Owner_role_returns_an_error()
     {
         var result = Invitation.Create(
             OrganizationId.From(Guid.CreateVersion7()),
@@ -46,7 +46,7 @@ public sealed class InvitationTests
     }
 
     [Fact]
-    public void Create_avec_email_vide_lance() =>
+    public void Create_with_an_empty_email_throws() =>
         Should.Throw<ArgumentException>(() => Invitation.Create(
             OrganizationId.From(Guid.CreateVersion7()),
             " ",
@@ -57,7 +57,7 @@ public sealed class InvitationTests
             DateTimeOffset.UtcNow.AddDays(7)));
 
     [Fact]
-    public void Accept_expire_retourne_une_erreur()
+    public void Accepting_an_expired_invitation_returns_an_error()
     {
         var invitation = CreatePending(expiresAt: DateTimeOffset.UtcNow.AddDays(-1));
 
@@ -68,7 +68,7 @@ public sealed class InvitationTests
     }
 
     [Fact]
-    public void Revoke_d_une_invitation_acceptee_retourne_une_erreur()
+    public void Revoking_an_accepted_invitation_returns_an_error()
     {
         var invitation = CreatePending();
         invitation.Accept(DateTimeOffset.UtcNow);
@@ -80,7 +80,7 @@ public sealed class InvitationTests
     }
 
     [Fact]
-    public void Accept_pending_reussit()
+    public void Accepting_a_pending_invitation_succeeds()
     {
         var invitation = CreatePending();
 
@@ -92,7 +92,7 @@ public sealed class InvitationTests
     }
 
     [Fact]
-    public void Accept_deja_acceptee_retourne_une_erreur()
+    public void Accepting_twice_returns_an_error()
     {
         var invitation = CreatePending();
         invitation.Accept(DateTimeOffset.UtcNow);
@@ -104,7 +104,7 @@ public sealed class InvitationTests
     }
 
     [Fact]
-    public void Revoke_pending_reussit()
+    public void Revoking_a_pending_invitation_succeeds()
     {
         var invitation = CreatePending();
 
@@ -115,7 +115,7 @@ public sealed class InvitationTests
     }
 
     [Fact]
-    public void Refresh_d_une_invitation_revoquee_retourne_une_erreur()
+    public void Refreshing_a_revoked_invitation_returns_an_error()
     {
         var invitation = CreatePending();
         invitation.Revoke();
@@ -127,7 +127,7 @@ public sealed class InvitationTests
     }
 
     [Fact]
-    public void Refresh_pending_reussit()
+    public void Refreshing_a_pending_invitation_succeeds()
     {
         var invitation = CreatePending();
         var newExpiry = DateTimeOffset.UtcNow.AddDays(7);
@@ -140,7 +140,7 @@ public sealed class InvitationTests
     }
 
     [Fact]
-    public void Refresh_avec_hash_vide_lance()
+    public void Refresh_with_an_empty_hash_throws()
     {
         var invitation = CreatePending();
 

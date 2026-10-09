@@ -27,27 +27,25 @@ describe('authInterceptor', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('(a) attache Authorization: Bearer quand authentifié', () => {
+  it('adds the Bearer token when authenticated', () => {
     // Log in first to get a token
     auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
     httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);
 
-    // Now make a request
     http.get('/api/v1/products').subscribe();
     const req = httpMock.expectOne('/api/v1/products');
     expect(req.request.headers.get('Authorization')).toBe('Bearer AT');
     req.flush([]);
   });
 
-  it("(b) n'attache pas Authorization sur /api/v1/auth/login", () => {
+  it('does not add the token to /api/v1/auth/login', () => {
     auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
     const req = httpMock.expectOne('/api/v1/auth/login');
     expect(req.request.headers.has('Authorization')).toBe(false);
     req.flush(TOKEN_RESP);
   });
 
-  it('(d) échec du refresh appelle clearLocalState() (pas logout())', () => {
-    // Log in first
+  it('a failed refresh calls clearLocalState(), not logout()', () => {
     auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
     httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);
 
@@ -57,7 +55,6 @@ describe('authInterceptor', () => {
     // Make a request that returns 401
     http.get('/api/v1/products').subscribe({ error: () => undefined });
 
-    // Return 401
     httpMock.expectOne('/api/v1/products').flush(null, { status: 401, statusText: 'Unauthorized' });
 
     // Interceptor should call refresh — return failure
@@ -72,8 +69,7 @@ describe('authInterceptor', () => {
     logoutSpy.mockRestore();
   });
 
-  it('(c) un 401 déclenche un refresh puis retentetive avec le nouveau token', () => {
-    // Log in first
+  it('a 401 triggers a refresh, then retries with the new token', () => {
     auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
     httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);
 
@@ -81,7 +77,6 @@ describe('authInterceptor', () => {
     let responseReceived = false;
     http.get('/api/v1/products').subscribe(() => (responseReceived = true));
 
-    // Return 401
     const firstReq = httpMock.expectOne('/api/v1/products');
     firstReq.flush(null, { status: 401, statusText: 'Unauthorized' });
 

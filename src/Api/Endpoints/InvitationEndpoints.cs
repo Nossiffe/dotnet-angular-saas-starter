@@ -21,6 +21,7 @@ public sealed class InvitationEndpoints : IEndpoint
         var orgGroup = app.MapGroup("/organizations/{orgId:guid}/invitations")
             .WithTags("Invitations")
             .RequireAuthorization(AuthorizationPolicies.TenantAdmin)
+            .WithAuthorizationResponses()
             .AddEndpointFilter<OrganizationScopeFilter>();
 
         orgGroup.MapPost("/", InviteMember)
@@ -28,7 +29,8 @@ public sealed class InvitationEndpoints : IEndpoint
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         orgGroup.MapGet("/", ListPendingInvitations)
-            .Produces<IReadOnlyList<InvitationDto>>(StatusCodes.Status200OK);
+            .Produces<IReadOnlyList<InvitationDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         orgGroup.MapPost("/{id:guid}/resend", ResendInvitation)
             .WithNoContentResponses();
@@ -36,7 +38,6 @@ public sealed class InvitationEndpoints : IEndpoint
         orgGroup.MapDelete("/{id:guid}", RevokeInvitation)
             .WithNoContentResponses();
 
-        // Route anonyme : accept invitation.
         app.MapPost("/invitations/accept", AcceptInvitation)
             .WithTags("Invitations")
             .AllowAnonymous()
@@ -50,11 +51,14 @@ public sealed class InvitationEndpoints : IEndpoint
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(req);
-        var role = EndpointHelpers.ParseRole(req.Role);
-        var result = await sender.Send(new InviteMemberCommand(orgId, req.Email, role), ct);
+        var result = await EndpointHelpers.ParseRole(req.Role)
+            .ThenAsync(role => sender.Send(new InviteMemberCommand(orgId, req.Email, role), ct).AsTask());
+
+        // Pas de route de lecture d'une invitation seule : Location désigne la liste des invitations
+        // en attente, qui la contient.
         return result
             .Then(id => new InviteResponse(id))
-            .ToCreatedHttpResult(response => $"/api/v1/organizations/{orgId}/invitations/{response.InvitationId}");
+            .ToCreatedHttpResult(_ => $"/api/v1/organizations/{orgId}/invitations");
     }
 
     private static async Task<IResult> ListPendingInvitations(

@@ -4,7 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Saas.Domain.Identity;
+using Saas.Infrastructure.Identity;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Invitations;
 using Shouldly;
@@ -29,7 +29,7 @@ public sealed class AuthHardeningTests(PostgresApiFactory factory)
         register.StatusCode.ShouldBe(HttpStatusCode.Created);
         var (userId, _) = factory.Emails.For(email)!.ExtractLink();
 
-        // "a" n'est pas un Base64Url valide : le décodage échouait et renvoyait un 500.
+        // "a" n'est pas un Base64Url valide : un jeton illisible est un jeton invalide (400).
         var confirm = await client.PostAsJsonAsync("/api/v1/auth/confirm-email", new { userId, token = "a" }, ct);
 
         confirm.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -50,9 +50,9 @@ public sealed class AuthHardeningTests(PostgresApiFactory factory)
         reset.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
-    // Sans compte, ou compte verrouillé, la connexion répondait sans calculer de hash PBKDF2 : en
-    // quelques millisecondes au lieu d'environ 400, ce qui révélait les e-mails inscrits. Le test
-    // vérifie le comportement, pas une durée : chaque échec vérifie le mot de passe soumis, une fois.
+    // Sans compte ou compte verrouillé, la connexion calcule quand même un hash PBKDF2 : son coût ne
+    // dépend pas de l'existence du compte. Le test vérifie ce comportement, pas une durée : chaque
+    // échec vérifie le mot de passe soumis, une fois.
     [Theory]
     [InlineData("unknown-email")]
     [InlineData("locked-account")]
@@ -104,61 +104,93 @@ public sealed class AuthHardeningTests(PostgresApiFactory factory)
         refresh.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
-    // Le rafraîchissement accordait le rôle Member à un utilisateur retiré de l'organisation.
+    // Retiré d'une organisation, l'utilisateur perd ses sessions sur celle-ci, sur chaque appareil,
+    // et seulement celles-ci : le cookie refusé est supprimé, et le refus d'une session révoquée ne
+    // passe pas pour une réutilisation de token, qui fermerait aussi sa session sur l'autre organisation.
     [Fact]
-    public async Task Refresh_fails_after_removal_from_the_organization()
+    public async Task Removal_from_an_organization_ends_only_the_sessions_on_it()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = AuthTestFlow.HttpsClient(factory);
-        var email = UniqueEmail("removed-member");
-        await AuthTestFlow.RegisterAndConfirmAsync(client, factory, email, Password, ct);
-        var (userId, _) = factory.Emails.For(email)!.ExtractLink();
-        var login = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password = Password }, ct);
-        login.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var (userId, email, ownOrgId, otherOrgId) = await UserInTwoOrganizationsAsync("removed-member", ct);
+        var onOwnOrg = AuthTestFlow.HttpsClient(factory);
+        var onOwnOrgElsewhere = AuthTestFlow.HttpsClient(factory);
+        var onOtherOrg = AuthTestFlow.HttpsClient(factory);
+        await LoginAsync(onOwnOrg, email, ownOrgId, ct);
+        await LoginAsync(onOwnOrgElsewhere, email, ownOrgId, ct);
+        await LoginAsync(onOtherOrg, email, otherOrgId, ct);
 
-        using (var scope = factory.Services.CreateScope())
+        await using (var scope = factory.Services.CreateAsyncScope())
         {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            await db.Database.ExecuteSqlAsync(
-                $"""DELETE FROM "OrganizationMemberships" WHERE "UserId" = {userId}""", ct);
+            await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.ExecuteSqlAsync(
+                $"""DELETE FROM "OrganizationMemberships" WHERE "UserId" = {userId} AND "OrganizationId" = {ownOrgId}""",
+                ct);
         }
 
-        var refresh = await client.PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);
-        refresh.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        var refused = await onOwnOrg.PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);
+        var retried = await onOwnOrg.PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);
+        var otherDevice = await onOwnOrgElsewhere.PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);
+        var otherSession = await onOtherOrg.PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);
 
-        // Le refresh token émis par la rotation est révoqué lui aussi : plus aucune session active.
-        using var check = factory.Services.CreateScope();
-        var activeSessions = await check.ServiceProvider.GetRequiredService<AppDbContext>()
-            .Set<RefreshToken>()
-            .CountAsync(t => t.UserId == userId && t.RevokedAt == null, ct);
-        activeSessions.ShouldBe(0);
+        refused.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        refused.Headers.GetValues("Set-Cookie").ShouldContain(c => c.StartsWith("rt=;", StringComparison.Ordinal));
+        retried.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        otherDevice.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        otherSession.StatusCode.ShouldBe(HttpStatusCode.OK);
+        await using var check = factory.Services.CreateAsyncScope();
+        (await check.ServiceProvider.GetRequiredService<AppDbContext>().Set<RefreshToken>()
+            .CountAsync(t => t.UserId == userId && t.TenantId == ownOrgId && t.RevokedAt == null, ct))
+            .ShouldBe(0);
     }
 
+    // Les adhésions sont relues physiquement dans l'ordre inverse de leur création : seul le tri
+    // explicite sur l'Id (UUID v7) rend la plus ancienne.
     [Fact]
     public async Task Login_without_tenant_uses_the_oldest_membership()
     {
         var ct = TestContext.Current.CancellationToken;
+        var (userId, email, ownOrgId, otherOrgId) = await UserInTwoOrganizationsAsync("two-orgs", ct);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.ExecuteSqlAsync(
+                $"""
+                WITH moved AS (
+                    DELETE FROM "OrganizationMemberships"
+                    WHERE "UserId" = {userId} AND "OrganizationId" = {ownOrgId}
+                    RETURNING *)
+                INSERT INTO "OrganizationMemberships" SELECT * FROM moved
+                """,
+                ct);
+        }
+
+        var client = factory.CreateClient();
+        var withoutTenant = await LoginAsync(client, email, tenantId: null, ct);
+        var withTenant = await LoginAsync(client, email, otherOrgId, ct);
+
+        ReadClaim(withoutTenant.AccessToken, "tenant").ShouldBe(ownOrgId.ToString());
+        ReadClaim(withTenant.AccessToken, "tenant").ShouldBe(otherOrgId.ToString());
+    }
+
+    // Un utilisateur inscrit (sa propre organisation, créée à l'inscription) puis invité dans une
+    // seconde organisation.
+    private async Task<(Guid UserId, string Email, Guid OwnOrgId, Guid OtherOrgId)> UserInTwoOrganizationsAsync(
+        string prefix, CancellationToken ct)
+    {
         var anon = factory.CreateClient();
-        var email = UniqueEmail("two-orgs");
+        var email = UniqueEmail(prefix);
         await AuthTestFlow.RegisterAndConfirmAsync(anon, factory, email, Password, ct);
-        var firstLogin = await LoginAsync(anon, email, tenantId: null, ct);
-        var ownOrgId = ReadClaim(firstLogin.AccessToken, "tenant");
+        var (userId, _) = factory.Emails.For(email)!.ExtractLink();
+        var ownOrgId = Guid.Parse(ReadClaim((await LoginAsync(anon, email, tenantId: null, ct)).AccessToken, "tenant"));
 
         var ownerId = Guid.CreateVersion7();
         var otherOrgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
-        var owner = InvitationTestFlow.ClientFor(factory, otherOrgId, ownerId);
-        var invite = await owner.PostAsJsonAsync(
+        var invite = await InvitationTestFlow.ClientFor(factory, otherOrgId, ownerId).PostAsJsonAsync(
             $"/api/v1/organizations/{otherOrgId}/invitations", new { email, role = "Member" }, ct);
         invite.StatusCode.ShouldBe(HttpStatusCode.Created);
         var (invitationId, token) = factory.Emails.For(email)!.ExtractInvitationLink();
         var accept = await anon.PostAsJsonAsync("/api/v1/invitations/accept", new { invitationId, token }, ct);
         accept.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var withoutTenant = await LoginAsync(anon, email, tenantId: null, ct);
-        var withTenant = await LoginAsync(anon, email, otherOrgId, ct);
-
-        ReadClaim(withoutTenant.AccessToken, "tenant").ShouldBe(ownOrgId);
-        ReadClaim(withTenant.AccessToken, "tenant").ShouldBe(otherOrgId.ToString());
+        return (userId, email, ownOrgId, otherOrgId);
     }
 
     private static async Task LoginAsync(

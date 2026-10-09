@@ -17,4 +17,12 @@ public static class OrganizationErrors
     public static Error AlreadyMember => Error.Validation(
         code: "Membership.AlreadyMember",
         description: "Cette personne est déjà membre de l'organisation.");
+
+    public static Error CannotChangeOwnRole => Error.Validation(
+        code: "Membership.CannotChangeOwnRole",
+        description: "Vous ne pouvez pas modifier votre propre rôle.");
+
+    public static Error InvalidRole => Error.Validation(
+        code: "Membership.InvalidRole",
+        description: "Rôle invalide. Valeurs acceptées : Member, Admin.");
 }

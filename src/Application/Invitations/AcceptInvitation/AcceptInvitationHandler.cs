@@ -30,6 +30,10 @@ public sealed class AcceptInvitationHandler(
 
         var existingUser = await identity.FindByEmailAsync(invitation.InviteeEmail, cancellationToken);
         var isNewUser = existingUser is null;
+        if (isNewUser && string.IsNullOrEmpty(command.Password))
+        {
+            return InvitationErrors.PasswordRequired;
+        }
 
         ErrorOr<Success>? transactionResult = null;
         await uow.ExecuteInTransactionAsync(
@@ -66,21 +70,17 @@ public sealed class AcceptInvitationHandler(
 
         // Effets de bord seulement après validation : création du user (throw → rollback OK),
         // puis ajout idempotent (déjà membre → no-op, cf. Organization.AddMember).
-        var userId = existingUserId ?? await CreateUserAsync(invitation.InviteeEmail, password, ct);
+        var userId = existingUserId ?? await CreateUserAsync(invitation.InviteeEmail, password!, ct);
         organization.AddMember(userId, invitation.Role);
         await uow.SaveChangesAsync(ct);
 
         return Result.Success;
     }
 
-    private async Task<Guid> CreateUserAsync(string email, string? password, CancellationToken ct)
+    // Les refus d'Identity (règles de mot de passe, e-mail déjà pris) sont des erreurs de saisie liées
+    // à un champ : ValidationException, comme le pipeline FluentValidation (docs/adr/0003).
+    private async Task<Guid> CreateUserAsync(string email, string password, CancellationToken ct)
     {
-        if (string.IsNullOrEmpty(password))
-        {
-            throw new ValidationException(
-                [new ValidationFailure("Password", "Un mot de passe est requis pour finaliser la création du compte.")]);
-        }
-
         var result = await identity.CreateUserAsync(email, password, ct);
         if (!result.Succeeded)
         {

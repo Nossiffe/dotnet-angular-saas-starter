@@ -1,7 +1,7 @@
 # ADR 0002 — Persistance DDD/CQRS : repositories par agrégat (write) + Dapper (read), Ardalis.Specification écarté pour l'instant
 
 - **Statut** : Accepté (2026-06-07)
-- **Contexte** : élévation DDD du backend. Question : comment persister les agrégats sans retomber dans un anti-pattern, et faut-il adopter [Ardalis.Specification](https://specification.ardalis.com/) ?
+- **Contexte** : comment persister des agrégats riches sans retomber dans un anti-pattern, et faut-il adopter [Ardalis.Specification](https://specification.ardalis.com/) ?
 
 ## Décision
 
@@ -13,7 +13,7 @@ Split **CQRS** au niveau de la persistance (approche Microsoft eShopOnWeb / Arda
 | **Rôle** | Charge/sauve l'agrégat **entier** ; frontière d'agrégat ; domaine pur | Flexibilité totale (joins, pas de contrainte d'agrégat), perf |
 
 - **Pas** de `IRepository<T>` **générique** exposant `IQueryable` (ça, c'est l'anti-pattern redondant avec EF).
-- **Pas** d'exposition de `DbSet` à l'Application (l'ancien `IAppDbContext` a été supprimé). Les `DbSet` sont `internal` à Infrastructure, utilisés par les repositories.
+- **Pas** d'exposition de `DbSet` à l'Application. Les `DbSet` sont `internal` à Infrastructure, utilisés par les repositories.
 - `IUnitOfWork.SaveChangesAsync` / `ExecuteInTransactionAsync` portent le commit / la transaction (execution strategy EF avec `EnableRetryOnFailure`).
 
 ## Ardalis.Specification — évalué, **écarté pour l'instant**
@@ -35,6 +35,6 @@ Split **CQRS** au niveau de la persistance (approche Microsoft eShopOnWeb / Arda
 
 ## Alternatives écartées
 
-- **`IAppDbContext` exposant les `DbSet`** (style « Jason Taylor ») : plus simple mais affaiblit l'encapsulation d'agrégat (un handler peut requêter/naviguer/projeter n'importe quoi). Écarté avec le passage au DDD riche.
+- **`IAppDbContext` exposant les `DbSet`** (style « Jason Taylor ») : plus simple mais affaiblit l'encapsulation d'agrégat (un handler peut requêter/naviguer/projeter n'importe quoi). Écarté.
 - **Repository générique `IRepository<T>`** : redondant avec EF (le `DbContext` est déjà UoW+repo). Écarté.
 - **Ardalis.Specification maintenant** : bénéfice faible vu nos requêtes write triviales + reads en Dapper. Reporté.

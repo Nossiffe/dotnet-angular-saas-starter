@@ -26,7 +26,7 @@ public sealed class ResendInvitationHandler(
         var rawToken = tokens.GenerateRawToken();
         var tokenHash = tokens.HashToken(rawToken);
 
-        var refreshed = invitation.Refresh(tokenHash, clock.UtcNow.AddDays(7));
+        var refreshed = invitation.Refresh(tokenHash, clock.UtcNow.Add(Invitation.Lifetime));
         if (refreshed.IsError)
         {
             return refreshed.Errors;

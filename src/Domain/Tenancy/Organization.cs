@@ -3,7 +3,7 @@ using Saas.Domain.Common;
 
 namespace Saas.Domain.Tenancy;
 
-// L'organisation EST le tenant. Non multi-tenant elle-même (cross-tenant).
+// L'organisation est le tenant. Non multi-tenant elle-même (cross-tenant).
 public sealed class Organization : AggregateRoot<OrganizationId>, IAuditable
 {
     private readonly List<OrganizationMembership> _memberships = [];

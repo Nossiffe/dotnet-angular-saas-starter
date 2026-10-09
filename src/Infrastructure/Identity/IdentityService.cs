@@ -2,7 +2,6 @@ using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 using Saas.Application.Common.Interfaces;
-using Saas.Domain.Identity;
 
 namespace Saas.Infrastructure.Identity;
 

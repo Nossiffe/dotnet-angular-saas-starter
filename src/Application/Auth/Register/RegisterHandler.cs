@@ -8,7 +8,7 @@ using Saas.Domain.Tenancy;
 
 namespace Saas.Application.Auth.Register;
 
-public sealed class RegisterHandler(
+public sealed partial class RegisterHandler(
     IOrganizationRepository organizations,
     IUnitOfWork uow,
     IIdentityService identity,
@@ -17,23 +17,18 @@ public sealed class RegisterHandler(
     ILogger<RegisterHandler> logger)
     : ICommandHandler<RegisterCommand, ErrorOr<Guid>>
 {
-    private static readonly Action<ILogger, Guid, Exception?> _logConfirmEmailFailed =
-        LoggerMessage.Define<Guid>(
-            LogLevel.Error,
-            new EventId(1, "ConfirmEmailSendFailed"),
-            "Échec de l'envoi de l'email de confirmation pour {UserId}");
-
     public async ValueTask<ErrorOr<Guid>> Handle(RegisterCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
 
         Guid userId = Guid.Empty;
 
-        // Choix délibéré : user Identity + Organization + membership Owner dans UNE seule transaction
+        // Choix délibéré : user Identity + Organization + membership Owner dans une seule transaction
         // (all-or-nothing → pas d'utilisateur orphelin sans organisation). En cas de perte d'ACK très rare
         // pendant le commit, l'execution strategy peut rejouer le délégué et l'email déjà pris renvoie une
         // erreur de validation trompeuse — mais les données restent cohérentes (compte fonctionnel). C'est
-        // l'« Option 1 » documentée par EF sur l'idempotence au commit, acceptable ici (cf. ADR persistance).
+        // le cas « ne rien faire » de la doc EF Core (Connection resiliency, échec pendant le commit),
+        // acceptable ici.
         await uow.ExecuteInTransactionAsync(async ct2 =>
         {
             var result = await identity.CreateUserAsync(command.Email, command.Password, ct2);
@@ -81,7 +76,10 @@ public sealed class RegisterHandler(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logConfirmEmailFailed(logger, userId, ex);
+            LogConfirmEmailFailed(logger, userId, ex);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Échec de l'envoi de l'e-mail de confirmation pour {UserId}")]
+    private static partial void LogConfirmEmailFailed(ILogger logger, Guid userId, Exception exception);
 }

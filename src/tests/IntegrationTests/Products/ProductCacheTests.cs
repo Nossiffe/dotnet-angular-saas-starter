@@ -34,11 +34,11 @@ public sealed class ProductCacheTests(PostgresApiFactory factory)
         var page = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products", ct);
         var id = page!.Items.Single(p => string.Equals(p.Name, name, StringComparison.Ordinal)).Id;
 
-        // 1er GET → peuple le cache via le CachingBehavior ([CachedQuery] sur GetProductByIdQuery).
+        // 1er GET → peuple le cache (GetProductByIdHandler).
         var first = await client.GetFromJsonAsync<ProductDto>($"/api/v1/products/{id}", ct);
         first!.Price.ShouldBe(10m);
 
-        // On modifie le prix DIRECTEMENT en base, par-dessus la tête du cache (pas d'invalidation).
+        // On modifie le prix directement en base, par-dessus la tête du cache (pas d'invalidation).
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -47,11 +47,11 @@ public sealed class ProductCacheTests(PostgresApiFactory factory)
                 ct);
         }
 
-        // 2e GET → toujours servi par le CACHE → ancienne valeur.
+        // 2e GET → toujours servi par le cache → ancienne valeur.
         var cached = await client.GetFromJsonAsync<ProductDto>($"/api/v1/products/{id}", ct);
         cached!.Price.ShouldBe(10m);
 
-        // Update via l'endpoint → invalidation par tag (RemoveByTagAsync t:{tenant}:products).
+        // Update via l'endpoint → invalidation par tag (ProductCache.Tag du tenant).
         var update = await client.PutAsJsonAsync($"/api/v1/products/{id}", new { name, price = 42m }, ct);
         update.EnsureSuccessStatusCode();
 

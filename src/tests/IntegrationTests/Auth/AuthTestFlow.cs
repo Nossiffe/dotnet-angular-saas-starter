@@ -8,14 +8,14 @@ namespace Saas.IntegrationTests.Auth;
 /// <summary>
 /// Helpers de flux d'auth pour les tests d'intégration : register + confirmation d'email + transport
 /// du refresh token par cookie HttpOnly/Secure (cf. <see cref="Saas.Api.Common.RefreshCookie"/>).
-/// Depuis que le login exige un email confirmé, tout flux register→login doit passer par confirm-email
-/// (le token de confirmation est capturé par le fake <see cref="CapturingEmailSender"/>).
+/// La connexion exige un e-mail confirmé : un flux inscription → connexion passe par confirm-email,
+/// avec le token capturé par le fake <see cref="CapturingEmailSender"/>.
 /// </summary>
 internal static class AuthTestFlow
 {
     private const string RefreshCookieName = "rt";
 
-    /// <summary>Inscrit un utilisateur PUIS confirme son email via le token capturé. L'user est alors connectable.</summary>
+    /// <summary>Inscrit un utilisateur puis confirme son email via le token capturé. L'user est alors connectable.</summary>
     public static async Task RegisterAndConfirmAsync(
         HttpClient client, PostgresApiFactory factory, string email, string password, CancellationToken cancellationToken)
     {
@@ -52,8 +52,8 @@ internal static class AuthTestFlow
     }
 
     /// <summary>
-    /// Client SANS cookie-jar (`HandleCookies = false`) qui rejoue manuellement une valeur de cookie `rt`
-    /// donnée via un header `Cookie` explicite — utilisé pour présenter une valeur ANCIENNE/révoquée que
+    /// Client sans cookie-jar (`HandleCookies = false`) qui rejoue manuellement une valeur de cookie `rt`
+    /// donnée via un header `Cookie` explicite — utilisé pour présenter une valeur ancienne ou révoquée que
     /// le cookie-jar automatique aurait de toute façon écrasée par la rotation.
     /// </summary>
     public static HttpClient RawCookieClient(PostgresApiFactory factory, string rawRefreshToken)

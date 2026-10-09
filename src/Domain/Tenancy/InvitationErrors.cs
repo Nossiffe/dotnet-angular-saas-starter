@@ -30,8 +30,12 @@ public static class InvitationErrors
     public static Error Expired => Error.Validation(
         code: "Invitation.Expired", description: "Cette invitation a expiré.");
 
-    // Message anti-énumération : verbatim du helper InvalidInvitation() de AcceptInvitationHandler
-    // (ne révèle pas si l'invitation existe, est expirée, révoquée ou si le token est faux).
+    // Message anti-énumération : ne révèle pas si l'invitation existe, est expirée, révoquée ou si
+    // le token est faux (AcceptInvitationHandler, avant vérification du token).
     public static Error Invalid => Error.Validation(
         code: "Invitation.Invalid", description: "Invitation invalide ou expirée.");
+
+    public static Error PasswordRequired => Error.Validation(
+        code: "Invitation.PasswordRequired",
+        description: "Un mot de passe est requis pour finaliser la création du compte.");
 }

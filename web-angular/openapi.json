@@ -7,12 +7,14 @@
   "paths": {
     "/api/v1/auth/register": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterCommand"
+                "$ref": "#/components/schemas/RegisterRequest"
               }
             }
           },
@@ -49,22 +51,19 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "Bearer": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/auth/login": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/LoginCommand"
+                "$ref": "#/components/schemas/LoginRequest"
               }
             }
           },
@@ -86,7 +85,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -101,17 +100,14 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "Bearer": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/auth/refresh": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -133,32 +129,26 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "Bearer": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/auth/logout": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "responses": {
           "204": {
             "description": "No Content"
           }
-        },
-        "security": [
-          {
-            "Bearer": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/auth/confirm-email": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -183,17 +173,14 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "Bearer": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/auth/forgot-password": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -208,17 +195,14 @@
           "200": {
             "description": "OK"
           }
-        },
-        "security": [
-          {
-            "Bearer": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/auth/reset-password": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -243,17 +227,14 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "Bearer": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/organizations/{orgId}/invitations": {
       "post": {
-        "tags": ["Invitations"],
+        "tags": [
+          "Invitations"
+        ],
         "parameters": [
           {
             "name": "orgId",
@@ -276,6 +257,12 @@
           "required": true
         },
         "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
           "201": {
             "description": "Created",
             "content": {
@@ -319,12 +306,14 @@
         },
         "security": [
           {
-            "Bearer": []
+            "Bearer": [ ]
           }
         ]
       },
       "get": {
-        "tags": ["Invitations"],
+        "tags": [
+          "Invitations"
+        ],
         "parameters": [
           {
             "name": "orgId",
@@ -337,6 +326,12 @@
           }
         ],
         "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
           "200": {
             "description": "OK",
             "content": {
@@ -349,18 +344,30 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
           {
-            "Bearer": []
+            "Bearer": [ ]
           }
         ]
       }
     },
     "/api/v1/organizations/{orgId}/invitations/{id}/resend": {
       "post": {
-        "tags": ["Invitations"],
+        "tags": [
+          "Invitations"
+        ],
         "parameters": [
           {
             "name": "orgId",
@@ -382,6 +389,12 @@
           }
         ],
         "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
           "204": {
             "description": "No Content"
           },
@@ -408,14 +421,16 @@
         },
         "security": [
           {
-            "Bearer": []
+            "Bearer": [ ]
           }
         ]
       }
     },
     "/api/v1/organizations/{orgId}/invitations/{id}": {
       "delete": {
-        "tags": ["Invitations"],
+        "tags": [
+          "Invitations"
+        ],
         "parameters": [
           {
             "name": "orgId",
@@ -437,6 +452,12 @@
           }
         ],
         "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
           "204": {
             "description": "No Content"
           },
@@ -463,14 +484,16 @@
         },
         "security": [
           {
-            "Bearer": []
+            "Bearer": [ ]
           }
         ]
       }
     },
     "/api/v1/invitations/accept": {
       "post": {
-        "tags": ["Invitations"],
+        "tags": [
+          "Invitations"
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -512,17 +535,14 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "Bearer": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/organizations/{orgId}/members/{userId}/role": {
       "put": {
-        "tags": ["Members"],
+        "tags": [
+          "Members"
+        ],
         "parameters": [
           {
             "name": "orgId",
@@ -554,6 +574,12 @@
           "required": true
         },
         "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
           "204": {
             "description": "No Content"
           },
@@ -580,25 +606,33 @@
         },
         "security": [
           {
-            "Bearer": []
+            "Bearer": [ ]
           }
         ]
       }
     },
     "/api/v1/products": {
       "post": {
-        "tags": ["Products"],
+        "tags": [
+          "Products"
+        ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateProductCommand"
+                "$ref": "#/components/schemas/CreateProductRequest"
               }
             }
           },
           "required": true
         },
         "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
           "201": {
             "description": "Created",
             "content": {
@@ -632,19 +666,24 @@
         },
         "security": [
           {
-            "Bearer": []
+            "Bearer": [ ]
           }
         ]
       },
       "get": {
-        "tags": ["Products"],
+        "tags": [
+          "Products"
+        ],
         "parameters": [
           {
             "name": "page",
             "in": "query",
             "schema": {
               "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": ["integer", "string"],
+              "type": [
+                "integer",
+                "string"
+              ],
               "format": "int32",
               "default": 1
             }
@@ -654,13 +693,22 @@
             "in": "query",
             "schema": {
               "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": ["integer", "string"],
+              "type": [
+                "integer",
+                "string"
+              ],
               "format": "int32",
               "default": 20
             }
           }
         ],
         "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
           "200": {
             "description": "OK",
             "content": {
@@ -674,14 +722,16 @@
         },
         "security": [
           {
-            "Bearer": []
+            "Bearer": [ ]
           }
         ]
       }
     },
     "/api/v1/products/{id}": {
       "get": {
-        "tags": ["Products"],
+        "tags": [
+          "Products"
+        ],
         "parameters": [
           {
             "name": "id",
@@ -694,6 +744,12 @@
           }
         ],
         "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
           "200": {
             "description": "OK",
             "content": {
@@ -727,12 +783,14 @@
         },
         "security": [
           {
-            "Bearer": []
+            "Bearer": [ ]
           }
         ]
       },
       "put": {
-        "tags": ["Products"],
+        "tags": [
+          "Products"
+        ],
         "parameters": [
           {
             "name": "id",
@@ -748,13 +806,19 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateProductBody"
+                "$ref": "#/components/schemas/UpdateProductRequest"
               }
             }
           },
           "required": true
         },
         "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
           "204": {
             "description": "No Content"
           },
@@ -777,16 +841,28 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
           {
-            "Bearer": []
+            "Bearer": [ ]
           }
         ]
       },
       "delete": {
-        "tags": ["Products"],
+        "tags": [
+          "Products"
+        ],
         "parameters": [
           {
             "name": "id",
@@ -799,6 +875,12 @@
           }
         ],
         "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
           "204": {
             "description": "No Content"
           },
@@ -825,7 +907,7 @@
         },
         "security": [
           {
-            "Bearer": []
+            "Bearer": [ ]
           }
         ]
       }
@@ -834,7 +916,11 @@
   "components": {
     "schemas": {
       "AcceptInvitationRequest": {
-        "required": ["invitationId", "token", "password"],
+        "required": [
+          "invitationId",
+          "token",
+          "password"
+        ],
         "type": "object",
         "properties": {
           "invitationId": {
@@ -845,12 +931,17 @@
             "type": "string"
           },
           "password": {
-            "type": ["null", "string"]
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
       "AcceptInvitationResponse": {
-        "required": ["isNewUser"],
+        "required": [
+          "isNewUser"
+        ],
         "type": "object",
         "properties": {
           "isNewUser": {
@@ -859,7 +950,10 @@
         }
       },
       "AuthResponse": {
-        "required": ["accessToken", "expiresAt"],
+        "required": [
+          "accessToken",
+          "expiresAt"
+        ],
         "type": "object",
         "properties": {
           "accessToken": {
@@ -872,7 +966,9 @@
         }
       },
       "ChangeMemberRoleRequest": {
-        "required": ["role"],
+        "required": [
+          "role"
+        ],
         "type": "object",
         "properties": {
           "role": {
@@ -881,7 +977,10 @@
         }
       },
       "ConfirmEmailRequest": {
-        "required": ["userId", "token"],
+        "required": [
+          "userId",
+          "token"
+        ],
         "type": "object",
         "properties": {
           "userId": {
@@ -893,8 +992,11 @@
           }
         }
       },
-      "CreateProductCommand": {
-        "required": ["name", "price"],
+      "CreateProductRequest": {
+        "required": [
+          "name",
+          "price"
+        ],
         "type": "object",
         "properties": {
           "name": {
@@ -902,13 +1004,18 @@
           },
           "price": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": ["number", "string"],
+            "type": [
+              "number",
+              "string"
+            ],
             "format": "double"
           }
         }
       },
       "CreateProductResponse": {
-        "required": ["id"],
+        "required": [
+          "id"
+        ],
         "type": "object",
         "properties": {
           "id": {
@@ -918,7 +1025,9 @@
         }
       },
       "ForgotPasswordRequest": {
-        "required": ["email"],
+        "required": [
+          "email"
+        ],
         "type": "object",
         "properties": {
           "email": {
@@ -930,21 +1039,37 @@
         "type": "object",
         "properties": {
           "type": {
-            "type": ["null", "string"]
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "title": {
-            "type": ["null", "string"]
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "status": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": ["null", "integer", "string"],
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
             "format": "int32"
           },
           "detail": {
-            "type": ["null", "string"]
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "instance": {
-            "type": ["null", "string"]
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "errors": {
             "type": "object",
@@ -958,7 +1083,13 @@
         }
       },
       "InvitationDto": {
-        "required": ["id", "email", "role", "expiresAt", "createdAt"],
+        "required": [
+          "id",
+          "email",
+          "role",
+          "expiresAt",
+          "createdAt"
+        ],
         "type": "object",
         "properties": {
           "id": {
@@ -982,7 +1113,10 @@
         }
       },
       "InviteMemberRequest": {
-        "required": ["email", "role"],
+        "required": [
+          "email",
+          "role"
+        ],
         "type": "object",
         "properties": {
           "email": {
@@ -994,7 +1128,9 @@
         }
       },
       "InviteResponse": {
-        "required": ["invitationId"],
+        "required": [
+          "invitationId"
+        ],
         "type": "object",
         "properties": {
           "invitationId": {
@@ -1003,8 +1139,11 @@
           }
         }
       },
-      "LoginCommand": {
-        "required": ["email", "password", "tenantId"],
+      "LoginRequest": {
+        "required": [
+          "email",
+          "password"
+        ],
         "type": "object",
         "properties": {
           "email": {
@@ -1014,13 +1153,21 @@
             "type": "string"
           },
           "tenantId": {
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           }
         }
       },
       "PagedResultOfProductDto": {
-        "required": ["items", "page", "pageSize", "totalCount"],
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "totalCount"
+        ],
         "type": "object",
         "properties": {
           "items": {
@@ -1031,22 +1178,34 @@
           },
           "page": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": ["integer", "string"],
+            "type": [
+              "integer",
+              "string"
+            ],
             "format": "int32"
           },
           "pageSize": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": ["integer", "string"],
+            "type": [
+              "integer",
+              "string"
+            ],
             "format": "int32"
           },
           "totalCount": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": ["integer", "string"],
+            "type": [
+              "integer",
+              "string"
+            ],
             "format": "int32"
           },
           "totalPages": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": ["integer", "string"],
+            "type": [
+              "integer",
+              "string"
+            ],
             "format": "int32"
           }
         }
@@ -1055,26 +1214,46 @@
         "type": "object",
         "properties": {
           "type": {
-            "type": ["null", "string"]
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "title": {
-            "type": ["null", "string"]
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "status": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": ["null", "integer", "string"],
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
             "format": "int32"
           },
           "detail": {
-            "type": ["null", "string"]
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "instance": {
-            "type": ["null", "string"]
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
       "ProductDto": {
-        "required": ["id", "name", "price"],
+        "required": [
+          "id",
+          "name",
+          "price"
+        ],
         "type": "object",
         "properties": {
           "id": {
@@ -1086,13 +1265,19 @@
           },
           "price": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": ["number", "string"],
+            "type": [
+              "number",
+              "string"
+            ],
             "format": "double"
           }
         }
       },
-      "RegisterCommand": {
-        "required": ["email", "password"],
+      "RegisterRequest": {
+        "required": [
+          "email",
+          "password"
+        ],
         "type": "object",
         "properties": {
           "email": {
@@ -1104,7 +1289,9 @@
         }
       },
       "RegisterResponse": {
-        "required": ["id"],
+        "required": [
+          "id"
+        ],
         "type": "object",
         "properties": {
           "id": {
@@ -1114,7 +1301,11 @@
         }
       },
       "ResetPasswordRequest": {
-        "required": ["userId", "token", "newPassword"],
+        "required": [
+          "userId",
+          "token",
+          "newPassword"
+        ],
         "type": "object",
         "properties": {
           "userId": {
@@ -1129,8 +1320,11 @@
           }
         }
       },
-      "UpdateProductBody": {
-        "required": ["name", "price"],
+      "UpdateProductRequest": {
+        "required": [
+          "name",
+          "price"
+        ],
         "type": "object",
         "properties": {
           "name": {
@@ -1138,7 +1332,10 @@
           },
           "price": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": ["number", "string"],
+            "type": [
+              "number",
+              "string"
+            ],
             "format": "double"
           }
         }

@@ -12,7 +12,7 @@ namespace Saas.IntegrationTests.Auth;
 public sealed class LockoutTests(PostgresApiFactory factory)
 {
     [Fact]
-    public async Task Cinq_echecs_verrouillent_le_compte_meme_avec_le_bon_password()
+    public async Task Five_failures_lock_the_account_even_for_the_right_password()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
@@ -28,14 +28,14 @@ public sealed class LockoutTests(PostgresApiFactory factory)
             bad.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         }
 
-        // 6e tentative AVEC le bon mot de passe : compte verrouillé → toujours 401 (anti-énumération).
+        // 6e tentative avec le bon mot de passe : compte verrouillé → toujours 401 (anti-énumération).
         var locked = await client.PostAsJsonAsync(
             "/api/v1/auth/login", new { email, password }, ct);
         locked.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
-    public void Le_hasher_est_configure_a_210k_iterations()
+    public void The_password_hasher_uses_210000_iterations()
     {
         using var scope = factory.Services.CreateScope();
         var options = scope.ServiceProvider.GetRequiredService<IOptions<PasswordHasherOptions>>();

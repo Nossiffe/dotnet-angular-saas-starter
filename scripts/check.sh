@@ -11,13 +11,9 @@ dotnet build
 docker network create devnet 2>/dev/null || true
 dotnet test
 
-for web in web-angular; do
-  if [ -d "$web" ]; then
-    echo "▶ check $web"
-    (cd "$web" && npm run check)
-    echo "▶ test unitaires $web"
-    (cd "$web" && npm test)
-  fi
-done
+echo "▶ check web-angular"
+(cd web-angular && npm run check)
+echo "▶ tests unitaires web-angular"
+(cd web-angular && npm test)
 
 echo "✓ check complet OK"

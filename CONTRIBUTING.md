@@ -2,16 +2,16 @@
 
 ## Mode de travail recommandé
 
-### Cycle explore → plan → code → commit
+### Démarche
 
-1. **Explore** : lire `ARCHITECTURE.md`, les ADR (`docs/adr/`), et le code existant avant de toucher quoi que ce soit.
-2. **Plan** : décrire précisément ce qui va changer (use-case, agrégat, migration, endpoint).
-3. **Code** : implémenter en suivant les conventions décrites dans `ARCHITECTURE.md`, les ADR (`docs/adr/`) et ce guide.
-4. **Commit** : un commit par changement cohérent, message Conventional Commits.
+1. Lire `ARCHITECTURE.md`, les ADR (`docs/adr/`) et le code concerné.
+2. Décrire le changement dans l'issue ou la PR : use-case, agrégat, migration, endpoint.
+3. Implémenter selon les conventions de `ARCHITECTURE.md`, des ADR et de ce guide.
+4. Un commit par changement cohérent, message Conventional Commits.
 
 ---
 
-## Boucle de vérification (ne jamais s'en passer)
+## Vérifications locales
 
 ```bash
 # Gate rapide
@@ -38,10 +38,9 @@
 2. Si nouvelle route : ajouter dans `Api/Endpoints/<Feature>Endpoints.cs` (`IEndpoint`).
 3. Tests : unit (validator) + intégration (endpoint).
 
-
 ### Agrégat DDD
 
-1. Typed ID Vogen (`Domain`) + converter EF (`Infrastructure/Converters/`) + `ConfigureConventions`.
+1. Typed ID Vogen (`Domain`) + converter EF (`Infrastructure/Persistence/Converters/`) + `ConfigureConventions`.
 2. Agrégat (`Domain`) : factory statique, setters privés, méthodes de comportement.
 3. Config EF + `DbSet internal` + interface repo (Application) + implémentation (Infrastructure).
 4. Migration EF.
@@ -77,7 +76,7 @@ dotnet ef dbcontext optimize --project src/Infrastructure --startup-project src/
 publication **Native AOT** (`--nativeaot --precompile-queries`, requis pour AOT si le projet
 contient des requêtes).
 
-**Pourquoi PAS activé par défaut dans ce starter** :
+**Pourquoi ce n'est pas activé par défaut** :
 - **Incompatible avec les global query filters** — limitation documentée par Microsoft
   (« Advanced Performance Topics » § Compiled models, « Limitations ») : *"Global query filters
   are not supported"*. Or l'isolation multi-tenant de ce starter repose entièrement sur les
@@ -90,15 +89,18 @@ contient des requêtes).
   mesuré ici (modèle actuel : quelques agrégats, très loin des « centaines/milliers » où le gain
   devient perceptible). YAGNI à cette taille de modèle.
 
-### Régénérer les types TypeScript de l'API
+### Régénérer le contrat OpenAPI et les types TypeScript
 
-`web-angular/openapi.json` est le contrat versionné ; les types TypeScript en sont générés
-(`src/app/api/generated/`, non versionné). Après un changement d'endpoint, API lancée :
+Le build de l'API écrit le contrat dans `web-angular/openapi.json`, le fichier versionné dont le
+front génère ses types (`src/app/api/generated/`, non versionné). Après un changement d'endpoint :
 
 ```bash
-curl http://localhost:5123/openapi/v1.json -o web-angular/openapi.json
-cd web-angular && npm run api:gen
+dotnet build src/Api                 # met à jour web-angular/openapi.json
+cd web-angular && npm run api:gen    # régénère les types TypeScript
 ```
+
+Committer `web-angular/openapi.json` avec le changement : la CI échoue si le contrat versionné
+diffère de celui que produit le build.
 
 ---
 
@@ -154,7 +156,7 @@ main lors du tag.
 
 ## Tests
 
-- **Unit** (`src/tests/UnitTests/`) : agrégats, validators, archi. Rapides, sans Docker.
+- **Unit** (`src/tests/UnitTests/`) : agrégats, validateurs, handlers sans accès direct à la base, archi, registre des erreurs. Rapides, sans Docker.
 - **Intégration** (`src/tests/IntegrationTests/`) : endpoints via `WebApplicationFactory` + Testcontainers (Docker requis). Couvrir : cas nominal, 400, 401, 403, isolation tenant.
 - **Archi** (`DependencyRuleTests`) : NetArchTest vérifie la règle de dépendance Clean Arch.
 - **Front** (`web-angular/`) : tests unitaires Vitest (`npm test`) et Playwright sur la page de
@@ -179,14 +181,14 @@ dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulemen
 |---|---|---|---|
 | `ci.yml` | Push/PR/`merge_group` sur `main` | Build + tests (unit/intégration/archi) + front Angular (lint/format/typecheck, tests unitaires, build, Playwright + axe sur la page de connexion) + vérification des chemins cités dans la doc (`scripts/check-docs.sh`) + couverture backend (Microsoft.CodeCoverage MTP → summary + artifact, **non bloquante** — cf. § Couverture) | Lire le log du job en échec (build/tests/front) ; une couverture qui baisse n'échoue jamais le job, c'est un signal |
 | `smoke.yml` | Push `main` + PR touchant le backend (`src/`, `Directory.Packages.props`, `scripts/smoke.sh`, `docker-compose.yml`) + manuel | Bout-en-bout réel (Postgres + Mailpit + API + Hangfire) via `scripts/smoke.sh` | Reproduire en local : `docker compose up -d db mailpit && dotnet run --project src/Api` puis `bash scripts/smoke.sh` |
-| `deps-audit.yml` | PR touchant les manifests de deps (`Directory.Packages.props`, `packages.lock.json`, `package.json`/`package-lock.json`) + cron hebdo (lundi 05h UTC) + manuel | Bloque sur CVE High/Critical — `dotnet-audit` (NuGet, direct + transitif) et `npm-audit` (par front, prod deps seulement) | Corriger (bump/pin) ou documenter une exception datée — voir § Procédure d'exception CVE ci-dessous |
+| `deps-audit.yml` | PR touchant les manifests de deps (`Directory.Packages.props`, `packages.lock.json`, `package.json`/`package-lock.json`) + cron hebdo (lundi 05h UTC) + manuel | Bloque sur CVE High/Critical — `dotnet-audit` (NuGet, direct + transitif) et `npm-audit` (front Angular, dépendances de prod seulement) | Corriger (bump/pin) ou documenter une exception datée — voir § Procédure d'exception CVE ci-dessous |
 | `zizmor.yml` | Push/PR touchant `.github/workflows/**` | Lint de sécurité des workflows GitHub Actions (permissions, injections, cache-poisoning…) — mode console (`advanced-security: false`), exit non nul = bloquant | Reproduire en local : `uvx zizmor .github/workflows/` ; corriger le finding (permissions minimales, pin SHA, échappement d'input) |
 | `stryker.yml` | PR touchant le Domain ou ses tests (job Domain seul) + cron hebdo + manuel | Mutation testing des tests unitaires : Domain **bloquant** (seuil 60 %), Application mesuré seulement | Ouvrir le rapport HTML en artifact ; voir § Mutation testing ci-dessous |
 | `release.yml` | Tag `v*` + manuel | Build + push image GHCR, SBOM (CycloneDX backend + npm du front), attestation de provenance (SLSA build L2) | Voir `DEPLOYMENT.md` § Release — image, SBOM, attestation |
 | `codeql.yml` / `security.yml` | Push/PR sur `main` | SAST (CodeQL C#/TS) + secret scanning (gitleaks, règles par défaut) | Voir l'onglet Security du repo ; reproduire gitleaks en local : `gitleaks git .` |
 
-> **CodeQL** : gratuit sur un dépôt public. Tant que le dépôt est privé (sans GitHub
-> Advanced Security), le job `analyze` est ignoré au lieu d'échouer.
+> **CodeQL** : gratuit sur un dépôt public. Sur un dépôt privé sans GitHub Advanced Security,
+> le job `analyze` est ignoré au lieu d'échouer.
 
 > **Merge queue** : si la merge queue GitHub est activée sur `main`, ajouter le
 > déclencheur `merge_group:` à chaque workflow marqué comme required check (déjà
@@ -228,18 +230,20 @@ qu'aucun test ne vérifie vraiment.
 
 | Périmètre | Config | Score | Seuil `break` |
 |---|---|---|---|
-| Domain | `stryker-config-domain.json` | ~82 % | 60 % (**bloquant**) |
-| Application | `stryker-config-application.json` | ~8 % | 0 (mesuré seulement) |
+| Domain | `stryker-config-domain.json` | ~84 % | 60 % (**bloquant**) |
+| Application | `stryker-config-application.json` | ~35 % | 0 (mesuré seulement) |
 
-**Pourquoi le score de l'Application est bas.** Stryker ne lance que les tests unitaires. Les
-handlers de l'Application sont couverts par les tests d'intégration sur PostgreSQL
+**Pourquoi le score de l'Application est plus bas.** Stryker ne lance que les tests unitaires.
+Les validateurs et les handlers sans accès direct à la base ont des tests unitaires
+(`src/tests/UnitTests/Application/`). Ceux qui lisent avec Dapper (connexion, rafraîchissement,
+invitations, requêtes) sont couverts par les tests d'intégration sur PostgreSQL
 (`src/tests/IntegrationTests/`, Testcontainers), que Stryker ne lance pas : leurs mutants
 survivent sans que la logique soit pour autant non testée. Le score est publié pour suivre son
 évolution, sans seuil.
 
 `stryker.yml` lance les deux mesures chaque lundi et à la demande, et la mesure du Domain sur
-chaque PR qui touche le Domain ou ses tests ; le job Domain échoue sous le seuil. Stryker 5 utilise le runner Microsoft Testing Platform (`"test-runner": "mtp"`), celui
-des projets xunit.v3.
+chaque PR qui touche le Domain ou ses tests ; le job Domain échoue sous le seuil. Stryker 5
+utilise le runner Microsoft Testing Platform (`"test-runner": "mtp"`), celui des projets xunit.v3.
 
 ### Lancer une analyse
 
@@ -248,8 +252,8 @@ Stryker est un outil local du dépôt (`.config/dotnet-tools.json`), installé p
 
 ```bash
 cd src/tests/UnitTests
-dotnet stryker -f ../../../stryker-config-domain.json        # Domain, ~3 min
-dotnet stryker -f ../../../stryker-config-application.json   # Application, ~2 min
+dotnet stryker -f ../../../stryker-config-domain.json        # Domain, 1 à 2 min
+dotnet stryker -f ../../../stryker-config-application.json   # Application, 1 à 2 min
 ```
 
 Le rapport HTML est écrit dans `src/tests/UnitTests/StrykerOutput/<date>/reports/mutation-report.html`
