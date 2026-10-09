@@ -17,6 +17,12 @@ public sealed class NonDevelopmentApiFactory : PostgresApiFactory
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Production");
+        // Hors Development, appsettings.Development.json n'est pas lu : ces réglages sont obligatoires,
+        // comme en production.
+        builder.UseSetting("App:BaseUrl", "https://app.example.test");
+        builder.UseSetting("Email:Host", "localhost");
+        builder.UseSetting("Email:Port", "1025");
+        builder.UseSetting("Email:FromAddress", "no-reply@example.test");
         base.ConfigureWebHost(builder);
     }
 }

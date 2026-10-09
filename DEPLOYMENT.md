@@ -57,7 +57,13 @@ d'une image tirée d'un registre partagé, ou en gate d'un pipeline de déploiem
 
 ## Variables d'environnement / Secrets (production)
 
-Les variables marquées **Required** sont validées au démarrage (`builder.Configuration.GetRequired*`) — l'application refuse de démarrer si elles sont absentes ou vides. Utilisez un gestionnaire de secrets (Azure Key Vault, AWS Secrets Manager, Kubernetes Secrets, etc.) — **ne jamais committer ces valeurs**.
+`appsettings.json` ne contient aucune valeur propre à un environnement : les valeurs de
+développement (base locale, Mailpit, `http://localhost:4200`) sont dans
+`appsettings.Development.json`, lu seulement quand `ASPNETCORE_ENVIRONMENT=Development`. Hors
+Development, l'API refuse donc de démarrer si une variable **Required** manque : la chaîne de
+connexion est contrôlée explicitement, les autres par la validation des options au démarrage
+(`ValidateDataAnnotations().ValidateOnStart()`). Utilisez un gestionnaire de secrets (Azure Key
+Vault, AWS Secrets Manager, Kubernetes Secrets, etc.) — **ne jamais committer ces valeurs**.
 
 | Variable | Obligatoire | Description |
 |---|---|---|
@@ -70,8 +76,8 @@ Les variables marquées **Required** sont validées au démarrage (`builder.Conf
 | `Email__UseSslOnConnect` | Optionnel | `true` pour TLS implicite (port 465) |
 | `Email__Username` | Optionnel | Identifiant SMTP si auth requise |
 | `Email__Password` | Optionnel | Mot de passe SMTP — secret |
-| `App__BaseUrl` | **Required** | URL publique du front (liens dans les emails — ex. `https://app.example.com`) |
-| `Cors__AllowedOrigins` | **Required** | Origines CORS autorisées (JSON array — ex. `["https://app.example.com"]`) |
+| `App__BaseUrl` | **Required** | URL publique du front, absolue (liens dans les emails — ex. `https://app.example.com`) |
+| `Cors__AllowedOrigins__0`, `__1`… | Optionnel | Origines autorisées à appeler l'API depuis un autre domaine. Vide par défaut : le front est servi depuis la même origine que l'API (`docs/adr/0004`) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Optionnel | Endpoint OTLP (ex. `https://otel-collector:4317`) |
 | `OTEL_SERVICE_NAME` | Optionnel | Nom du service pour les traces/métriques (défaut : `saas-api`) |
 | `RateLimiting__DisableAuthPolicy` | **Ne pas activer** | Désactive le rate-limiter `/auth` — **doit rester `false` en production** (honoré uniquement en Development) |

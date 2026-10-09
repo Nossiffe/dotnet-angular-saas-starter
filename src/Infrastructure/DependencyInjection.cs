@@ -96,6 +96,12 @@ public static class DependencyInjection
 
     private static void AddPersistence(IServiceCollection services, IConfiguration configuration)
     {
+        if (string.IsNullOrWhiteSpace(configuration.GetConnectionString("Default")))
+        {
+            throw new InvalidOperationException(
+                "ConnectionStrings:Default est requis (variable d'environnement ConnectionStrings__Default).");
+        }
+
         services.AddScoped<AuditableEntityInterceptor>();
         services.AddScoped<DomainEventsInterceptor>();
         services.AddDbContext<AppDbContext>((sp, options) =>
