@@ -21,7 +21,7 @@ Every change has to pass these gates, whoever or whatever wrote it:
 
 | Gate | Tooling | When |
 |---|---|---|
-| Build | .NET analyzers, warnings treated as errors | Every build |
+| Build | .NET analyzers, warnings treated as errors (NuGet advisories excepted, see Dependencies) | Every build |
 | Architecture rules | Architecture tests: dependency rules on the assemblies' actual references, conventions, ErrorOr usage, security conventions, tenant filter on every SQL read | Every CI run |
 | API contract | OpenAPI document rebuilt and compared with the committed one the front end types come from | Every CI run |
 | Behaviour | Unit tests, integration tests against a real PostgreSQL (Testcontainers), end-to-end smoke test (API + PostgreSQL + Mailpit + Hangfire) | Every CI run; smoke test on backend changes |
@@ -29,7 +29,7 @@ Every change has to pass these gates, whoever or whatever wrote it:
 | Test quality | Stryker mutation testing of the unit tests: blocking for the Domain, measured for the Application | Pull requests touching the Domain, weekly |
 | Static analysis | CodeQL for C# and TypeScript | Push, pull request, weekly |
 | Secrets | gitleaks with its default rules | Pre-commit hook (when gitleaks is installed) and CI |
-| Dependencies | Audit blocking High/Critical CVEs (NuGet including transitive, npm), `NuGetAuditLevel=low` locally, grouped Dependabot updates with a 7-day cooldown | Pull requests touching manifests, weekly |
+| Dependencies | Audit blocking High/Critical CVEs (NuGet including transitive, npm); NuGet advisories of every severity shown as build warnings, without failing the build; grouped Dependabot updates with a 7-day cooldown | Audit: pull requests touching manifests, weekly. Warnings: every build |
 | CI security | zizmor workflow linting, actions pinned by SHA | Workflow changes |
 | Supply chain | CycloneDX SBOM and build provenance attestation | Every release |
 

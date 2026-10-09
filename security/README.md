@@ -14,7 +14,7 @@ laissé en l'état (et pourquoi), et à quelle échéance c'est réexaminé. Il 
 | À chaque PR touchant les manifests de dépendances | `.github/workflows/deps-audit.yml` | Bloque le merge si CVE High/Critical (direct ou transitif) |
 | Hebdomadaire (lundi 05h UTC) | `deps-audit.yml` (cron) | Attrape les CVE publiées sans changement de code |
 | Hebdomadaire (lundi 05h Europe/Zurich) | Dependabot (`.github/dependabot.yml`) | PR automatiques de mise à jour, groupées par écosystème |
-| Continu, à chaque build | `NuGetAuditLevel=low` (`Directory.Build.props`) | Filet local : toute sévérité NuGet remonte en warning (→ erreur via `TreatWarningsAsErrors`) dès `dotnet build`, sans attendre le CI |
+| Continu, à chaque build | `NuGetAuditLevel=low` (`Directory.Build.props`) | Filet local : toute sévérité NuGet remonte en warning dès `dotnet build`, sans attendre le CI et sans faire échouer le build |
 | Ad hoc (avant merge, avant release) | Revue manuelle datée (ce dossier) | Documente une décision fix/pin/exception |
 
 ---
@@ -55,12 +55,13 @@ Points clés :
 
 ### 3. `NuGetAuditLevel=low` — `Directory.Build.props`
 
-Défense en profondeur locale : dès `dotnet restore`/`dotnet build`, **toute**
-vulnérabilité connue (y compris `Low`/`Moderate`) remonte en warning, et
-`TreatWarningsAsErrors=true` en fait une erreur de build. Le tri
-High/Critical *bloquant en CI* reste porté par `deps-audit.yml` — ce réglage
-est volontairement plus strict en local, pour que le développeur voie le
-signal avant même d'ouvrir une PR.
+Signal local : dès `dotnet restore`/`dotnet build`, **toute** vulnérabilité
+connue (y compris `Low`/`Moderate`) remonte en warning, pour que le développeur
+la voie avant même d'ouvrir une PR. Ces warnings (NU1901 à NU1904, plus NU1900
+quand la source des avis est injoignable) sont exclus de `TreatWarningsAsErrors`
+par `WarningsNotAsErrors` : un avis publié du jour au lendemain ne doit pas
+empêcher de compiler un clone neuf ou une branche sans rapport. Le blocage
+High/Critical reste porté par `deps-audit.yml`.
 
 ### 4. Revue manuelle datée
 
@@ -73,25 +74,23 @@ d'audit.
 
 ## Seuils de sévérité
 
-Deux gardes-fous distincts, cumulatifs — c'est leur combinaison qui protège :
+Un seul contrôle bloquant, `deps-audit.yml`, complété par un signal local qui ne bloque pas :
 
 - **`deps-audit.yml` (CI, triage)** : ne bloque que High/Critical, côté NuGet comme
-  côté npm (`--audit-level=high`). Le restore de ce workflow neutralise
-  volontairement `NuGetAuditLevel`/`TreatWarningsAsErrors`
-  (`-p:NuGetAudit=false -p:TreatWarningsAsErrors=false`) pour ne pas exploser sur
-  une CVE Low/Moderate avant que le parseur JSON ait pu faire le tri de sévérité.
-- **Build normal NuGet (`Directory.Build.props`, `NuGetAuditLevel=low` +
-  `TreatWarningsAsErrors=true`)** : plus strict — **toute** sévérité (y compris
-  Low/Moderate) remonte en warning puis erreur dès `dotnet build`/`dotnet restore`,
-  sans attendre le CI. Ce garde-fou local n'existe pas côté npm (pas d'équivalent
-  « audit à chaque build » configuré pour le front).
+  côté npm (`--audit-level=high`). Le restore de ce workflow désactive l'audit
+  NuGet (`-p:NuGetAudit=false`) : c'est le parseur JSON qui fait le tri de sévérité.
+- **Build normal NuGet (`Directory.Build.props`, `NuGetAuditLevel=low`)** : plus
+  large mais non bloquant — **toute** sévérité (y compris Low/Moderate) remonte en
+  warning dès `dotnet build`/`dotnet restore`, sans attendre le CI. Ce signal local
+  n'existe pas côté npm (pas d'équivalent « audit à chaque build » configuré pour
+  le front).
 
 | Sévérité | Action CI (`deps-audit.yml`, triage High/Critical) | Action build normal (NuGet uniquement) | Action humaine attendue |
 |---|---|---|---|
-| **Critical** | ❌ Bloque le merge | ❌ Bloque le build (`NuGetAuditLevel=low` + `TreatWarningsAsErrors`) | Corriger sous 24h ou exception documentée immédiate |
-| **High** | ❌ Bloque le merge | ❌ Bloque le build | Corriger sous 7 jours ou exception documentée |
-| **Moderate** | 🟡 Signalé côté npm (non bloquant, `--audit-level=high`) ; non remonté côté NuGet (le triage `deps-audit.yml` filtre sur High/Critical) | ❌ Bloque le build (NuGet) | Revue à la prochaine échéance documentée |
-| **Low** | Non remonté (ni NuGet ni npm — le triage CI filtre sur High/Critical) | ❌ Bloque le build (NuGet uniquement) | Revue annuelle |
+| **Critical** | ❌ Bloque le merge | ⚠️ Warning NU1904, build non bloqué | Corriger sous 24h ou exception documentée immédiate |
+| **High** | ❌ Bloque le merge | ⚠️ Warning NU1903 | Corriger sous 7 jours ou exception documentée |
+| **Moderate** | 🟡 Signalé côté npm (non bloquant, `--audit-level=high`) ; non remonté côté NuGet (le triage `deps-audit.yml` filtre sur High/Critical) | ⚠️ Warning NU1902 | Revue à la prochaine échéance documentée |
+| **Low** | Non remonté (ni NuGet ni npm — le triage CI filtre sur High/Critical) | ⚠️ Warning NU1901 | Revue annuelle |
 
 ---
 

@@ -28,6 +28,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Contrat HTTP : contrats de requête dédiés au lieu des commandes de l'Application ; Bearer exigé seulement sur les routes authentifiées ; pas de `Location` vers une route inexistante.
 - Empreintes de tokens en hexadécimal minuscule partout : les refresh tokens existants ne sont plus reconnus, une reconnexion est nécessaire.
 - Docker Compose utilise son réseau par défaut : le réseau externe `devnet`, à créer à la main avant le premier `docker compose up`, disparaît du Quickstart, du smoke test et de `scripts/check.sh`.
+- Les avis de sécurité NuGet (NU1901 à NU1904) restent des warnings au lieu de faire échouer `dotnet build` : un avis publié du jour au lendemain n'empêche plus de compiler un clone neuf. Une source d'avis injoignable (NU1900) ne bloque plus le build non plus. `deps-audit.yml` reste la barrière bloquante pour High/Critical.
 
 ### Fixed
 - gitleaks : la configuration du dépôt remplaçait les règles par défaut et ne détectait plus rien ; elle les étend maintenant. Le hook pre-commit bloque dès que gitleaks est installé.
