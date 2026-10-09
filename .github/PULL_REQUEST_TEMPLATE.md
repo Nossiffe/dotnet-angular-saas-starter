@@ -16,7 +16,7 @@
 ## Checklist
 
 - [ ] Les tests unitaires et d'intégration passent (`dotnet test`)
-- [ ] `./.claude/hooks/check.sh` est vert (build + tests + fronts)
+- [ ] `./scripts/check.sh` est vert (build + tests + front)
 - [ ] Un ADR a été créé si la PR implique une décision d'architecture significative
 - [ ] Aucun secret/credential n'est inclus dans les fichiers committés
 - [ ] La migration EF a été relue avant commit (si applicable)

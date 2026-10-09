@@ -5,29 +5,20 @@
 ### Cycle explore → plan → code → commit
 
 1. **Explore** : lire `ARCHITECTURE.md`, les ADR (`docs/adr/`), et le code existant avant de toucher quoi que ce soit.
-2. **Plan** : décrire précisément ce qui va changer (use-case, agrégat, migration, endpoint). En mode agent, utiliser le **plan mode** de Claude Code (`/plan`) pour valider avant d'écrire.
-3. **Code** : implémenter en suivant les conventions décrites dans `CLAUDE.md` et `.claude/rules/`.
+2. **Plan** : décrire précisément ce qui va changer (use-case, agrégat, migration, endpoint).
+3. **Code** : implémenter en suivant les conventions décrites dans `ARCHITECTURE.md`, les ADR (`docs/adr/`) et ce guide.
 4. **Commit** : un commit par changement cohérent, message Conventional Commits.
-
-### Sessions longues avec un agent
-
-Utiliser `/goal` pour définir l'objectif de la session :
-```
-/goal Tous les tests passent au vert après ajout de l'agrégat Invoice
-```
-L'agent garde l'objectif en tête et ne se déclare pas fini tant que la gate n'est pas verte.
 
 ---
 
 ## Boucle de vérification (ne jamais s'en passer)
 
 ```bash
-# Gate rapide — auto-lancée par le Stop hook à chaque fin de tour
-./.claude/hooks/check-fast.sh   # dotnet build + format-verify
+# Gate rapide
+./scripts/check-fast.sh   # dotnet build + format-verify
 
 # Gate complète — avant tout commit/PR important
-./.claude/hooks/check.sh        # build + tests + check des 2 fronts
-# ou taper /check dans Claude Code
+./scripts/check.sh        # build + tests + check du front
 ```
 
 **Docker est requis** pour les tests d'intégration (Testcontainers).
@@ -41,15 +32,14 @@ L'agent garde l'objectif en tête et ne se déclare pas fini tant que la gate n'
 
 ## Ajouter une feature
 
-### Use-case CQRS (skill `/add-use-case`)
+### Use-case CQRS
 
 1. Créer `Application/<Feature>/<UseCase>/` avec `Command/Query` + `Handler` + `Validator`.
 2. Si nouvelle route : ajouter dans `Api/Endpoints/<Feature>Endpoints.cs` (`IEndpoint`).
 3. Tests : unit (validator) + intégration (endpoint).
 
-Détail : `.claude/skills/add-use-case/SKILL.md`
 
-### Agrégat DDD (skill `/add-aggregate`)
+### Agrégat DDD
 
 1. Typed ID Vogen (`Domain`) + converter EF (`Infrastructure/Converters/`) + `ConfigureConventions`.
 2. Agrégat (`Domain`) : factory statique, setters privés, méthodes de comportement.
@@ -57,19 +47,19 @@ Détail : `.claude/skills/add-use-case/SKILL.md`
 4. Migration EF.
 5. Tests unitaires (agrégat) + intégration.
 
-Détail : `.claude/skills/add-aggregate/SKILL.md` + `docs/adr/0001` + `docs/adr/0002`
+Détail : `docs/adr/0001` + `docs/adr/0002`
 
-### Strongly-typed ID (skill `/add-typed-id`)
+### Strongly-typed ID
 
 Recette Vogen en 3 étapes : `Domain` STJ-only → converter EF `Infrastructure` → `ConfigureConventions`.
-Détail : `.claude/skills/add-typed-id/SKILL.md` + `docs/adr/0001`
+Détail : `docs/adr/0001`
 
-### Migration EF (skill `/add-migration`)
+### Migration EF
 
 ```bash
 dotnet ef migrations add <NomMigration> --project src/Infrastructure --startup-project src/Api
 ```
-Toujours relire le fichier généré avant de commiter. Détail : `.claude/skills/add-migration/SKILL.md`
+Toujours relire le fichier généré avant de commiter.
 
 ### Modèles EF compilés (`dotnet ef dbcontext optimize`) — non activé par défaut
 
@@ -91,7 +81,7 @@ contient des requêtes).
 - **Incompatible avec les global query filters** — limitation documentée par Microsoft
   (« Advanced Performance Topics » § Compiled models, « Limitations ») : *"Global query filters
   are not supported"*. Or l'isolation multi-tenant de ce template repose entièrement sur les
-  named query filters EF (`"TenantFilter"`/`"SoftDeleteFilter"`, cf. `.claude/rules/security.md`)
+  named query filters EF (`"TenantFilter"`/`"SoftDeleteFilter"`)
   — activer un modèle compilé casserait cette garantie « par construction ». C'est la raison
   bloquante, avant même la taille du modèle actuel.
 - Fichiers générés à maintenir : le modèle compilé doit être **régénéré manuellement** à chaque
@@ -100,13 +90,12 @@ contient des requêtes).
   mesuré ici (modèle actuel : quelques agrégats, très loin des « centaines/milliers » où le gain
   devient perceptible). YAGNI au gabarit actuel.
 
-### Regénérer les clients API (skill `/sync-api-client`)
+### Regénérer les clients API
 
 ```bash
 curl http://localhost:5123/openapi/v1.json -o web-angular/openapi.json
 cd web-angular && npm run api:gen
 ```
-Détail : `.claude/skills/sync-api-client/SKILL.md`
 
 ---
 
@@ -298,17 +287,6 @@ Le rapport HTML s'ouvre dans `StrykerOutput/**/reports/mutation-report.html`.
 Voir `stryker-config.json` (Application) et `stryker-config-domain.json` (Domain) à la
 racine. Chaque config exclut les migrations et fichiers générés (`.g.cs`), coverage
 analysis désactivée (`"coverage-analysis": "off"`, requis avec xunit.v3/MTP).
-
----
-
-## Review Claude en CI (optionnelle)
-
-Le fichier `REVIEW.md` à la racine calibre la review automatique (priorités, skips, must-checks).
-
-Pour activer :
-1. Installer l'app GitHub Claude Code sur le repo.
-2. Commenter `@claude review` sur une PR, ou configurer `.github/workflows/claude-review.yml`.
-3. La review est **désactivée par défaut** (facturée à l'usage). Activer uniquement si voulu.
 
 ---
 

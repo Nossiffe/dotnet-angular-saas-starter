@@ -3,5 +3,3 @@ src/app/api/generated/
 dist/
 node_modules/
 
-# Claude Code config (not Angular code)
-.claude/

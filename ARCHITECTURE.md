@@ -123,7 +123,7 @@ Request → LoggingBehavior → ValidationBehavior → Handler
   toute entité `ISoftDeletable` le filtre nommé `"SoftDeleteFilter"` (`!e.IsDeleted`) — aucune
   configuration au cas par cas par entité (pas de `HasQueryFilter` dans `XxxConfiguration.cs`).
   `"TenantFilter"` n'est jamais contournable métier ; `"SoftDeleteFilter"` peut être ignoré
-  ponctuellement via `IgnoreQueryFilters(["SoftDeleteFilter"])`. Détail : `.claude/rules/security.md`.
+  ponctuellement via `IgnoreQueryFilters(["SoftDeleteFilter"])`.
 - L'`AuditableEntityInterceptor` injecte `TenantId` sur les nouveaux agrégats tenant-scoped.
 
 ### Identité & Auth
@@ -189,12 +189,12 @@ HTTP POST /products
 
 - **Erreurs métier : `ErrorOr<T>`, jamais d'exception.** Chaque handler `ICommand<ErrorOr<T>>` /
   `IQuery<ErrorOr<T>>` retourne une erreur d'une classe `XxxErrors` centralisée (registre complet :
-  `.claude/rules/error-codes.md`). Les endpoints convertissent via `result.ToHttpResult()` /
+  `docs/error-codes.md`). Les endpoints convertissent via `result.ToHttpResult()` /
   `ToNoContentHttpResult()` / `ToCreatedHttpResult(...)` (`Saas.Api.Common.ErrorOrHttpExtensions`),
   qui mappe chaque `ErrorType` (`Validation`→400, `NotFound`→404, `Conflict`→409, `Forbidden`→403,
   `Unauthorized`→401, autre→500) sur un `ProblemDetails`.
 - **Anti-énumération** : une ressource d'un autre tenant renvoie `NotFound`, jamais `Forbidden`
-  (ne révèle pas son existence — `.claude/rules/security.md`).
+  (ne révèle pas son existence).
 - **`GlobalExceptionHandler` reste responsable des exceptions légitimes restantes** (frontière
   forme/métier, `docs/adr/0003`) : `ValidationException` du pipeline FluentValidation ou des
   erreurs Identity field-tied (→ 400 `ProblemDetails` par champ), `DbUpdateException`/`DbUpdateConcurrencyException`
@@ -303,8 +303,6 @@ d'`ITenantProvider` (fail-closed). Seuls les succès sont cachés (jamais l'erre
 (`UpdateProductHandler`/`DeleteProductHandler`) — **logique**, pas physique (doc officielle
 HybridCache : `RemoveByTagAsync` ignore toute entrée antérieure au point d'invalidation plutôt
 que de la supprimer). Migré : `GetProductByIdQuery` (`[CachedQuery(60, Tag = "products")]`).
-Détail complet (piège du contexte détaché `HttpContext`, citation verbatim de l'invalidation
-par tag) : `.claude/rules/dotnet.md` § Cache applicatif.
 
 **Passer en distribué (L2 Redis)** : ajouter `Microsoft.Extensions.Caching.StackExchangeRedis` puis :
 ```csharp

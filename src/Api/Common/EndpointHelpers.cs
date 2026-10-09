@@ -11,7 +11,7 @@ internal static class EndpointHelpers
     /// Vérifie que l'<c>orgId</c> de la route correspond au tenant du token. Anti-énumération :
     /// un mismatch renvoie 404 (<see cref="OrganizationErrors.NotFound"/>), jamais 400/403 —
     /// un statut distinct révélerait à un appelant authentifié qu'une autre organisation existe
-    /// (cf. .claude/rules/error-codes.md § anti-énumération).
+    /// (cf. docs/error-codes.md § anti-énumération).
     /// Retourne <see langword="null"/> si la portée est correcte (l'appelant continue), sinon
     /// le <see cref="IResult"/> 404 à retourner immédiatement.
     /// </summary>

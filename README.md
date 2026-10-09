@@ -34,7 +34,7 @@ cd web-angular && npm install && npm start
 | `dotnet ef migrations add <Nom> --project src/Infrastructure --startup-project src/Api` | Nouvelle migration EF |
 | `cd web-angular && npm run fix` | Lint + format Angular |
 | `cd web-angular && npm run check` | Gate CI Angular |
-| `./.claude/hooks/check.sh` | Gate complète (build + tests + fronts) |
+| `./scripts/check.sh` | Gate complète (build + tests + front) |
 
 ## Stack
 
@@ -59,32 +59,6 @@ cd web-angular && npm install && npm start
 | `DEPLOYMENT.md` | Déploiement (image Docker, secrets prod, migrations bundle, health probes, scaling) |
 | `docs/adr/0001` | Strongly-typed IDs & value objects (Vogen STJ-only + converter EF) |
 | `docs/adr/0002` | Persistance CQRS (repos write + Dapper read) |
-
-## Travailler avec un agent Claude Code
-
-Ce repo est outillé pour Claude Code :
-
-- **`CLAUDE.md`** (racine + par zone) : carte du monorepo et commandes clés.
-- **`.claude/rules/`** : conventions DDD/Angular/React, chargées automatiquement selon les fichiers touchés.
-- **`/check`** (commande Claude Code) : lance `./.claude/hooks/check.sh` — gate complète.
-- **Skills** : `/add-use-case`, `/add-aggregate`, `/add-typed-id`, `/add-migration`, `/sync-api-client`.
-- **Stop hook** : gate rapide automatique (build + format-verify) à chaque fin de tour.
-- **`.mcp.json`** : MCP server Postgres en lecture (`@bytebase/dbhub`, requiert `DATABASE_URL`).
-- **`REVIEW.md`** : calibrage de la review automatique Claude.
-
-```bash
-# Ouvrir Claude Code sur ce projet
-claude
-```
-
-## Review CI (optionnelle)
-
-Pour activer la review automatique Claude sur les PR :
-1. Installer l'app GitHub Claude Code sur le repo.
-2. Commenter `@claude review` sur une PR, ou configurer `.github/workflows/claude-review.yml`.
-3. `REVIEW.md` est déjà calibré (priorités, skips, must-checks DDD).
-
-**Désactivée par défaut** (facturée à l'usage).
 
 ## Licence
 

@@ -23,16 +23,10 @@ while IFS= read -r -d '' f; do
   DOC_FILES+=("$f")
 done < <(
   find "$REPO" -maxdepth 1 \
-    \( -name "CLAUDE.md" -o -name "REVIEW.md" -o -name "README.md" \
+    \( -name "README.md" \
        -o -name "CONTRIBUTING.md" -o -name "ARCHITECTURE.md" \
        -o -name "DEPLOYMENT.md" \) \
     -print0
-  find "$REPO/src" -maxdepth 1 -name "CLAUDE.md" -print0 2>/dev/null
-  find "$REPO/web-angular" -maxdepth 1 -name "CLAUDE.md" -print0 2>/dev/null
-  find "$REPO/.claude/rules" -name "*.md" -print0 2>/dev/null
-  find "$REPO/.claude/skills" -name "SKILL.md" -print0 2>/dev/null
-  find "$REPO/.claude/patterns" -maxdepth 1 -name "README.md" -print0 2>/dev/null
-  find "$REPO/.claude/agents" -maxdepth 1 -name "*.md" -print0 2>/dev/null
 )
 
 # ---------------------------------------------------------------------------
@@ -70,12 +64,7 @@ is_placeholder() {
 is_known_optional() {
   local path="$1"
   case "$path" in
-    # Fichier optionnel à créer si on veut la review Claude en CI
-    ".github/workflows/claude-review.yml") return 0 ;;
     # Bundles de build front (gitignorés) — n'existent qu'après `npm run build`.
-    # Mentionnés dans REVIEW.md comme chemins générés à ignorer par la review,
-    # au même titre que bin/, obj/ (déjà tolérés via le glob `**`) — même
-    # nature d'artefact, mais écrits sans `*` donc non couverts par is_placeholder.
     "web-angular/dist/") return 0 ;;
   esac
   return 1
@@ -150,7 +139,7 @@ check_paths() {
       VIOLATIONS=$((VIOLATIONS + 1))
     fi
   done < <(
-    grep -oP '`\K(src|web-angular|\.claude|tools|scripts|docs|\.github)/[A-Za-z0-9._/-]+(?=`)' "$file" 2>/dev/null || true
+    grep -oP '`\K(src|web-angular|tools|scripts|docs|\.github)/[A-Za-z0-9._/-]+(?=`)' "$file" 2>/dev/null || true
   )
 }
 

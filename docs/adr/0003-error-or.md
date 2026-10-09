@@ -59,7 +59,7 @@ classe `XxxErrors` (`ProductErrors`, `OrganizationErrors`, `InvitationErrors`, `
 grep-able** (`grep -rn 'static Error ' src/ --include='*Errors.cs'`), un point unique pour
 relire les messages exposés à l'utilisateur, et un test de contrat (`DomainErrorsTests`)
 qui vérifie que chaque erreur a le bon `ErrorType`, un `Code` stable et une `Description`
-correcte. Détail complet du registre (16 entrées) : `.claude/rules/error-codes.md`.
+correcte. Détail complet du registre (16 entrées) : `docs/error-codes.md`.
 
 **Contrat HTTP touché par cette task** : `InvitationErrors.AlreadyPending` (« invitation déjà
 en attente ») est passée de **400** (`Validation`) à **409** (`Conflict`) — alignée avec la

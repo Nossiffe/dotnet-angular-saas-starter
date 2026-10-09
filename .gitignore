@@ -35,5 +35,3 @@ appsettings.Production.json
 .idea/
 .vscode/
 
-# Claude Code — état volatile dumpé par le hook PreCompact, consommé par SessionStart
-.claude/session-state.md
