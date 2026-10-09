@@ -78,12 +78,11 @@ Application/<Feature>/<UseCase>/
 ### Pipeline Mediator
 
 ```
-Request → LoggingBehavior → ValidationBehavior → CachingBehavior → Handler
+Request → LoggingBehavior → ValidationBehavior → Handler
 ```
 
 - `ValidationBehavior` exécute tous les `IValidator<T>` enregistrés automatiquement.
 - Ne jamais valider manuellement dans un handler.
-- `CachingBehavior` ne s'applique qu'aux queries marquées `[CachedQuery]` (voir « HybridCache »).
 
 ### Interfaces clés
 
@@ -324,16 +323,13 @@ Les domain events ne sont pas dispatchés pendant `SaveChanges`. Le `DomainEvent
 
 ### HybridCache (.NET 10)
 
-`AddHybridCache()` — **L1 en mémoire** par défaut. Cache **déclaratif opt-in** : décorer un
-`record XxxQuery` de `[CachedQuery(seconds, Tag = "…")]` active le `CachingBehavior<,>` du
-pipeline Mediator (enregistré après `ValidationBehavior`) — une query sans l'attribut traverse
-le behavior sans écriture de cache. Réservé aux queries **tenant-scoped** : clé
-(`q:{tenantId}:{Query.FullName}:{json}`) et tags (`t:{tenantId}` + `t:{tenantId}:{Tag}`) viennent
-d'`ITenantProvider` (fail-closed). Seuls les succès sont cachés (jamais l'erreur d'un
-`ErrorOr<T>`). Invalidation par write : `cache.RemoveByTagAsync($"t:{tenantId}:{tag}", ct)`
-(`UpdateProductHandler`/`DeleteProductHandler`) — **logique**, pas physique (doc officielle
-HybridCache : `RemoveByTagAsync` ignore toute entrée antérieure au point d'invalidation plutôt
-que de la supprimer). Exemple : `GetProductByIdQuery` (`[CachedQuery(60, Tag = "products")]`).
+`AddHybridCache()` — **L1 en mémoire** par défaut. Le handler qui veut un cache l'utilise
+explicitement : `GetProductByIdHandler` appelle `GetOrCreateAsync` avec une clé et un tag qui
+contiennent le tenant (`ProductCache`), et `UpdateProductHandler`/`DeleteProductHandler`
+invalident ce tag avec `RemoveByTagAsync`. L'invalidation est **logique**, pas physique : la doc
+HybridCache précise que `RemoveByTagAsync` ignore toute entrée antérieure au point
+d'invalidation plutôt que de la supprimer. Un produit absent est mis en cache comme absent : les
+identifiants étant des UUID v7, aucun produit n'apparaît plus tard sous un identifiant demandé.
 
 **Passer en distribué (L2 Redis)** : ajouter `Microsoft.Extensions.Caching.StackExchangeRedis` puis :
 ```csharp

@@ -8,7 +8,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 
 ### Added
 - Timeouts de requête globaux (`RequestTimeouts:DefaultSeconds`, 30 s par défaut) et output cache opt-in strict (aucune policy par défaut, activation par endpoint via `.CacheOutput(...)`).
-- Cache déclaratif `[CachedQuery]` : le `CachingBehavior` du pipeline Mediator met en cache les queries marquées dans HybridCache, avec clé et tags propres au tenant (invalidation logique par tag à l'écriture) ; adopté par la slice Products.
+- Cache HybridCache de la lecture d'un produit, avec clé et tag propres au tenant, invalidé à la modification et à la suppression.
 - Tests Playwright de la page de connexion, API simulée, avec contrôle d'accessibilité axe (WCAG 2.2 AA).
 - Mutation testing Stryker 5 (runner MTP) : seuil bloquant sur le Domain, score mesuré sur l'Application.
 - Quickstart rejouable de bout en bout : API lancée par `dotnet run`, clé JWT en user-secrets, API conteneurisée derrière le profil Compose `full`.
