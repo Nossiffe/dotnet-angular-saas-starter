@@ -2,47 +2,6 @@
 
 Template SaaS de production : **.NET 10** (Clean Architecture + DDD/CQRS) + **Angular 22** + **PostgreSQL 17**.
 
-## Générer un nouveau SaaS
-
-Le script `~/.local/bin/new-saas` copie ce template et le tokenise pour créer un nouveau projet.
-
-```bash
-new-saas <nom> [--front=angular|react] [--public|--private] [--no-install] [--no-git] [--no-repo]
-
-# Exemples
-new-saas facturation                  # Angular + repo GitHub privé + push
-new-saas crm --front=react --public   # React/Vite + repo GitHub public
-new-saas demo --no-repo               # pas de création de repo distant
-```
-
-### Ce que fait `new-saas`
-
-1. **Copie** le template `~/dev/.templates/saas/` → `~/dev/<nom>/` (rsync, sans `bin/`, `obj/`, `node_modules/`, `docs/superpowers/`, `.superpowers/` (scratch de planification), etc.)
-2. **Tokenise l'identifiant** `Saas` → `<Pascal>` (namespaces, `.csproj`, `.slnx`, contenu des `.cs`, `.json`, `.ts`…) et renomme les fichiers.
-3. **Tokenise le nom lowercase** `saas` → `<nom>` (docker-compose, `.env.example`, appsettings, connection strings, labels JWT…).
-4. **Alloue un bloc de 10 ports** depuis le registre `~/dev/.saas-ports.tsv` (base depuis 5400, incrément de 10) et remplace les ports hardcodés dans launchSettings, proxy.conf, vite.config (dev server + proxy API), appsettings, docker-compose, smoke.sh, `.env.example`.
-5. **Retire le front non choisi** (`web-react/` ou `web-angular/`) et nettoie les références mortes : jobs CI (`ci.yml`, `deps-audit.yml`, `release.yml`), hooks lefthook, règle `.claude/rules/`, CLAUDE.md, `.claude/agents/doc-updater.md`, `security/README.md`, `security/deps-review-TEMPLATE.md`.
-6. **`git init` + commit initial** + `gh repo create` (si `gh` est authentifié et `--no-repo` non spécifié).
-7. **Met à jour le registre** `~/dev/.saas-ports.tsv` avec le nom et la base de ports allouée.
-
-### Post-scaffold
-
-```bash
-saas <nom>                              # cd ~/dev/<nom>
-direnv allow                            # activer le .envrc (1ère fois)
-docker network create devnet 2>/dev/null || true
-docker compose up -d                    # Postgres + Adminer + Mailpit
-mise exec -- dotnet run --project src/Api
-
-# Front Angular
-cd web-angular && npm install && npm start
-
-```
-
-Activer les plugins LSP (scope utilisateur) : `claude mcp add csharp-ls --scope user -- csharp-ls`.
-
----
-
 ## Quickstart
 
 ```bash

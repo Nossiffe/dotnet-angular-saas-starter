@@ -189,7 +189,6 @@ dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulemen
 | `zizmor.yml` | Push/PR touchant `.github/workflows/**` | Lint de sécurité des workflows GitHub Actions (permissions, injections, cache-poisoning…) — mode console (`advanced-security: false`, repo privé sans Advanced Security), exit non nul = bloquant | Reproduire en local : `uvx zizmor .github/workflows/` ; corriger le finding (permissions minimales, pin SHA, échappement d'input) |
 | `stryker.yml` | Cron hebdo + manuel | Mutation testing (Application + Domain) — **non bloquant actuellement** | Voir § Mutation testing ci-dessous (Stryker 4.16 ne supporte pas le runner MTP) |
 | `release.yml` | Tag `v*` + manuel | Build + push image GHCR, SBOM (CycloneDX backend + npm du front), attestation de provenance (SLSA build L2) | Voir `DEPLOYMENT.md` § Release — image, SBOM, attestation |
-| `generator.yml` | Push/PR touchant `tools/new-saas`, `scripts/test-generator.sh` ou `.github/**` | Génère les 2 variantes du template (Angular/React) et vérifie l'absence de résidu (nom du template, front retiré, ports) + build | Reproduire en local : `bash scripts/test-generator.sh` (quelques minutes, build .NET compris) |
 | `codeql.yml` / `security.yml` | Push/PR (préexistants) | SAST (CodeQL C#/TS) + secret scanning (gitleaks) | Voir l'onglet Security du repo |
 
 > **CodeQL sur repo privé** : `codeql.yml` requiert GitHub Advanced Security sur un

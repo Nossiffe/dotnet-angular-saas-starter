@@ -23,7 +23,7 @@ On ajoute aussi `comparison: ComparisonGeneration.Omit` (sinon Vogen émet `ICom
 
 - `Domain` ne dépend que de `Vogen` (analyzer/abstractions), pas d'EF → archi test vert.
 - Le **wire reste primitif** : les DTO/commands/route params utilisent `Guid`/`decimal`. Les IDs typés sont **internes au domaine** ; on convertit à la frontière des handlers (`ProductId.From(guid)`, `id.Value`).
-- Un peu de boilerplate manuel par ID (un converter EF + un enregistrement). **À templatiser dans `new-saas`** et à rappeler dans `.claude/rules/dotnet.md`.
+- Un peu de boilerplate manuel par ID (un converter EF + un enregistrement). Le pattern est documenté dans `CONTRIBUTING.md`.
 
 ## Recette : ajouter un nouveau strongly-typed ID `FooId`
 
