@@ -159,8 +159,9 @@ main lors du tag.
 - **Unit** (`src/tests/UnitTests/`) : agrégats, validateurs, handlers sans accès direct à la base, archi, registre des erreurs. Rapides, sans Docker.
 - **Intégration** (`src/tests/IntegrationTests/`) : endpoints via `WebApplicationFactory` + Testcontainers (Docker requis). Couvrir : cas nominal, 400, 401, 403, isolation tenant.
 - **Archi** (`DependencyRuleTests`) : NetArchTest vérifie la règle de dépendance Clean Arch.
-- **Front** (`web-angular/`) : tests unitaires Vitest (`npm test`) et Playwright sur la page de
-  connexion, API simulée, avec contrôle d'accessibilité axe (`npm run e2e`).
+- **Front** (`web-angular/`) : tests unitaires Vitest (`npm test`) et Playwright sur les pages
+  de connexion et d'acceptation d'invitation, API simulée, avec contrôle d'accessibilité axe
+  (`npm run e2e`).
 
 ```bash
 dotnet test                                                  # tous
@@ -179,7 +180,7 @@ dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulemen
 
 | Workflow | Déclencheur | Rôle | Si ça casse |
 |---|---|---|---|
-| `ci.yml` | Push/PR/`merge_group` sur `main` | Build + tests (unit/intégration/archi) + front Angular (lint/format/typecheck, tests unitaires, build, Playwright + axe sur la page de connexion) + vérification des chemins cités dans la doc (`scripts/check-docs.sh`) + couverture backend (Microsoft.CodeCoverage MTP, résumé ReportGenerator + artifact, **non bloquante** — cf. § Couverture) | Lire le log du job en échec (build/tests/front) ; une couverture qui baisse n'échoue jamais le job, c'est un signal |
+| `ci.yml` | Push/PR/`merge_group` sur `main` | Build + tests (unit/intégration/archi) + front Angular (lint/format/typecheck, tests unitaires, build, Playwright + axe sur les pages de connexion et d'acceptation d'invitation) + vérification des chemins cités dans la doc (`scripts/check-docs.sh`) + couverture backend (Microsoft.CodeCoverage MTP, résumé ReportGenerator + artifact, **non bloquante** — cf. § Couverture) | Lire le log du job en échec (build/tests/front) ; une couverture qui baisse n'échoue jamais le job, c'est un signal |
 | `smoke.yml` | Push `main` + PR touchant le backend (`src/`, `Directory.Packages.props`, `scripts/smoke.sh`, `docker-compose.yml`) + manuel | Bout-en-bout réel (Postgres + Mailpit + API + Hangfire) via `scripts/smoke.sh` | Reproduire en local : `docker compose up -d db mailpit && dotnet run --project src/Api` puis `bash scripts/smoke.sh` |
 | `deps-audit.yml` | PR touchant les manifests de deps (`Directory.Packages.props`, `packages.lock.json`, `package.json`/`package-lock.json`) + cron hebdo (lundi 05h UTC) + manuel | Bloque sur CVE High/Critical — `dotnet-audit` (NuGet, direct + transitif) et `npm-audit` (front Angular, dépendances de prod seulement) | Corriger (bump/pin) ou documenter une exception datée — voir § Procédure d'exception CVE ci-dessous |
 | `zizmor.yml` | Push/PR touchant `.github/workflows/**` | Lint de sécurité des workflows GitHub Actions (permissions, injections, cache-poisoning…) — mode console (`advanced-security: false`), exit non nul = bloquant | Reproduire en local : `uvx zizmor .github/workflows/` ; corriger le finding (permissions minimales, pin SHA, échappement d'input) |

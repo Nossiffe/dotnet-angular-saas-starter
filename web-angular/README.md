@@ -30,10 +30,10 @@ npm start   # http://localhost:4200
 
 ## Commands
 
-| Command         | Purpose                                                                                                |
-| --------------- | ------------------------------------------------------------------------------------------------------ |
-| `npm run check` | CI gate: type generation, Prettier, ESLint, Stylelint, type check                                      |
-| `npm run fix`   | Prettier, ESLint and Stylelint fixes                                                                   |
-| `npm test`      | Unit tests (Vitest)                                                                                    |
-| `npm run e2e`   | Playwright tests of the login page with axe accessibility checks; the API is mocked, no backend needed |
-| `npm run build` | Production build in `dist/`                                                                            |
+| Command         | Purpose                                                                                                                           |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check` | CI gate: type generation, Prettier, ESLint, Stylelint, type check                                                                 |
+| `npm run fix`   | Prettier, ESLint and Stylelint fixes                                                                                              |
+| `npm test`      | Unit tests (Vitest)                                                                                                               |
+| `npm run e2e`   | Playwright tests of the login and invitation acceptance pages with axe accessibility checks; the API is mocked, no backend needed |
+| `npm run build` | Production build in `dist/`                                                                                                       |

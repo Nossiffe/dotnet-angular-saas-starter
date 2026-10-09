@@ -16,7 +16,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Contrat OpenAPI écrit au build dans `web-angular/openapi.json` et comparé par la CI au fichier versionné.
 - Tests unitaires des validateurs et des handlers qui portent une logique ; `ErrorRegistryTests` compare `docs/error-codes.md` au code.
 - `SECURITY.md` : signalement privé des vulnérabilités.
-- Page d'acceptation d'une invitation (`/accept-invitation`), où mène le lien de l'e-mail : premier appel sans mot de passe, puis demande d'un mot de passe si aucun compte n'existe pour l'adresse invitée. Message neutre pour une invitation invalide, expirée, déjà acceptée ou révoquée.
+- Page d'acceptation d'une invitation (`/accept-invitation`), où mène le lien de l'e-mail : premier appel sans mot de passe, puis demande d'un mot de passe si aucun compte n'existe pour l'adresse invitée. Message neutre pour une invitation invalide, expirée, déjà acceptée ou révoquée. Testée par Vitest, et par Playwright avec l'API simulée et un contrôle axe.
 
 ### Changed
 - Tests sur le runner natif Microsoft Testing Platform (xunit.v3) ; couverture produite par `Microsoft.Testing.Extensions.CodeCoverage` (format Cobertura).
