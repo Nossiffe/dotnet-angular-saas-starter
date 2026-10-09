@@ -32,7 +32,10 @@ Starter SaaS .NET 10 + Angular 22, organisé en monorepo.
 ```
 Api → Infrastructure → Application → Domain
 ```
-`Domain` n'a aucune dépendance sur EF, ASP.NET ou autre framework. Vérifié par `DependencyRuleTests` (NetArchTest).
+`Domain` ne référence que le runtime .NET, `Vogen` (identifiants typés) et `ErrorOr` (résultats
+métier) : ni EF, ni ASP.NET, ni Identity, ni Mediator. `DependencyRuleTests` le vérifie sur les
+références réelles de l'assembly. Le compte utilisateur (`ApplicationUser`, Identity) et le refresh
+token vivent dans l'Infrastructure : le Domain ne connaît un utilisateur que par son `Guid`.
 
 ### Agrégats
 
@@ -140,7 +143,7 @@ Request → LoggingBehavior → ValidationBehavior → Handler
 
 ### Identité & Auth
 
-- ASP.NET Core Identity (`ApplicationUser`, `IdentityRole<Guid>`) stocké en Postgres.
+- ASP.NET Core Identity (`ApplicationUser`, `IdentityRole<Guid>`, dans l'Infrastructure) stocké en Postgres.
 - JWT maison : `JwtTokenService` (access token 15min) + `RefreshTokenStore` (refresh token en base).
 - **Refresh token transporté par cookie `HttpOnly` + `Secure` + `SameSite=Strict` +
   `Path=/api/v1/auth`** (`Saas.Api.Common.RefreshCookie`), jamais dans le body JSON ni
@@ -197,7 +200,15 @@ public sealed class ProductEndpoints : IEndpoint
 }
 ```
 
-Enregistrement auto via `AddEndpoints()` / `MapEndpoints()` (scan de l'assembly Api).
+Enregistrement auto via `AddEndpoints()` / `MapEndpoints()` (scan de l'assembly Api). Les
+endpoints reçoivent des contrats `Saas.Api.Contracts` (`XxxRequest`) et les traduisent en commandes :
+le contrat HTTP ne dépend pas des types de l'Application.
+
+### Contrat OpenAPI
+
+Le build de l'API écrit le document OpenAPI dans `web-angular/openapi.json`, dont le front
+génère ses types TypeScript (Hey API). La CI reconstruit le document et échoue s'il diffère du
+fichier versionné. Le schéma Bearer n'est exigé que sur les opérations authentifiées.
 
 ### Cycle de vie d'une requête
 
@@ -214,7 +225,7 @@ HTTP POST /products
   → TypedResults.Created(...)
 
 Plus tard, hors requête :
-OutboxProcessor (toutes les 5 s) → IPublisher.Publish(ProductCreatedDomainEvent) → handlers de l'event
+OutboxProcessor (toutes les 5 s) → IDomainEventHandler<ProductCreatedDomainEvent> (ProductCreatedHandler)
 ```
 
 ### Gestion des erreurs
@@ -229,12 +240,15 @@ OutboxProcessor (toutes les 5 s) → IPublisher.Publish(ProductCreatedDomainEven
   (ne révèle pas son existence).
 - **`GlobalExceptionHandler` reste responsable des exceptions légitimes restantes** (frontière
   forme/métier, `docs/adr/0003`) : `ValidationException` du pipeline FluentValidation ou des
-  erreurs Identity field-tied (→ 400 `ProblemDetails` par champ), `DbUpdateException`/`DbUpdateConcurrencyException`
+  refus d'Identity liés à un champ, à l'inscription et à l'acceptation d'une invitation (→ 400
+  `ProblemDetails` par champ), `DbUpdateException`/`DbUpdateConcurrencyException`
   côté infrastructure (→ 409, ex. contrainte d'unicité Postgres 23505 en défense en profondeur
   derrière une vérification applicative `ErrorOr`), toute autre exception non prévue → 500 (Serilog
   la logue).
 - Vérifié par `ErrorOrConventionTests` (test d'archi) : tout `ICommand<T>`/`IQuery<T>` doit
-  retourner `ErrorOr<>`, et aucune exception métier custom ne doit réapparaître dans `Domain`.
+  retourner `ErrorOr<>`, aucune exception métier custom ne doit réapparaître dans `Domain`, et
+  aucun handler ne lève de `ValidationException` hors des cas ci-dessus.
+- Le registre `docs/error-codes.md` est comparé au code par `ErrorRegistryTests`.
 
 ---
 
@@ -305,7 +319,23 @@ Sentry.init({ dsn: '<DSN du projet Sentry front>' });
 
 ### Transactional Outbox
 
-Les domain events ne sont pas dispatchés pendant `SaveChanges`. Le `DomainEventsInterceptor` les sérialise (STJ : `Type` = `AssemblyQualifiedName` + `Content` = JSON) en lignes `OutboxMessages` **pendant `SavingChanges`**, donc dans la **même transaction** que l'agrégat (atomicité : aucun event perdu sur crash, aucun event publié sans commit). Un `OutboxProcessor : BackgroundService` poll les lignes non traitées toutes les 5 s, désérialise sur le type concret, publie via `IPublisher.Publish` dans un scope DI, puis renseigne `ProcessedOn`. Retry borné via `Attempts < 5` (l'erreur est stockée dans `Error`).
+Les domain events ne sont pas dispatchés pendant `SaveChanges`. Le `DomainEventsInterceptor` les sérialise (STJ : `Type` = `AssemblyQualifiedName` + `Content` = JSON) en lignes `OutboxMessages` **pendant `SavingChanges`**, donc dans la **même transaction** que l'agrégat (atomicité : aucun event perdu sur crash, aucun event publié sans commit).
+
+L'`OutboxProcessor` (`BackgroundService`) traite les lignes en attente toutes les 5 s :
+
+- **Lecture verrouillée** : chaque lot est lu avec `FOR UPDATE SKIP LOCKED` dans une transaction.
+  Plusieurs instances de l'API se partagent les messages sans traiter deux fois le même.
+- **Handlers** : chaque `IDomainEventHandler<TEvent>` de l'Application (enregistré par scan
+  d'assembly) reçoit l'event. Seuls les types qui implémentent `IDomainEvent` sont désérialisés.
+- **Échecs** : un message en échec est retenté (5 tentatives, l'erreur est stockée dans `Error`).
+  Les handlers déjà passés sont notés dans `OutboxMessageConsumers` et ne sont pas rappelés : si
+  l'e-mail de bienvenue est parti et qu'un autre handler échoue, l'e-mail ne repart pas.
+- **Garantie** : livraison « au moins une fois ». Un arrêt brutal entre un envoi externe et le
+  commit fait rappeler ce handler ; un handler qui agit hors de la base doit le tolérer.
+
+`OutboxTests` couvre le traitement, le nouvel essai sans rappel des handlers passés et le message
+verrouillé par une autre instance. `ConventionTests` vérifie que chaque event a un handler et
+survit à l'aller-retour JSON de l'outbox.
 
 > Conséquence : les handlers de domain events (`ProductCreatedHandler`, etc.) s'exécutent **de façon asynchrone**, au prochain tick du processor, et non pendant le `SaveChanges`.
 

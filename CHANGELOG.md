@@ -12,6 +12,8 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Tests Playwright de la page de connexion, API simulée, avec contrôle d'accessibilité axe (WCAG 2.2 AA).
 - Mutation testing Stryker 5 (runner MTP) : seuil bloquant sur le Domain, score mesuré sur l'Application.
 - Quickstart rejouable de bout en bout : API lancée par `dotnet run`, clé JWT en user-secrets, API conteneurisée derrière le profil Compose `full`.
+- Contrat OpenAPI écrit au build dans `web-angular/openapi.json` et comparé par la CI au fichier versionné.
+- Tests unitaires des validateurs et des handlers qui portent une logique ; `ErrorRegistryTests` compare `docs/error-codes.md` au code.
 
 ### Changed
 - Tests sur le runner natif Microsoft Testing Platform (xunit.v3) ; couverture produite par `Microsoft.Testing.Extensions.CodeCoverage` (format Cobertura).
@@ -19,6 +21,11 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Actions GitHub mises à jour, épinglées par SHA avec leur version exacte en commentaire.
 - Dependabot : mises à jour groupées, délai de 7 jours avant de proposer une version, montées majeures d'Angular et de TypeScript écartées (TypeScript suit la version exigée par Angular).
 - Workflows déclenchés sur `main` uniquement.
+- Domain sans framework : `ApplicationUser` et `RefreshToken` passent dans l'Infrastructure, `IDomainEvent` ne dépend plus de Mediator. Les handlers de domain events implémentent `IDomainEventHandler<TEvent>`.
+- Outbox : lots lus avec `FOR UPDATE SKIP LOCKED`, handlers déjà passés non rappelés lors d'un nouvel essai (`OutboxMessageConsumers`). L'e-mail de bienvenue n'avale plus les erreurs SMTP : il est retenté.
+- Refus métier (e-mail non confirmé, lien de réinitialisation invalide, changement de son propre rôle, mot de passe manquant à l'acceptation) renvoyés en erreurs ErrorOr au lieu de `ValidationException`.
+- Contrat HTTP : contrats de requête dédiés au lieu des commandes de l'Application ; Bearer exigé seulement sur les routes authentifiées ; pas de `Location` vers une route inexistante.
+- Empreintes de tokens en hexadécimal minuscule partout : les refresh tokens existants ne sont plus reconnus, une reconnexion est nécessaire.
 
 ### Fixed
 - gitleaks : la configuration du dépôt remplaçait les règles par défaut et ne détectait plus rien ; elle les étend maintenant. Le hook pre-commit bloque dès que gitleaks est installé.
@@ -42,4 +49,5 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Rôle Admin effectif (invitations, suppression de produits) ; changement de rôle réservé à l'Owner. Les tests appliquent les vraies policies au lieu d'une copie.
 
 ### Migrations DB
-- (aucune)
+- `RemoveUserDisplayName` : supprime la colonne inutilisée `AspNetUsers.DisplayName`.
+- `AddOutboxMessageConsumers` : crée la table `OutboxMessageConsumers`.

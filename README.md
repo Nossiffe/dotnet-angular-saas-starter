@@ -8,9 +8,9 @@ A SaaS starter with Clean Architecture, DDD and CQRS: **.NET 10**, **Angular 22*
 
 ## What it demonstrates
 
-- **Architecture**: Clean Architecture layers, rich DDD aggregates with strongly-typed IDs (Vogen), CQRS with Mediator and FluentValidation, EF Core for writes and Dapper for reads, ErrorOr results instead of business exceptions.
+- **Architecture**: Clean Architecture layers with a framework-free Domain, rich DDD aggregates with strongly-typed IDs (Vogen), CQRS with Mediator and FluentValidation, EF Core for writes and Dapper for reads, ErrorOr results instead of business exceptions.
 - **Multi-tenancy**: EF Core global query filters driven by a `tenant` claim. A resource owned by another tenant returns 404, never 403, so its existence is not disclosed.
-- **Robustness**: transactional outbox for domain events, Hangfire background jobs, HybridCache, database retry on transient failures.
+- **Robustness**: transactional outbox for domain events, safe with several API instances and retries, Hangfire background jobs, HybridCache, database retry on transient failures.
 - **Observability**: Serilog and OpenTelemetry (OTLP), with the Aspire dashboard locally.
 - **API and front end**: minimal APIs with versioning and OpenAPI, TypeScript API types generated from the OpenAPI contract with Hey API, Angular 22 signal-first and zoneless with Angular Material.
 - **Security by default**: ASP.NET Core Identity with PBKDF2 at 210,000 iterations (OWASP), account lockout, rate limiting, JWT access tokens with the refresh token in an HttpOnly cookie, HSTS.
@@ -22,7 +22,8 @@ Every change has to pass these gates, whoever or whatever wrote it:
 | Gate | Tooling | When |
 |---|---|---|
 | Build | .NET analyzers, warnings treated as errors | Every build |
-| Architecture rules | Architecture tests: dependency rules, conventions, ErrorOr usage, security conventions | Every CI run |
+| Architecture rules | Architecture tests: dependency rules on the assemblies' actual references, conventions, ErrorOr usage, security conventions, tenant filter on every SQL read | Every CI run |
+| API contract | OpenAPI document rebuilt and compared with the committed one the front end types come from | Every CI run |
 | Behaviour | Unit tests, integration tests against a real PostgreSQL (Testcontainers), end-to-end smoke test (API + PostgreSQL + Mailpit + Hangfire) | Every CI run; smoke test on backend changes |
 | Front end | Lint, format, type check, unit tests, Playwright tests of the login page with axe accessibility checks (API mocked) | Every CI run |
 | Test quality | Stryker mutation testing of the unit tests: blocking for the Domain, measured for the Application | Pull requests touching the Domain, weekly |

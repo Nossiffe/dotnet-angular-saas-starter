@@ -271,13 +271,12 @@ readinessProbe:
 
 ## Scaling & caveats
 
-### Outbox (poll single-instance)
+### Outbox en multi-instance
 
-Le `OutboxProcessor` (background service) interroge la table `OutboxMessages` en boucle. En déploiement **multi-instance (plusieurs pods)**, plusieurs workers peuvent traiter les mêmes messages simultanément.
-
-**Options :**
-- Dédier un seul pod au worker Outbox (flag feature/env var).
-- Ajouter `SELECT ... FOR UPDATE SKIP LOCKED` dans la requête Outbox, pour que deux instances ne prennent jamais les mêmes messages.
+Chaque instance de l'API fait tourner un `OutboxProcessor`. Les lots sont lus avec
+`FOR UPDATE SKIP LOCKED` : deux instances ne traitent jamais le même message, sans configuration
+particulière. La livraison reste « au moins une fois » (voir `ARCHITECTURE.md` § Transactional
+Outbox).
 
 ### Hangfire Dashboard
 
