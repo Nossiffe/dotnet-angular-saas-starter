@@ -53,7 +53,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Une réinitialisation de mot de passe révoque toutes les sessions ouvertes.
 - Organisation par défaut à la connexion : la plus ancienne adhésion, au lieu d'un ordre SQL indéterminé.
 - `TenantId`, l'audit et la suppression logique n'ont plus de setter public ; l'intercepteur couvre aussi `SaveChanges` synchrone et refuse un changement de tenant.
-- Routes `/organizations/{orgId}` : contrôle de portée centralisé dans `OrganizationScopeFilter` ; test qui vérifie le filtre tenant de chaque requête Dapper.
+- Routes `/organizations/{orgId}` : contrôle de portée centralisé dans `OrganizationScopeFilter` ; test d'architecture qui exige le filtre `"TenantId" = @TenantId` dans chaque requête SQL écrite en raw string literal (`"""`) qui nomme une table d'entité tenant.
 - Rôle Admin effectif (invitations, suppression de produits) ; changement de rôle réservé à l'Owner. Les tests appliquent les vraies policies au lieu d'une copie.
 
 ### Migrations DB

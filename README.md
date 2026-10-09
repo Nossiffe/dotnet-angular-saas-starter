@@ -22,7 +22,7 @@ Every change has to pass these gates, whoever or whatever wrote it:
 | Gate | Tooling | When |
 |---|---|---|
 | Build | .NET analyzers, warnings treated as errors (NuGet advisories excepted, see Dependencies) | Every build |
-| Architecture rules | Architecture tests: dependency rules on the assemblies' actual references, conventions, ErrorOr usage, security conventions, tenant filter on every SQL read | Every CI run |
+| Architecture rules | Architecture tests: dependency rules on the assemblies' actual references, conventions, ErrorOr usage, security conventions, and a source scan: every raw SQL string literal (`"""…"""`) naming a tenant-owned table must contain the `"TenantId" = @TenantId` filter | Every CI run |
 | API contract | OpenAPI document rebuilt and compared with the committed one the front end types come from | Every CI run |
 | Behaviour | Unit tests, integration tests against a real PostgreSQL (Testcontainers), end-to-end smoke test (API + PostgreSQL + Mailpit + Hangfire) | Every CI run; smoke test on backend changes |
 | Front end | Lint, format, type check, unit tests, Playwright tests of the login page with axe accessibility checks (API mocked) | Every CI run |

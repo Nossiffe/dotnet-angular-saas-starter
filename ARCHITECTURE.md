@@ -136,10 +136,10 @@ Request → LoggingBehavior → ValidationBehavior → Handler
   `SaveChanges` comme en `SaveChangesAsync`, et refuse qu'une entité existante change de tenant.
   `TenantId`, l'audit et la suppression logique n'ont pas de setter public dans le Domain.
 - **Lectures Dapper** : elles ne passent pas par les query filters EF, donc chaque requête filtre
-  elle-même sur `"TenantId" = @TenantId`. `TenantGuardTests` lit les raw string literals (`"""`)
-  de `src/` et vérifie que chaque requête qui vise une table d'entité `ITenantOwned` contient ce
-  filtre. Une requête écrite autrement (chaîne simple, concaténation) échappe au test : la
-  convention est d'écrire le SQL en raw string literal.
+  elle-même sur `"TenantId" = @TenantId`. `SecurityConventionTests`, dans les tests unitaires
+  d'architecture, lit les raw string literals (`"""`) de `src/` et vérifie que chaque requête qui
+  vise une table d'entité `ITenantOwned` contient ce filtre. Une requête écrite autrement (chaîne
+  simple, concaténation) échappe au test : la convention est d'écrire le SQL en raw string literal.
 - **Routes `/organizations/{orgId}/...`** : `OrganizationScopeFilter` compare l'`orgId` de la route
   au tenant du token et répond 404 sinon.
 
