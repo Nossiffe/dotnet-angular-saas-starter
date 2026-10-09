@@ -31,7 +31,10 @@ services:
       - "${MAILPIT_SMTP_PORT:-1025}:1025" # SMTP
     networks: [devnet]
 
+  # API conteneurisée, optionnelle : `docker compose --profile full up -d`.
+  # Le Quickstart lance l'API avec `dotnet run`, sur le même port 5123.
   api:
+    profiles: ["full"]
     build:
       context: .
       dockerfile: Dockerfile
@@ -50,7 +53,7 @@ services:
     networks: [devnet]
 
   aspire-dashboard:
-    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6.0
     ports:
       - "${ASPIRE_UI_PORT:-18888}:18888"
       - "${OTLP_PORT:-4317}:18889"
