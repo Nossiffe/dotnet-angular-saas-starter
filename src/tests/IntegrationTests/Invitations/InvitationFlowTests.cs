@@ -9,6 +9,7 @@ using Saas.Application.Invitations;
 using Saas.Domain.Tenancy;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Auth;
+using Saas.IntegrationTests.Outbox;
 using Shouldly;
 using Xunit;
 
@@ -39,9 +40,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
             $"/api/v1/organizations/{orgId}/invitations", new { email, role = "Member" }, ct);
         invite.StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        var captured = factory.Emails.For(email);
-        captured.ShouldNotBeNull();
-        var (invitationId, token) = captured!.ExtractInvitationLink();
+        var (invitationId, token) = (await InvitationEmailAsync(email, ct)).ExtractInvitationLink();
 
         var accept = await anon.PostAsJsonAsync(
             "/api/v1/invitations/accept", new { invitationId, token, password }, ct);
@@ -78,7 +77,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
             $"/api/v1/organizations/{orgId}/invitations", new { email, role = "Member" }, ct);
         invite.StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        var (invitationId, token) = factory.Emails.For(email)!.ExtractInvitationLink();
+        var (invitationId, token) = (await InvitationEmailAsync(email, ct)).ExtractInvitationLink();
 
         var accept = await anon.PostAsJsonAsync(
             "/api/v1/invitations/accept", new { invitationId, token }, ct);
@@ -122,7 +121,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
             $"/api/v1/organizations/{orgId}/invitations", new { email, role = "Member" }, ct))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        var (invitationId, token) = factory.Emails.For(email)!.ExtractInvitationLink();
+        var (invitationId, token) = (await InvitationEmailAsync(email, ct)).ExtractInvitationLink();
         (await anon.PostAsJsonAsync(
             "/api/v1/invitations/accept", new { invitationId, token, password = "Member!User42" }, ct))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -147,7 +146,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
             $"/api/v1/organizations/{orgId}/invitations", new { email, role = "Member" }, ct);
         invite.StatusCode.ShouldBe(HttpStatusCode.Created);
         var created = await invite.Content.ReadFromJsonAsync<InviteResponse>(ct);
-        var (invitationId, token) = factory.Emails.For(email)!.ExtractInvitationLink();
+        var (invitationId, token) = (await InvitationEmailAsync(email, ct)).ExtractInvitationLink();
 
         var revoke = await owner.DeleteAsync(
             $"/api/v1/organizations/{orgId}/invitations/{created!.InvitationId}", ct);
@@ -172,12 +171,12 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
             $"/api/v1/organizations/{orgId}/invitations", new { email, role = "Member" }, ct);
         invite.StatusCode.ShouldBe(HttpStatusCode.Created);
         var created = await invite.Content.ReadFromJsonAsync<InviteResponse>(ct);
-        var (invitationId, token1) = factory.Emails.For(email)!.ExtractInvitationLink();
+        var (invitationId, token1) = (await InvitationEmailAsync(email, ct)).ExtractInvitationLink();
 
         var resend = await owner.PostAsync(
             $"/api/v1/organizations/{orgId}/invitations/{created!.InvitationId}/resend", content: null, ct);
         resend.StatusCode.ShouldBe(HttpStatusCode.NoContent);
-        var (_, token2) = factory.Emails.For(email)!.ExtractInvitationLink();
+        var (_, token2) = (await InvitationEmailAsync(email, ct)).ExtractInvitationLink();
         token2.ShouldNotBe(token1, StringComparer.Ordinal);
 
         // L'ancien token n'est plus valide → 400.
@@ -234,7 +233,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         (await owner.PostAsJsonAsync(
             $"/api/v1/organizations/{orgId}/invitations", new { email, role = "Member" }, ct))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
-        var (invitationId, token) = factory.Emails.For(email)!.ExtractInvitationLink();
+        var (invitationId, token) = (await InvitationEmailAsync(email, ct)).ExtractInvitationLink();
         (await anon.PostAsJsonAsync(
             "/api/v1/invitations/accept", new { invitationId, token, password }, ct))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -303,7 +302,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
             $"/api/v1/organizations/{orgId}/invitations", new { email, role = "Member" }, ct);
         invite.StatusCode.ShouldBe(HttpStatusCode.Created);
         var created = await invite.Content.ReadFromJsonAsync<InviteResponse>(ct);
-        var (invitationId, token) = factory.Emails.For(email)!.ExtractInvitationLink();
+        var (invitationId, token) = (await InvitationEmailAsync(email, ct)).ExtractInvitationLink();
 
         // Force l'expiration en base via un scope AppDbContext.
         using (var scope = factory.Services.CreateScope())
@@ -339,7 +338,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
             $"/api/v1/organizations/{orgId}/invitations", new { email, role = "Member" }, ct);
         invite.StatusCode.ShouldBe(HttpStatusCode.Created);
         var created = await invite.Content.ReadFromJsonAsync<InviteResponse>(ct);
-        var (invitationId, token) = factory.Emails.For(email)!.ExtractInvitationLink();
+        var (invitationId, token) = (await InvitationEmailAsync(email, ct)).ExtractInvitationLink();
 
         // Force l'expiration en base via un scope AppDbContext.
         using (var scope = factory.Services.CreateScope())
@@ -401,10 +400,10 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
                 email,
                 OrganizationRole.Member,
                 ownerId,
-                tokens.HashToken(rawToken),
                 DateTimeOffset.UtcNow,
                 DateTimeOffset.UtcNow.AddDays(7));
             created.IsError.ShouldBeFalse();
+            created.Value.IssueToken(tokens.HashToken(rawToken), DateTimeOffset.UtcNow).IsError.ShouldBeFalse();
             invitationsRepo.Add(created.Value);
             await uow.SaveChangesAsync(ct);
             invitationId = created.Value.Id.Value;
@@ -416,6 +415,13 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var body = await accept.Content.ReadFromJsonAsync<AcceptResponse>(ct);
         body.ShouldNotBeNull();
         body.IsNewUser.ShouldBeFalse();
+    }
+
+    // L'e-mail d'invitation part avec un lot de l'outbox, après le commit de l'invitation.
+    private async Task<CapturedEmail> InvitationEmailAsync(string email, CancellationToken ct)
+    {
+        await OutboxRunner.RunUntilIdleAsync(factory, ct);
+        return factory.Emails.For(email).ShouldNotBeNull();
     }
 
     /// <summary>Décode le payload d'un JWT (base64url) et lit un claim par nom.</summary>

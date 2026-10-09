@@ -75,11 +75,10 @@ public static class DependencyInjection
         services.AddScoped<PurgeExpiredRefreshTokensJob>();
         services.AddScoped<PurgeProcessedOutboxMessagesJob>();
         services.AddScoped<ProcessPasswordResetJob>();
-        services.AddScoped<ProcessInvitationEmailJob>();
 
-        // Queue d'enfilement Hangfire (abstraction Application-pure).
+        // Queue d'enfilement Hangfire (abstraction Application-pure). Les e-mails d'invitation
+        // passent par l'outbox (SendInvitationEmailHandler) : ils suivent une écriture en base.
         services.AddScoped<IPasswordResetEnqueuer, PasswordResetRequestQueue>();
-        services.AddScoped<IInvitationEmailEnqueuer, HangfireInvitationEmailEnqueuer>();
     }
 
     // Enregistre les recurring jobs (types internes à l'Infrastructure).

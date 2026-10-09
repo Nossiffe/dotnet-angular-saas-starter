@@ -9,8 +9,6 @@ namespace Saas.Application.Invitations.InviteMember;
 public sealed class InviteMemberHandler(
     IOrganizationRepository organizations,
     IInvitationRepository invitations,
-    IInvitationTokenService tokens,
-    IInvitationEmailEnqueuer enqueuer,
     IUnitOfWork uow,
     IDbConnectionFactory connections,
     ICurrentUser currentUser,
@@ -42,16 +40,12 @@ public sealed class InviteMemberHandler(
             return InvitationErrors.AlreadyPending;
         }
 
-        var rawToken = tokens.GenerateRawToken();
-        var tokenHash = tokens.HashToken(rawToken);
-
         var invitedBy = Guid.Parse(currentUser.UserId!);
         var created = Invitation.Create(
             orgId,
             command.Email,
             command.Role,
             invitedBy,
-            tokenHash,
             clock.UtcNow,
             clock.UtcNow.Add(Invitation.Lifetime));
 
@@ -60,11 +54,11 @@ public sealed class InviteMemberHandler(
             return created.Errors;
         }
 
+        // L'e-mail part après le commit, par l'outbox (MemberInvitedDomainEvent) : c'est là que le
+        // jeton du lien est créé (SendInvitationEmailHandler).
         var invitation = created.Value;
         invitations.Add(invitation);
         await uow.SaveChangesAsync(cancellationToken);
-
-        enqueuer.Enqueue(invitation.Id.Value, rawToken, invitation.InviteeEmail);
 
         return invitation.Id.Value;
     }

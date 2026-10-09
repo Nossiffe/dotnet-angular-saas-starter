@@ -204,22 +204,8 @@ public sealed class OutboxTests(PostgresApiFactory factory)
         (await ConsumerCountAsync(old, ct)).ShouldBe(0);
     }
 
-    // Le processeur de l'application, avec une horloge que le test avance.
-    private OutboxProcessor Processor() => new(
-        factory.Services.GetRequiredService<IServiceScopeFactory>(),
-        _clock,
-        factory.Services.GetRequiredService<ILogger<OutboxProcessor>>());
-
-    // Lots successifs jusqu'à ce qu'aucun message ne soit dû. Les messages des autres tests de la
-    // collection sont traités au passage.
-    private async Task RunBatchesUntilIdleAsync(CancellationToken ct)
-    {
-        var processor = Processor();
-        while (await processor.ProcessBatchAsync(ct) > 0)
-        {
-            // Lot suivant.
-        }
-    }
+    // Lots à l'heure du test, que le test avance.
+    private Task RunBatchesUntilIdleAsync(CancellationToken ct) => OutboxRunner.RunUntilIdleAsync(factory, _clock, ct);
 
     // Avance l'horloge jusqu'à la tentative suivante tant que le message n'est pas traité.
     private async Task DrainUntilProcessedAsync(Guid messageId, CancellationToken ct)

@@ -18,7 +18,6 @@ public sealed class MemberAndInvitationHandlerTests
     private readonly IOrganizationRepository _organizations = Substitute.For<IOrganizationRepository>();
     private readonly IInvitationRepository _invitations = Substitute.For<IInvitationRepository>();
     private readonly IInvitationTokenService _tokens = Substitute.For<IInvitationTokenService>();
-    private readonly IInvitationEmailEnqueuer _enqueuer = Substitute.For<IInvitationEmailEnqueuer>();
     private readonly IIdentityService _identity = Substitute.For<IIdentityService>();
     private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
@@ -93,25 +92,25 @@ public sealed class MemberAndInvitationHandlerTests
         resend.FirstError.ShouldBe(InvitationErrors.NotFound);
         invitation.Status.ShouldBe(InvitationStatus.Pending);
         await _uow.DidNotReceiveWithAnyArgs().SaveChangesAsync(Arg.Any<CancellationToken>());
-        _enqueuer.DidNotReceiveWithAnyArgs().Enqueue(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<string>());
+        invitation.DomainEvents.OfType<InvitationResentDomainEvent>().ShouldBeEmpty();
     }
 
+    // Le nouveau lien part par l'outbox (InvitationResentDomainEvent) ; l'ancien cesse aussitôt
+    // d'être valable.
     [Fact]
-    public async Task Resending_renews_the_token_and_the_validity_then_sends_the_new_link()
+    public async Task Resending_renews_the_validity_and_drops_the_previous_link()
     {
         var invitation = PendingInvitation();
         _invitations.GetByIdAsync(invitation.Id, Arg.Any<CancellationToken>()).Returns(invitation);
-        _tokens.GenerateRawToken().Returns("new-raw-token");
-        _tokens.HashToken("new-raw-token").Returns("new-hash");
 
         var result = await NewResendHandler()
             .Handle(new ResendInvitationCommand(invitation.OrganizationId.Value, invitation.Id.Value), TestContext.Current.CancellationToken);
 
         result.IsError.ShouldBeFalse();
-        invitation.TokenHash.ShouldBe("new-hash");
+        invitation.TokenHash.ShouldBeNull();
         invitation.ExpiresAt.ShouldBe(_now + Invitation.Lifetime);
+        invitation.DomainEvents.OfType<InvitationResentDomainEvent>().ShouldHaveSingleItem();
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-        _enqueuer.Received(1).Enqueue(invitation.Id.Value, "new-raw-token", invitation.InviteeEmail);
     }
 
     [Fact]
@@ -183,7 +182,7 @@ public sealed class MemberAndInvitationHandlerTests
             .Handle(new ChangeMemberRoleCommand(organizationId, memberId, role), TestContext.Current.CancellationToken);
 
     private ResendInvitationHandler NewResendHandler()
-        => new(_invitations, _tokens, _enqueuer, _uow, _clock);
+        => new(_invitations, _uow, _clock);
 
     private ValueTask<ErrorOr<AcceptInvitationResult>> Accept(Invitation invitation, string token, string? password)
         => new AcceptInvitationHandler(_invitations, _organizations, _identity, _uow, _tokens, _clock)
@@ -195,13 +194,17 @@ public sealed class MemberAndInvitationHandlerTests
         return (Organization.Create("Acme", Slug.From("acme"), ownerId), ownerId);
     }
 
-    private static Invitation PendingInvitation(OrganizationId? organizationId = null)
-        => Invitation.Create(
+    // Invitation en attente dont le lien est parti (hash posé par SendInvitationEmailHandler).
+    private static Invitation PendingInvitation(OrganizationId? organizationId = null, DateTimeOffset? expiresAt = null)
+    {
+        var invitation = Invitation.Create(
             organizationId ?? OrganizationId.From(Guid.CreateVersion7()),
             "invitee@saas.local",
             OrganizationRole.Member,
             Guid.CreateVersion7(),
-            "stored-hash",
             _now.AddDays(-1),
-            _now.AddDays(6)).Value;
+            expiresAt ?? _now.AddDays(6)).Value;
+        invitation.IssueToken("stored-hash", _now.AddDays(-1)).IsError.ShouldBeFalse();
+        return invitation;
+    }
 }

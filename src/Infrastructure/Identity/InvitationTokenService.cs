@@ -16,8 +16,9 @@ public sealed class InvitationTokenService : IInvitationTokenService
 
     public string HashToken(string rawToken) => TokenHash.Sha256(rawToken);
 
-    public bool VerifyToken(string rawToken, string storedHash)
-        => CryptographicOperations.FixedTimeEquals(
-            Encoding.UTF8.GetBytes(HashToken(rawToken)),
-            Encoding.UTF8.GetBytes(storedHash));
+    public bool VerifyToken(string rawToken, string? storedHash)
+        => storedHash is not null
+            && CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(HashToken(rawToken)),
+                Encoding.UTF8.GetBytes(storedHash));
 }

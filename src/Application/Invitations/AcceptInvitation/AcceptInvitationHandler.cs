@@ -20,8 +20,9 @@ public sealed class AcceptInvitationHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        // Message neutre (anti-énumération) : ne révèle pas si l'invitation existe, est expirée,
-        // révoquée ou si le token est faux (l'endpoint est anonyme — pas d'oracle d'énumération).
+        // Message neutre (anti-énumération) : ne révèle pas si l'invitation existe, si le token est
+        // faux ou si aucun lien n'est valable (avant le premier envoi, ou après un renvoi en attente
+        // de l'outbox). L'endpoint est anonyme : pas d'oracle d'énumération.
         var invitation = await invitations.GetByIdAsync(InvitationId.From(command.InvitationId), cancellationToken);
         if (invitation is null || !tokens.VerifyToken(command.Token, invitation.TokenHash))
         {

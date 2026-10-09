@@ -27,6 +27,10 @@ public static class InvitationErrors
         code: "Invitation.NotPending",
         description: "Seule une invitation en attente peut être renouvelée.");
 
+    public static Error NotPendingIssueToken => Error.Validation(
+        code: "Invitation.NotPending",
+        description: "Seule une invitation en attente peut recevoir un nouveau lien.");
+
     public static Error Expired => Error.Validation(
         code: "Invitation.Expired", description: "Cette invitation a expiré.");
 

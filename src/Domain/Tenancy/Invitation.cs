@@ -17,7 +17,11 @@ public sealed class Invitation : AggregateRoot<InvitationId>
     public string InviteeEmail { get; private set; } = null!;
     public OrganizationRole Role { get; private set; }
     public InvitationStatus Status { get; private set; }
-    public string TokenHash { get; private set; } = null!;
+    /// <summary>
+    /// Hash du jeton du dernier lien envoyé. Null tant qu'aucun e-mail n'est parti, et après un
+    /// renvoi jusqu'au nouvel envoi : aucun lien n'est alors valable.
+    /// </summary>
+    public string? TokenHash { get; private set; }
     public DateTimeOffset ExpiresAt { get; private set; }
     public Guid InvitedByUserId { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
@@ -27,20 +31,14 @@ public sealed class Invitation : AggregateRoot<InvitationId>
         string email,
         OrganizationRole role,
         Guid invitedBy,
-        string tokenHash,
         DateTimeOffset createdAt,
         DateTimeOffset expiresAt)
     {
-        // Guards techniques : jamais atteints après validation applicative (FluentValidation) —
-        // restent des ArgumentException (pas des erreurs métier du Registre).
+        // Guard technique : jamais atteint après validation applicative (FluentValidation) — reste
+        // une ArgumentException (pas une erreur métier du Registre).
         if (string.IsNullOrWhiteSpace(email))
         {
             throw new ArgumentException("L'email de l'invité est requis.", nameof(email));
-        }
-
-        if (string.IsNullOrWhiteSpace(tokenHash))
-        {
-            throw new ArgumentException("Le hash du token est requis.", nameof(tokenHash));
         }
 
         if (role == OrganizationRole.Owner)
@@ -55,7 +53,6 @@ public sealed class Invitation : AggregateRoot<InvitationId>
             InviteeEmail = email.Trim().ToLowerInvariant(),
             Role = role,
             Status = InvitationStatus.Pending,
-            TokenHash = tokenHash,
             ExpiresAt = expiresAt,
             InvitedByUserId = invitedBy,
             CreatedAt = createdAt,
@@ -77,14 +74,10 @@ public sealed class Invitation : AggregateRoot<InvitationId>
 
     public ErrorOr<Success> Accept(DateTimeOffset now)
     {
-        if (Status != InvitationStatus.Pending)
+        var acceptable = CheckUsable(now, InvitationErrors.NotPendingAccept);
+        if (acceptable.IsError)
         {
-            return InvitationErrors.NotPendingAccept;
-        }
-
-        if (ExpiresAt <= now)
-        {
-            return InvitationErrors.Expired;
+            return acceptable.Errors;
         }
 
         Status = InvitationStatus.Accepted;
@@ -92,21 +85,57 @@ public sealed class Invitation : AggregateRoot<InvitationId>
         return Result.Success;
     }
 
-    public ErrorOr<Success> Refresh(string newTokenHash, DateTimeOffset newExpiresAt)
+    /// <summary>
+    /// Enregistre le hash du jeton qui part dans l'e-mail : seul le dernier lien envoyé est valable.
+    /// Refusé pour une invitation qui n'est plus en attente ou qui a expiré.
+    /// </summary>
+    public ErrorOr<Success> IssueToken(string tokenHash, DateTimeOffset now)
     {
-        // Guard technique : jamais atteint après validation applicative.
-        if (string.IsNullOrWhiteSpace(newTokenHash))
+        // Guard technique : le hash vient toujours du service de jetons.
+        if (string.IsNullOrWhiteSpace(tokenHash))
         {
-            throw new ArgumentException("Le hash du token est requis.", nameof(newTokenHash));
+            throw new ArgumentException("Le hash du token est requis.", nameof(tokenHash));
         }
 
+        var usable = CheckUsable(now, InvitationErrors.NotPendingIssueToken);
+        if (usable.IsError)
+        {
+            return usable.Errors;
+        }
+
+        TokenHash = tokenHash;
+        return Result.Success;
+    }
+
+    /// <summary>
+    /// Renvoi : nouvelle échéance, et le lien précédent cesse aussitôt d'être valable. Le nouveau
+    /// lien part avec InvitationResentDomainEvent.
+    /// </summary>
+    public ErrorOr<Success> Refresh(DateTimeOffset newExpiresAt)
+    {
         if (Status != InvitationStatus.Pending)
         {
             return InvitationErrors.NotPendingRefresh;
         }
 
-        TokenHash = newTokenHash;
+        TokenHash = null;
         ExpiresAt = newExpiresAt;
+        Raise(new InvitationResentDomainEvent(Id, OrganizationId));
+        return Result.Success;
+    }
+
+    private ErrorOr<Success> CheckUsable(DateTimeOffset now, Error notPending)
+    {
+        if (Status != InvitationStatus.Pending)
+        {
+            return notPending;
+        }
+
+        if (ExpiresAt <= now)
+        {
+            return InvitationErrors.Expired;
+        }
+
         return Result.Success;
     }
 }

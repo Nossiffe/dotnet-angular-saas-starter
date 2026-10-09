@@ -16,7 +16,6 @@ using Saas.Infrastructure.Jobs;
 using Saas.Infrastructure.Persistence;
 using Saas.Infrastructure.Persistence.Outbox;
 using Saas.IntegrationTests.Auth;
-using Saas.IntegrationTests.Invitations;
 using Saas.IntegrationTests.Outbox;
 using Saas.IntegrationTests.Platform;
 using Testcontainers.PostgreSql;
@@ -81,10 +80,6 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddScoped<IDomainEventHandler<OutboxProbeEvent>, CountingProbeHandler>();
             services.AddScoped<IDomainEventHandler<OutboxProbeEvent>, FailingProbeHandler>();
             services.ConfigureDbContext<AppDbContext>(options => options.AddInterceptors(new UnsavableProbeInterceptor()));
-
-            services.AddScoped<ProcessInvitationEmailJob>();
-            services.RemoveAll<IInvitationEmailEnqueuer>();
-            services.AddScoped<IInvitationEmailEnqueuer, SynchronousInvitationEmailEnqueuer>();
         });
 
         if (UseTestAuth)
