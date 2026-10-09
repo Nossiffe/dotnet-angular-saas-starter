@@ -157,7 +157,7 @@ main lors du tag.
 
 ## Tests
 
-- **Unit** (`src/tests/UnitTests/`) : agrégats, validators, archi. Rapides, sans Docker.
+- **Unit** (`src/tests/UnitTests/`) : agrégats, validateurs, handlers sans accès direct à la base, archi, registre des erreurs. Rapides, sans Docker.
 - **Intégration** (`src/tests/IntegrationTests/`) : endpoints via `WebApplicationFactory` + Testcontainers (Docker requis). Couvrir : cas nominal, 400, 401, 403, isolation tenant.
 - **Archi** (`DependencyRuleTests`) : NetArchTest vérifie la règle de dépendance Clean Arch.
 - **Front** (`web-angular/`) : tests unitaires Vitest (`npm test`) et Playwright sur la page de
@@ -231,18 +231,20 @@ qu'aucun test ne vérifie vraiment.
 
 | Périmètre | Config | Score | Seuil `break` |
 |---|---|---|---|
-| Domain | `stryker-config-domain.json` | ~82 % | 60 % (**bloquant**) |
-| Application | `stryker-config-application.json` | ~8 % | 0 (mesuré seulement) |
+| Domain | `stryker-config-domain.json` | ~84 % | 60 % (**bloquant**) |
+| Application | `stryker-config-application.json` | ~35 % | 0 (mesuré seulement) |
 
-**Pourquoi le score de l'Application est bas.** Stryker ne lance que les tests unitaires. Les
-handlers de l'Application sont couverts par les tests d'intégration sur PostgreSQL
+**Pourquoi le score de l'Application est plus bas.** Stryker ne lance que les tests unitaires.
+Les validateurs et les handlers sans accès direct à la base ont des tests unitaires
+(`src/tests/UnitTests/Application/`). Ceux qui lisent avec Dapper (connexion, rafraîchissement,
+invitations, requêtes) sont couverts par les tests d'intégration sur PostgreSQL
 (`src/tests/IntegrationTests/`, Testcontainers), que Stryker ne lance pas : leurs mutants
 survivent sans que la logique soit pour autant non testée. Le score est publié pour suivre son
 évolution, sans seuil.
 
 `stryker.yml` lance les deux mesures chaque lundi et à la demande, et la mesure du Domain sur
-chaque PR qui touche le Domain ou ses tests ; le job Domain échoue sous le seuil. Stryker 5 utilise le runner Microsoft Testing Platform (`"test-runner": "mtp"`), celui
-des projets xunit.v3.
+chaque PR qui touche le Domain ou ses tests ; le job Domain échoue sous le seuil. Stryker 5
+utilise le runner Microsoft Testing Platform (`"test-runner": "mtp"`), celui des projets xunit.v3.
 
 ### Lancer une analyse
 

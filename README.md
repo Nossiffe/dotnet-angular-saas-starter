@@ -32,7 +32,7 @@ Every change has to pass these gates, whoever or whatever wrote it:
 | CI security | zizmor workflow linting, actions pinned by SHA | Workflow changes |
 | Supply chain | CycloneDX SBOM and build provenance attestation | Every release |
 
-Mutation testing runs on the unit tests only. The Domain scores 82 % against a blocking threshold of 60 %. The Application scores about 8 % and is not gated: its handlers are covered by the integration tests against PostgreSQL, which Stryker does not run.
+Mutation testing runs on the unit tests only. The Domain scores 84 % against a blocking threshold of 60 %. The Application scores about 35 % and is not gated: the handlers that read with Dapper (login, refresh, invitations, queries) are covered by the integration tests against PostgreSQL, which Stryker does not run.
 
 Design decisions are recorded as ADRs in [`docs/adr`](docs/adr). The whole history was written with the agent; the `Co-Authored-By` trailer was only adopted for the latest commits.
 
