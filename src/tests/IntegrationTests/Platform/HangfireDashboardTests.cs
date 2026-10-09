@@ -7,7 +7,7 @@ namespace Saas.IntegrationTests.Platform;
 
 // NonDevelopmentApiFactory force ASPNETCORE_ENVIRONMENT=Production (voir ce fichier pour le
 // pourquoi) afin d'exercer la branche prod de HangfireDashboardAuthFilter : authentifié +
-// claim platform_role=PlatformAdmin requis (jamais tenant_role=Owner — cf. security.md).
+// claim platform_role=PlatformAdmin requis (jamais tenant_role=Owner — cf. ARCHITECTURE.md § Hangfire).
 [Collection("hangfire")]
 public sealed class HangfireDashboardTests(NonDevelopmentApiFactory factory)
 {

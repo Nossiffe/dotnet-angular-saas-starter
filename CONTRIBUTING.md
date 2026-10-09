@@ -1,6 +1,6 @@
 # CONTRIBUTING.md — Workflow de développement
 
-## Mode de travail recommandé (avec ou sans agent)
+## Mode de travail recommandé
 
 ### Cycle explore → plan → code → commit
 
@@ -77,10 +77,10 @@ dotnet ef dbcontext optimize --project src/Infrastructure --startup-project src/
 publication **Native AOT** (`--nativeaot --precompile-queries`, requis pour AOT si le projet
 contient des requêtes).
 
-**Pourquoi PAS activé par défaut dans ce template** :
+**Pourquoi PAS activé par défaut dans ce starter** :
 - **Incompatible avec les global query filters** — limitation documentée par Microsoft
   (« Advanced Performance Topics » § Compiled models, « Limitations ») : *"Global query filters
-  are not supported"*. Or l'isolation multi-tenant de ce template repose entièrement sur les
+  are not supported"*. Or l'isolation multi-tenant de ce starter repose entièrement sur les
   named query filters EF (`"TenantFilter"`/`"SoftDeleteFilter"`)
   — activer un modèle compilé casserait cette garantie « par construction ». C'est la raison
   bloquante, avant même la taille du modèle actuel.
@@ -88,9 +88,12 @@ contient des requêtes).
   changement de modèle/configuration (pas de détection automatique sans le package MSBuild
   `Microsoft.EntityFrameworkCore.Tasks`) — un pas de process supplémentaire pour un gain non
   mesuré ici (modèle actuel : quelques agrégats, très loin des « centaines/milliers » où le gain
-  devient perceptible). YAGNI au gabarit actuel.
+  devient perceptible). YAGNI à cette taille de modèle.
 
-### Regénérer les clients API
+### Régénérer les types TypeScript de l'API
+
+`web-angular/openapi.json` est le contrat versionné ; les types TypeScript en sont générés
+(`src/app/api/generated/`, non versionné). Après un changement d'endpoint, API lancée :
 
 ```bash
 curl http://localhost:5123/openapi/v1.json -o web-angular/openapi.json
@@ -154,6 +157,8 @@ main lors du tag.
 - **Unit** (`src/tests/UnitTests/`) : agrégats, validators, archi. Rapides, sans Docker.
 - **Intégration** (`src/tests/IntegrationTests/`) : endpoints via `WebApplicationFactory` + Testcontainers (Docker requis). Couvrir : cas nominal, 400, 401, 403, isolation tenant.
 - **Archi** (`DependencyRuleTests`) : NetArchTest vérifie la règle de dépendance Clean Arch.
+- **Front** (`web-angular/`) : tests unitaires Vitest (`npm test`) et Playwright sur la page de
+  connexion, API simulée, avec contrôle d'accessibilité axe (`npm run e2e`).
 
 ```bash
 dotnet test                                                  # tous
@@ -172,13 +177,13 @@ dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulemen
 
 | Workflow | Déclencheur | Rôle | Si ça casse |
 |---|---|---|---|
-| `ci.yml` | Push/PR/`merge_group` sur `main` | Build + tests (unit/intégration/archi) + gate lint/format/typecheck du front Angular + couverture backend (Microsoft.CodeCoverage MTP → summary + artifact, **non bloquante** — cf. § Couverture) | Lire le log du job en échec (build/tests/front) ; une couverture qui baisse n'échoue jamais le job, c'est un signal |
+| `ci.yml` | Push/PR/`merge_group` sur `main` | Build + tests (unit/intégration/archi) + front Angular (lint/format/typecheck, tests unitaires, build, Playwright + axe sur la page de connexion) + vérification des chemins cités dans la doc (`scripts/check-docs.sh`) + couverture backend (Microsoft.CodeCoverage MTP → summary + artifact, **non bloquante** — cf. § Couverture) | Lire le log du job en échec (build/tests/front) ; une couverture qui baisse n'échoue jamais le job, c'est un signal |
 | `smoke.yml` | Push `main` + PR touchant le backend (`src/`, `Directory.Packages.props`, `scripts/smoke.sh`, `docker-compose.yml`) + manuel | Bout-en-bout réel (Postgres + Mailpit + API + Hangfire) via `scripts/smoke.sh` | Reproduire en local : `docker compose up -d db mailpit && dotnet run --project src/Api` puis `bash scripts/smoke.sh` |
 | `deps-audit.yml` | PR touchant les manifests de deps (`Directory.Packages.props`, `packages.lock.json`, `package.json`/`package-lock.json`) + cron hebdo (lundi 05h UTC) + manuel | Bloque sur CVE High/Critical — `dotnet-audit` (NuGet, direct + transitif) et `npm-audit` (par front, prod deps seulement) | Corriger (bump/pin) ou documenter une exception datée — voir § Procédure d'exception CVE ci-dessous |
-| `zizmor.yml` | Push/PR touchant `.github/workflows/**` | Lint de sécurité des workflows GitHub Actions (permissions, injections, cache-poisoning…) — mode console (`advanced-security: false`, repo privé sans Advanced Security), exit non nul = bloquant | Reproduire en local : `uvx zizmor .github/workflows/` ; corriger le finding (permissions minimales, pin SHA, échappement d'input) |
-| `stryker.yml` | Cron hebdo + manuel | Mutation testing (Application + Domain) — **non bloquant actuellement** | Voir § Mutation testing ci-dessous (Stryker 4.16 ne supporte pas le runner MTP) |
+| `zizmor.yml` | Push/PR touchant `.github/workflows/**` | Lint de sécurité des workflows GitHub Actions (permissions, injections, cache-poisoning…) — mode console (`advanced-security: false`), exit non nul = bloquant | Reproduire en local : `uvx zizmor .github/workflows/` ; corriger le finding (permissions minimales, pin SHA, échappement d'input) |
+| `stryker.yml` | Cron hebdo + manuel | Mutation testing des tests unitaires : Domain **bloquant** (seuil 60 %), Application mesuré seulement | Ouvrir le rapport HTML en artifact ; voir § Mutation testing ci-dessous |
 | `release.yml` | Tag `v*` + manuel | Build + push image GHCR, SBOM (CycloneDX backend + npm du front), attestation de provenance (SLSA build L2) | Voir `DEPLOYMENT.md` § Release — image, SBOM, attestation |
-| `codeql.yml` / `security.yml` | Push/PR (préexistants) | SAST (CodeQL C#/TS) + secret scanning (gitleaks) | Voir l'onglet Security du repo |
+| `codeql.yml` / `security.yml` | Push/PR sur `main` | SAST (CodeQL C#/TS) + secret scanning (gitleaks, règles par défaut) | Voir l'onglet Security du repo ; reproduire gitleaks en local : `gitleaks git .` |
 
 > **CodeQL** : gratuit sur un dépôt public. Tant que le dépôt est privé (sans GitHub
 > Advanced Security), le job `analyze` est ignoré au lieu d'échouer.
@@ -209,92 +214,60 @@ pour être lisible par un auditeur externe sans contexte préalable.
 `ci.yml` collecte la couverture backend via l'extension Microsoft Testing Platform
 `Microsoft.Testing.Extensions.CodeCoverage` (`dotnet test --coverage --coverage-output-format cobertura`,
 format Cobertura) à chaque run, l'affiche en summary et la publie en artifact
-(`coverage-backend`, fichiers `<guid>.cobertura.xml`) — **volontairement non bloquante** : la
-qualité réelle des tests est gatée par Stryker (mutation testing), pas par un seuil de lignes
-couvertes (un seuil de couverture se contourne trivialement avec des tests sans assertion).
+(`coverage-backend`, fichiers `<guid>.cobertura.xml`) — **volontairement non bloquante** : un
+seuil de lignes couvertes se contourne trivialement avec des tests sans assertion. La qualité des
+tests unitaires du Domain est contrôlée par le mutation testing (ci-dessous).
 
 ---
 
-## Mutation testing (Stryker.NET — câblé, mesure non fiable actuellement)
+## Mutation testing (Stryker.NET)
 
-Le mutation testing est censé mesurer la **qualité réelle des tests** en introduisant des
-mutations dans le code et en vérifiant si les tests les détectent. L'outillage est en
-place (workflow hebdo `.github/workflows/stryker.yml`, deux configs
-`stryker-config.json` / `stryker-config-domain.json`, manifest `.config/dotnet-tools.json`)
-mais **ne produit aujourd'hui aucune mesure fiable** sur cette stack.
+Stryker introduit des mutations dans le code (une condition inversée, une constante changée…)
+et vérifie que les tests unitaires les détectent. Un mutant qui survit signale un comportement
+qu'aucun test ne vérifie vraiment.
 
-### État constaté : Stryker.NET 4.16 ne supporte pas le runner natif MTP
+| Périmètre | Config | Score | Seuil `break` |
+|---|---|---|---|
+| Domain | `stryker-config-domain.json` | ~82 % | 60 % (**bloquant**) |
+| Application | `stryker-config-application.json` | ~8 % | 0 (mesuré seulement) |
 
-Depuis la bascule au runner natif Microsoft Testing Platform (MTP)
-(`global.json` §test + `UseMicrosoftTestingPlatformRunner` sur xunit.v3, 2026-07-13),
-Stryker.NET 4.16 **détecte MTP sur les projets de test et abandonne** :
+**Pourquoi le score de l'Application est bas.** Stryker ne lance que les tests unitaires. Les
+handlers de l'Application sont couverts par les tests d'intégration sur PostgreSQL
+(`src/tests/IntegrationTests/`, Testcontainers), que Stryker ne lance pas : leurs mutants
+survivent sans que la logique soit pour autant non testée. Le score est publié pour suivre son
+évolution, sans seuil.
 
-```
-[ERR] TestDiscoverer: Test discovery has been aborted!
-[WRN] Project '…/Saas.UnitTests.csproj' is using Microsoft.Testing.Platform which
-      is not yet supported by Stryker, see stryker-net/issues/3094
-[INF] Number of tests found: 0 … Test assemblies do not contain any test, skipping.
-```
-
-Échec franc en ~70 s, **aucun rapport produit** (Stryker 4.16 exige encore VsTest).
-Suivi upstream : [stryker-mutator/stryker-net#3094](https://github.com/stryker-mutator/stryker-net/issues/3094)
-(support MTP — issue de suivi, citée explicitement dans le message d'erreur).
-
-**Historique (avant bascule, mode VSTest via `xunit.runner.visualstudio`)** : le run
-allait au bout mais les scores étaient des artefacts — Application 97.84 % tout-Timeout
-(0 Killed / 226 Timeout), Domain 0.00 % tout-Survived (124/124). Voir aussi
-[#3117](https://github.com/stryker-mutator/stryker-net/issues/3117) et
-[#3629](https://github.com/stryker-mutator/stryker-net/issues/3629). Dans les deux modes :
-**aucun signal de mutation exploitable** tant que stryker-net ne supporte pas MTP.
-
-**Conséquence** : le job `stryker.yml` est marqué `continue-on-error: true` au niveau
-job — il tourne chaque semaine (et sur `workflow_dispatch`), mais **ne bloque rien** tant
-que l'intégration reste cassée. Les seuils `break: 60` restent configurés comme cible pour
-le jour où la mesure redeviendra fiable ; ils ne sont pas appliqués aujourd'hui.
-
-### Signal à surveiller
-
-Un futur run hebdomadaire qui **produit un rapport avec des compteurs `Killed` non nuls**
-(au lieu de s'abandonner sur « MTP not supported ») signalera que le support MTP est arrivé
-côté stryker-net. Dans ce cas : retirer le `continue-on-error: true` du job, et réévaluer les
-seuils `break` à la lumière du vrai score. Dependabot ouvrira les PRs de montée de version de
-`dotnet-stryker` — chaque montée est l'occasion de relancer les deux configs et de surveiller
-[#3094](https://github.com/stryker-mutator/stryker-net/issues/3094).
-
-### Installation (locale, une seule fois)
-
-```bash
-dotnet tool install -g dotnet-stryker
-# ou en tool local dans le projet :
-dotnet tool install dotnet-stryker
-```
+`stryker.yml` lance les deux mesures chaque lundi et à la demande ; le job Domain échoue sous le
+seuil. Stryker 5 utilise le runner Microsoft Testing Platform (`"test-runner": "mtp"`), celui
+des projets xunit.v3.
 
 ### Lancer une analyse
 
+Stryker est un outil local du dépôt (`.config/dotnet-tools.json`), installé par
+`dotnet tool restore`. Il se lance depuis le projet de tests unitaires :
+
 ```bash
-# Depuis la racine du projet
-dotnet stryker -f stryker-config.json          # Application
-dotnet stryker -f stryker-config-domain.json   # Domain
+cd src/tests/UnitTests
+dotnet stryker -f ../../../stryker-config-domain.json        # Domain, ~3 min
+dotnet stryker -f ../../../stryker-config-application.json   # Application, ~2 min
 ```
 
-Le rapport HTML s'ouvre dans `StrykerOutput/**/reports/mutation-report.html`.
+Le rapport HTML est écrit dans `src/tests/UnitTests/StrykerOutput/<date>/reports/mutation-report.html`
+(dossier ignoré par git).
 
 ### Configuration
 
-Voir `stryker-config.json` (Application) et `stryker-config-domain.json` (Domain) à la
-racine. Chaque config exclut les migrations et fichiers générés (`.g.cs`), coverage
-analysis désactivée (`"coverage-analysis": "off"`, requis avec xunit.v3/MTP).
+Chaque config cible un projet (`Saas.Domain.csproj` ou `Saas.Application.csproj`), exclut les
+fichiers générés (`.g.cs`) et désactive l'analyse de couverture (`"coverage-analysis": "off"`).
 
 ---
 
 ## Outillage développeur
 
+Démarrage local : voir le Quickstart du `README.md` (réseau Docker, `.env`, clé JWT en
+user-secrets, API sur http://localhost:5123, Angular sur http://localhost:4200).
+
 ```bash
-# Démarrage complet
-docker network create devnet 2>/dev/null || true
-docker compose up -d
-dotnet run --project src/Api      # API sur http://localhost:5123
-cd web-angular && npm start        # Angular sur http://localhost:4200
 
 # Format & lint
 dotnet format                      # .NET

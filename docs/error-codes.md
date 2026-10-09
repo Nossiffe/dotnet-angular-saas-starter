@@ -27,7 +27,7 @@ un autre tenant.
 
 ## Registre (16 entrées)
 
-Table à jour après les tasks 4-7 — miroir exact du `TheoryData` de
+Miroir exact du `TheoryData` de
 `src/tests/UnitTests/Common/DomainErrorsTests.cs`.
 
 | Classe.Membre | Type | Code | Description |

@@ -14,8 +14,8 @@ Adopter **[ErrorOr](https://github.com/amantinband/error-or) 2.1.1** comme type 
 des handlers Mediator pour toute erreur métier : `ICommand<ErrorOr<T>>` / `IQuery<ErrorOr<T>>`.
 
 Retenu pour :
-- **Standard communautaire** établi (plutôt qu'un `Result<T>` maison) — décision utilisateur
-  explicite : « standards d'abord » plutôt que réinventer un type de résultat.
+- **Standard communautaire** établi (plutôt qu'un `Result<T>` maison) — principe retenu :
+  « standards d'abord » plutôt que réinventer un type de résultat.
 - **Erreurs multiples** natives (`List<Error>`) — utile pour agréger, pas seulement retourner
   la première erreur trouvée.
 - **Conversions implicites** `Error → ErrorOr<T>` et `T → ErrorOr<T>` — un handler retourne
@@ -25,7 +25,7 @@ Retenu pour :
   plutôt qu'un `ErrorOr<Unit>` ou un `bool` peu explicite.
 
 **Alternatives écartées** :
-- **`Result<T>` maison** : envisagé en premier, écarté après décision utilisateur — préférer
+- **`Result<T>` maison** : envisagé en premier, écarté — préférer
   un standard maintenu et déjà connu de l'écosystème .NET (issues, docs, exemples) plutôt que
   du code interne à maintenir et documenter soi-même sans bénéfice fonctionnel réel.
 - **[FluentResults](https://github.com/altmann/FluentResults)** : alternative sérieuse et
@@ -61,7 +61,7 @@ relire les messages exposés à l'utilisateur, et un test de contrat (`DomainErr
 qui vérifie que chaque erreur a le bon `ErrorType`, un `Code` stable et une `Description`
 correcte. Détail complet du registre (16 entrées) : `docs/error-codes.md`.
 
-**Contrat HTTP touché par cette task** : `InvitationErrors.AlreadyPending` (« invitation déjà
+**Contrat HTTP touché par cette décision** : `InvitationErrors.AlreadyPending` (« invitation déjà
 en attente ») est passée de **400** (`Validation`) à **409** (`Conflict`) — alignée avec la
 branche `DbUpdateException` (contrainte d'unicité Postgres 23505) du `GlobalExceptionHandler`,
 qui protège la même règle en cas de race entre le check applicatif et l'insert. Les deux
@@ -108,13 +108,12 @@ sur des erreurs impossibles), tout en gardant les vraies règles métier dans le
   `ToCreatedHttpResult`) pour tous les `ErrorType` — cohérent par construction.
 - Deux mécanismes d'erreur coexistent (`ErrorOr` métier, exceptions forme/infra) — documenté
   ci-dessus pour éviter la confusion ; vérifié par `ErrorOrConventionTests`.
-- Contrat HTTP changé pour l'invitation déjà en attente (400 → 409) — les clients (fronts)
-  doivent gérer 409 sur ce endpoint (impact limité : géré au niveau du composant d'invitation).
+- Contrat HTTP changé pour l'invitation déjà en attente (400 → 409) — un client de cet
+  endpoint doit traiter le 409.
 
 ## Alternatives écartées
 
-- **`Result<T>` maison** : voir « Décision » — écarté après arbitrage utilisateur en faveur
-  d'un standard.
+- **`Result<T>` maison** : voir « Décision » — écarté en faveur d'un standard.
 - **FluentResults** : voir « Décision » — `ErrorType` moins structuré nativement pour le
   mapping HTTP direct.
 - **Garder les exceptions custom** (`NotFoundException`/`DomainException`) : conservait le

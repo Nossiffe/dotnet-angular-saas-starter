@@ -25,8 +25,10 @@ done < <(
   find "$REPO" -maxdepth 1 \
     \( -name "README.md" \
        -o -name "CONTRIBUTING.md" -o -name "ARCHITECTURE.md" \
-       -o -name "DEPLOYMENT.md" \) \
+       -o -name "DEPLOYMENT.md" -o -name "CHANGELOG.md" \) \
     -print0
+  find "$REPO/docs" "$REPO/security" -name "*.md" -print0
+  find "$REPO/web-angular" -maxdepth 1 -name "README.md" -print0
 )
 
 # ---------------------------------------------------------------------------
@@ -48,7 +50,7 @@ is_placeholder() {
   [[ "$token" == *'}'* ]] && return 0
   [[ "$token" == *'$'* ]] && return 0
   # Tolérer les noms de fichiers génériques de recettes/exemples (Foo*, Bar* dans src/...)
-  # Ces noms sont des placeholders conventionnels dans les skills/ADR — jamais des vrais fichiers.
+  # Ces noms sont des placeholders conventionnels dans les ADR et la doc — jamais des vrais fichiers.
   local leaf
   leaf="$(basename "$token")"
   [[ "$leaf" == Foo* ]] && return 0
@@ -97,8 +99,8 @@ path_exists_or_prefix() {
 # CHECK 1 — Chemins inline-code
 # ---------------------------------------------------------------------------
 # Regex : token entre backticks commençant par un des préfixes connus
-# On exclut les chemins frontend-relatifs courts (src/app/, src/routes/, src/client/...)
-# qui apparaissent dans les règles scopées aux fronts (react.md, angular.md)
+# On exclut les chemins frontend-relatifs courts (src/app/...)
+# qui apparaissent dans la doc du front (web-angular/README.md)
 # et représentent des chemins relatifs au dossier front, pas à la racine repo.
 #
 # Critère d'exclusion frontend-relatif :
@@ -120,7 +122,7 @@ check_paths() {
     is_placeholder "$token" && continue
 
     # Ignorer les chemins frontend-relatifs courts (sans web-angular/ en préfixe)
-    # ex: src/routes/, src/client/, src/components/ui/ dans react.md
+    # ex: src/app/ cité dans la doc du front
     if [[ "$token" =~ ^src/ ]]; then
       local second_seg
       second_seg="${token#src/}"

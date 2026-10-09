@@ -1,6 +1,6 @@
-# Architecture — Saas template
+# Architecture
 
-Template SaaS .NET 10 + Angular 22, organisé en monorepo.
+Starter SaaS .NET 10 + Angular 22, organisé en monorepo.
 
 ---
 
@@ -39,12 +39,16 @@ Api → Infrastructure → Application → Domain
 | Agrégat | ID typé | Tenant-scoped | Interfaces |
 |---|---|---|---|
 | `Product` | `ProductId` | Oui (global query filter) | `IAuditable`, `ISoftDeletable`, `ITenantOwned` |
-| `Organization` | `OrganizationId` | Non (cross-tenant) | `IAuditable` |
+| `Organization` (+ entité `OrganizationMembership`) | `OrganizationId` | Non : c'est le tenant | `IAuditable` |
+| `Invitation` | `InvitationId` | Rattachée à un `OrganizationId`, comparé à l'organisation de la requête par chaque handler | — |
 
 **Conventions** :
 - Constructeur privé (EF navigation).
-- Factory statique (`Product.Create(name, price)`) — valide les invariants, lève `ArgumentException` si violés.
-- Setters privés — mutations uniquement via méthodes de comportement (`Rename`, `ChangePrice`, `AddMember`).
+- Factory statique (`Product.Create(name, price)`, `Invitation.Create(...)`). Un argument manquant lève
+  `ArgumentException` (garde technique, la validation FluentValidation passe avant) ; une règle métier
+  violée renvoie une erreur `ErrorOr` (`InvitationErrors.OwnerRole`).
+- Setters privés — mutations uniquement via méthodes de comportement (`Rename`, `ChangePrice`, `AddMember`,
+  `ChangeMemberRole`, `Accept`, `Revoke`).
 - Domain events : l'agrégat appelle `Raise(new XxxDomainEvent(...))`. Persistés en transaction par `DomainEventsInterceptor` puis dispatchés de façon fiable par l'`OutboxProcessor` (voir « Robustesse » plus bas).
 
 ### Value objects
@@ -53,7 +57,7 @@ Api → Infrastructure → Application → Domain
 |---|---|---|
 | `Money` (montant + devise) | `record` C# | Owned type EF |
 | `Slug` | Vogen `[ValueObject<string>]` | `ValueConverter<Slug, string>` manuel |
-| `ProductId`, `OrganizationId` | Vogen `[ValueObject<Guid>]` | `ValueConverter<XxxId, Guid>` manuel |
+| `ProductId`, `OrganizationId`, `InvitationId` | Vogen `[ValueObject<Guid>]` | `ValueConverter<XxxId, Guid>` manuel |
 
 **Recette Vogen** : `Conversions.SystemTextJson` uniquement dans Domain (STJ pour l'API), converter EF **à la main** dans Infrastructure (`ConfigureConventions`). Voir `docs/adr/0001`.
 
@@ -74,11 +78,12 @@ Application/<Feature>/<UseCase>/
 ### Pipeline Mediator
 
 ```
-Request → LoggingBehavior → ValidationBehavior → Handler
+Request → LoggingBehavior → ValidationBehavior → CachingBehavior → Handler
 ```
 
 - `ValidationBehavior` exécute tous les `IValidator<T>` enregistrés automatiquement.
 - Ne jamais valider manuellement dans un handler.
+- `CachingBehavior` ne s'applique qu'aux queries marquées `[CachedQuery]` (voir « HybridCache »).
 
 ### Interfaces clés
 
@@ -86,10 +91,11 @@ Request → LoggingBehavior → ValidationBehavior → Handler
 |---|---|
 | `IProductRepository` | Charge/sauve l'agrégat `Product` (write) |
 | `IOrganizationRepository` | Charge/sauve `Organization` (write) |
+| `IInvitationRepository` | Charge/sauve `Invitation` (write) |
 | `IUnitOfWork` | `SaveChangesAsync`, `ExecuteInTransactionAsync` |
 | `IDbConnectionFactory` | Dapper — connexion pour les reads |
-| `ICurrentUser` | UserId + TenantId du JWT courant |
-| `ITenantProvider` | TenantId résolu pour EF |
+| `ICurrentUser` | UserId de l'utilisateur authentifié |
+| `ITenantProvider` | TenantId lu dans le JWT (fail-closed), utilisé par EF et le cache |
 
 ---
 
@@ -111,7 +117,7 @@ Request → LoggingBehavior → ValidationBehavior → Handler
 | Intercepteur | Rôle |
 |---|---|
 | `AuditableEntityInterceptor` | Remplit `CreatedAt/By`, `UpdatedAt/By`, `TenantId` |
-| `DomainEventsInterceptor` | Collecte les events sur les agrégats et les dispatch via Mediator après `SaveChanges` |
+| `DomainEventsInterceptor` | Écrit les domain events des agrégats dans `OutboxMessages` pendant `SavingChanges`, dans la même transaction (voir « Transactional Outbox ») |
 
 ### Multi-tenant
 
@@ -142,7 +148,6 @@ Request → LoggingBehavior → ValidationBehavior → Handler
 
 ### Résilience & observabilité
 
-- **Résilience HTTP** : `Microsoft.Extensions.Http.Resilience` (disponible, à utiliser pour les HttpClient sortants).
 - **OpenTelemetry** : traces ASP.NET Core + HTTP client + métriques runtime. Exporte via OTLP si `OTEL_EXPORTER_OTLP_ENDPOINT` configuré.
 - **Serilog** : structuré, lit la config JSON, console en dev.
 - **Rate limiter** : sliding window 100 req/min par user ou IP, fixed window 10 req/30s sur `/auth`.
@@ -181,8 +186,11 @@ HTTP POST /products
     → CreateProductHandler
       → IProductRepository.Add(Product.Create(...))
       → IUnitOfWork.SaveChangesAsync()
-        → DomainEventsInterceptor → dispatch ProductCreatedDomainEvent
+        → DomainEventsInterceptor → ProductCreatedDomainEvent écrit dans OutboxMessages (même transaction)
   → TypedResults.Created(...)
+
+Plus tard, hors requête :
+OutboxProcessor (toutes les 5 s) → IPublisher.Publish(ProductCreatedDomainEvent) → handlers de l'event
 ```
 
 ### Gestion des erreurs
@@ -224,17 +232,15 @@ HTTP POST /products
 | `mise` | Gestion des versions (.NET, Node) |
 | `direnv` + `.envrc` | Variables d'env automatiques |
 | `docker-compose` | Postgres + Adminer + Mailpit + Aspire dashboard |
-| `lefthook` | Hooks git (lint/format avant commit) |
+| `lefthook` | Hooks git avant commit : format, lint, scan des secrets (gitleaks) |
 | `Vogen` | Strongly-typed IDs + value objects mono-valeur |
 | `openapi-ts` (Hey API) | Génération des clients TypeScript |
 
 ---
 
----
-
 ## Error tracking (Sentry) — branchement optionnel
 
-L'observabilité de base est assurée par **OpenTelemetry** (traces, métriques, logs via OTLP). Pour l'agrégation d'erreurs, les alertes et le suivi des releases, Sentry peut être branché **optionnellement** — il n'est pas câblé par défaut dans le template.
+L'observabilité de base est assurée par **OpenTelemetry** (traces, métriques, logs via OTLP). Pour l'agrégation d'erreurs, les alertes et le suivi des releases, Sentry peut être branché **optionnellement** — il n'est pas câblé par défaut dans le starter.
 
 ### Backend (`Sentry.AspNetCore`)
 
@@ -261,13 +267,13 @@ Variable d'env à ajouter dans `.env` / secrets : `SENTRY__DSN=https://xxx@oyyy.
 npm install @sentry/angular
 ```
 
-Dans `main.ts` :
+Dans `main.ts`, avant `bootstrapApplication` :
 ```typescript
 import * as Sentry from '@sentry/angular';
-Sentry.init({ dsn: import.meta.env['VITE_SENTRY_DSN'] });
+Sentry.init({ dsn: '<DSN du projet Sentry front>' });
 ```
 
-> **Per-SaaS uniquement** : ne pas committer le DSN dans le code. Utiliser les secrets GitHub Actions (prod) et les variables d'env locales (dev). Ce branchement est volontairement absent du template pour ne pas coupler tous les projets générés à un compte Sentry spécifique.
+> Le DSN backend se passe par variable d'environnement ou secret, jamais dans le code. Le DSN front finit de toute façon dans le bundle JavaScript : l'injecter au build plutôt que de le committer. Ce branchement est volontairement absent du starter pour ne pas le lier à un compte Sentry.
 
 ---
 
@@ -275,19 +281,19 @@ Sentry.init({ dsn: import.meta.env['VITE_SENTRY_DSN'] });
 
 ### Transactional Outbox
 
-Les domain events ne sont plus dispatchés directement après `SaveChanges`. Le `DomainEventsInterceptor` les sérialise (STJ : `Type` = `AssemblyQualifiedName` + `Content` = JSON) en lignes `OutboxMessages` **pendant `SavingChanges`**, donc dans la **même transaction** que l'agrégat (atomicité : aucun event perdu sur crash, aucun event publié sans commit). Un `OutboxProcessor : BackgroundService` poll les lignes non traitées toutes les 5 s, désérialise sur le type concret, publie via `IPublisher.Publish` dans un scope DI, puis renseigne `ProcessedOn`. Retry borné via `Attempts < 5` (l'erreur est stockée dans `Error`).
+Les domain events ne sont pas dispatchés pendant `SaveChanges`. Le `DomainEventsInterceptor` les sérialise (STJ : `Type` = `AssemblyQualifiedName` + `Content` = JSON) en lignes `OutboxMessages` **pendant `SavingChanges`**, donc dans la **même transaction** que l'agrégat (atomicité : aucun event perdu sur crash, aucun event publié sans commit). Un `OutboxProcessor : BackgroundService` poll les lignes non traitées toutes les 5 s, désérialise sur le type concret, publie via `IPublisher.Publish` dans un scope DI, puis renseigne `ProcessedOn`. Retry borné via `Attempts < 5` (l'erreur est stockée dans `Error`).
 
-> Conséquence : les handlers de domain events (`ProductCreatedHandler`, etc.) s'exécutent désormais **de façon asynchrone** (au prochain tick du processor), plus de manière synchrone au `SaveChanges`.
+> Conséquence : les handlers de domain events (`ProductCreatedHandler`, etc.) s'exécutent **de façon asynchrone**, au prochain tick du processor, et non pendant le `SaveChanges`.
 
 ### Hangfire (jobs persistés)
 
 `Hangfire.AspNetCore` + `Hangfire.PostgreSql` — Hangfire crée ses **propres tables** Postgres au démarrage (pas de migration EF). API de config version-sensible : `UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connString))`.
 
 - **Dashboard** : `/hangfire`, sécurisé par `HangfireDashboardAuthFilter`. Dev : loopback uniquement. Prod : claim `platform_role=PlatformAdmin` obligatoire.
-- **Recurring job réel** : `PurgeExpiredRefreshTokensJob` (purge quotidienne des refresh tokens expirés/révoqués via `ExecuteDeleteAsync`).
+- **Recurring job réel** : `PurgeExpiredRefreshTokensJob` (purge quotidienne des refresh tokens expirés via `ExecuteDeleteAsync`).
 - **Fire-and-forget** : `BackgroundJob.Enqueue<PurgeExpiredRefreshTokensJob>(j => j.RunAsync())`.
 
-> **Sécurité dashboard** : le dashboard est **secure-by-default** — le claim `platform_role` n'est émis par aucun flow de login standard (ni par le claim `tenant_role=Owner`). Tout propriétaire de tenant aurait vu les jobs de TOUS les tenants s'il avait été utilisé. En prod, personne n'accède au dashboard tant qu'un opérateur infra n'est pas explicitement provisionné avec `platform_role=PlatformAdmin` (seed admin ou config IdP). Alternative : ne monter le dashboard que hors-production.
+> **Sécurité dashboard** : le dashboard est **secure-by-default** — le claim `platform_role` n'est émis par aucun flow de login standard. Le claim `tenant_role=Owner` ne suffit pas : le dashboard montre les jobs de tous les tenants. En prod, personne n'accède au dashboard tant qu'un opérateur infra n'est pas explicitement provisionné avec `platform_role=PlatformAdmin` (seed admin ou config IdP). Alternative : ne monter le dashboard que hors-production.
 
 > Durcissement complémentaire : placer `/hangfire` derrière un reverse-proxy/VPN ou une auth interactive dédiée.
 
@@ -302,7 +308,7 @@ d'`ITenantProvider` (fail-closed). Seuls les succès sont cachés (jamais l'erre
 `ErrorOr<T>`). Invalidation par write : `cache.RemoveByTagAsync($"t:{tenantId}:{tag}", ct)`
 (`UpdateProductHandler`/`DeleteProductHandler`) — **logique**, pas physique (doc officielle
 HybridCache : `RemoveByTagAsync` ignore toute entrée antérieure au point d'invalidation plutôt
-que de la supprimer). Migré : `GetProductByIdQuery` (`[CachedQuery(60, Tag = "products")]`).
+que de la supprimer). Exemple : `GetProductByIdQuery` (`[CachedQuery(60, Tag = "products")]`).
 
 **Passer en distribué (L2 Redis)** : ajouter `Microsoft.Extensions.Caching.StackExchangeRedis` puis :
 ```csharp
@@ -317,4 +323,4 @@ services.AddHybridCache(); // utilisera automatiquement Redis comme L2
 - `docs/adr/0001` — Strongly-typed IDs & value objects via Vogen (STJ-only + converter EF manuel)
 - `docs/adr/0002` — Persistance CQRS (repos write par agrégat + Dapper read ; Ardalis.Specification écarté)
 - `docs/adr/0003` — ErrorOr pour les erreurs métier (frontière avec les exceptions légitimes)
-- `docs/adr/0004` — Refresh token en cookie HttpOnly (pas d'antiforgery ; fronts même-origine)
+- `docs/adr/0004` — Refresh token en cookie HttpOnly (pas d'antiforgery ; front et API en même origine)

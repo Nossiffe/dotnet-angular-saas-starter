@@ -38,7 +38,7 @@ public sealed class LoginHandler(
         // uniquement pour un attaquant qui connaît déjà le mot de passe valide. Ce gating par le
         // mot de passe rend l'information marginalement plus sensible qu'un 401 générique, mais le
         // risque est jugé acceptable : la confirmation d'email est une friction volontaire (UX),
-        // et le message aide l'utilisateur légitime à diagnostiquer son problème. Ne pas modifier.
+        // et le message aide l'utilisateur légitime à diagnostiquer son problème.
         if (!user.EmailConfirmed)
         {
             throw new ValidationException(
