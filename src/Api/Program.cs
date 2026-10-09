@@ -24,6 +24,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Serilog écrit sur la console et transmet aussi chaque événement aux providers enregistrés
 // (writeToProviders) : sans cela, le provider OpenTelemetry ne reçoit aucun log et l'export OTLP
 // des logs reste vide. Les providers par défaut sont retirés pour ne pas doubler la console.
+// preserveStaticLogger : chaque hôte garde son propre logger au lieu de passer par Log.Logger,
+// statique et donc partagé par tous les hôtes du processus (les tests en lancent plusieurs).
 builder.Logging.ClearProviders();
 builder.Host.UseSerilog(
     (context, config) =>
@@ -31,6 +33,7 @@ builder.Host.UseSerilog(
               .Enrich.FromLogContext()
               .Enrich.WithSpan() // TraceId/SpanId depuis Activity.Current → corrélation logs ↔ traces OTel
               .WriteTo.Console(formatProvider: System.Globalization.CultureInfo.InvariantCulture),
+    preserveStaticLogger: true,
     writeToProviders: true);
 
 builder.WebHost.ConfigureKestrel(o => o.AddServerHeader = false);
