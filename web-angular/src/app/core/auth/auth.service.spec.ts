@@ -17,11 +17,11 @@ describe('AuthService', () => {
   });
   afterEach(() => httpMock.verify());
 
-  it('démarre non authentifié', () => {
+  it('starts unauthenticated', () => {
     expect(service.isAuthenticated()).toBe(false);
   });
 
-  it('stocke uniquement le token en mémoire au login (pas de refresh token en JS)', () => {
+  it('keeps only the access token, in memory, after login', () => {
     service.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
     const req = httpMock.expectOne('/api/v1/auth/login');
     expect(req.request.method).toBe('POST');
@@ -30,7 +30,7 @@ describe('AuthService', () => {
     expect(service.isAuthenticated()).toBe(true);
   });
 
-  it('nettoie au logout (révoque la session via le cookie refresh, body vide)', () => {
+  it('logout revokes the session through the refresh cookie, with an empty body', () => {
     service.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
     httpMock
       .expectOne('/api/v1/auth/login')
@@ -49,7 +49,7 @@ describe('AuthService', () => {
     expect(service.isAuthenticated()).toBe(false);
   });
 
-  it("nettoie l'état local même si le logout serveur échoue", () => {
+  it('clears the local state even when the server logout fails', () => {
     service.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
     httpMock
       .expectOne('/api/v1/auth/login')
@@ -66,7 +66,7 @@ describe('AuthService', () => {
     expect(service.isAuthenticated()).toBe(false);
   });
 
-  it('restoreSession() authentifie silencieusement si le cookie refresh est valide', () => {
+  it('restoreSession() signs in silently with a valid refresh cookie', () => {
     let restored: boolean | undefined;
     service.restoreSession().subscribe((ok) => (restored = ok));
 
@@ -79,7 +79,7 @@ describe('AuthService', () => {
     expect(service.isAuthenticated()).toBe(true);
   });
 
-  it('restoreSession() renvoie false sans erreur si le cookie refresh est absent (401)', () => {
+  it('restoreSession() returns false without error when there is no refresh cookie (401)', () => {
     let restored: boolean | undefined;
     service.restoreSession().subscribe((ok) => (restored = ok));
 

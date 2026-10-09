@@ -27,7 +27,7 @@ describe('authInterceptor', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('(a) attache Authorization: Bearer quand authentifié', () => {
+  it('adds the Bearer token when authenticated', () => {
     // Log in first to get a token
     auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
     httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);
@@ -39,14 +39,14 @@ describe('authInterceptor', () => {
     req.flush([]);
   });
 
-  it("(b) n'attache pas Authorization sur /api/v1/auth/login", () => {
+  it('does not add the token to /api/v1/auth/login', () => {
     auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
     const req = httpMock.expectOne('/api/v1/auth/login');
     expect(req.request.headers.has('Authorization')).toBe(false);
     req.flush(TOKEN_RESP);
   });
 
-  it('(d) échec du refresh appelle clearLocalState() (pas logout())', () => {
+  it('a failed refresh calls clearLocalState(), not logout()', () => {
     // Log in first
     auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
     httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);
@@ -72,7 +72,7 @@ describe('authInterceptor', () => {
     logoutSpy.mockRestore();
   });
 
-  it('(c) un 401 déclenche un refresh puis retentetive avec le nouveau token', () => {
+  it('a 401 triggers a refresh, then retries with the new token', () => {
     // Log in first
     auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
     httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);
