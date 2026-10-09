@@ -42,23 +42,20 @@ Design decisions are recorded as ADRs in [`docs/adr`](docs/adr). How the project
 Requirements: .NET SDK 10, Node.js 24, Docker.
 
 ```bash
-# 1. Shared Docker network (once per machine)
-docker network create devnet 2>/dev/null || true
-
-# 2. Environment variables for Docker Compose
+# 1. Environment variables for Docker Compose
 cp .env.example .env
 
-# 3. PostgreSQL, Adminer, Mailpit, Aspire dashboard
+# 2. PostgreSQL, Adminer, Mailpit, Aspire dashboard
 docker compose up -d
 
-# 4. JWT signing key for local development, kept out of the repository (once)
+# 3. JWT signing key for local development, kept out of the repository (once)
 dotnet user-secrets set "Jwt:SigningKey" "$(openssl rand -base64 48)" --project src/Api
 
-# 5. API → http://localhost:5123 (OpenAPI: http://localhost:5123/openapi/v1.json)
+# 4. API → http://localhost:5123 (OpenAPI: http://localhost:5123/openapi/v1.json)
 #    Migrations are applied at startup.
 dotnet run --project src/Api
 
-# 6. Angular front end, in another terminal → http://localhost:4200
+# 5. Angular front end, in another terminal → http://localhost:4200
 cd web-angular && npm ci && npm start
 ```
 

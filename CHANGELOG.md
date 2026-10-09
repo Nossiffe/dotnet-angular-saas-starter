@@ -27,6 +27,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Refus métier (e-mail non confirmé, lien de réinitialisation invalide, changement de son propre rôle, mot de passe manquant à l'acceptation) renvoyés en erreurs ErrorOr au lieu de `ValidationException`.
 - Contrat HTTP : contrats de requête dédiés au lieu des commandes de l'Application ; Bearer exigé seulement sur les routes authentifiées ; pas de `Location` vers une route inexistante.
 - Empreintes de tokens en hexadécimal minuscule partout : les refresh tokens existants ne sont plus reconnus, une reconnexion est nécessaire.
+- Docker Compose utilise son réseau par défaut : le réseau externe `devnet`, à créer à la main avant le premier `docker compose up`, disparaît du Quickstart, du smoke test et de `scripts/check.sh`.
 
 ### Fixed
 - gitleaks : la configuration du dépôt remplaçait les règles par défaut et ne détectait plus rien ; elle les étend maintenant. Le hook pre-commit bloque dès que gitleaks est installé.

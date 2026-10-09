@@ -268,8 +268,8 @@ fichiers générés (`.g.cs`) et désactive l'analyse de couverture (`"coverage-
 
 ## Outillage développeur
 
-Démarrage local : voir le Quickstart du `README.md` (réseau Docker, `.env`, clé JWT en
-user-secrets, API sur http://localhost:5123, Angular sur http://localhost:4200).
+Démarrage local : voir le Quickstart du `README.md` (`.env`, clé JWT en user-secrets,
+API sur http://localhost:5123, Angular sur http://localhost:4200).
 
 ```bash
 

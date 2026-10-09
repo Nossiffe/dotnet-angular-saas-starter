@@ -40,9 +40,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Créer le réseau Docker partagé
-        run: docker network create devnet 2>/dev/null || true
-
       - name: Démarrer Postgres + Mailpit (docker compose)
         run: docker compose up -d db mailpit
 
