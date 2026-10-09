@@ -5,11 +5,13 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Saas.Application.Common.Interfaces;
 using Saas.Infrastructure.Jobs;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Auth;
 using Saas.IntegrationTests.Invitations;
+using Saas.IntegrationTests.Platform;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -27,6 +29,9 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     /// <summary>Fake IEmailSender capturant les emails envoyés — utilisé pour extraire userId/token en test.</summary>
     public CapturingEmailSender Emails { get; } = new();
+
+    /// <summary>Logs émis par l'API pendant les tests de la collection.</summary>
+    public CapturingLoggerProvider Logs { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -51,6 +56,7 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             services.RemoveAll<IEmailSender>();
             services.AddSingleton<IEmailSender>(Emails);
+            services.AddSingleton<ILoggerProvider>(Logs);
 
             services.AddScoped<ProcessPasswordResetJob>();
             services.RemoveAll<IPasswordResetEnqueuer>();

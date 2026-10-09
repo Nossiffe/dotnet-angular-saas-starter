@@ -21,11 +21,17 @@ using Serilog.Enrichers.Span;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((context, config) =>
-    config.ReadFrom.Configuration(context.Configuration)
-          .Enrich.FromLogContext()
-          .Enrich.WithSpan() // TraceId/SpanId depuis Activity.Current → corrélation logs ↔ traces OTel
-          .WriteTo.Console(formatProvider: System.Globalization.CultureInfo.InvariantCulture));
+// Serilog écrit sur la console et transmet aussi chaque événement aux providers enregistrés
+// (writeToProviders) : sans cela, le provider OpenTelemetry ne reçoit aucun log et l'export OTLP
+// des logs reste vide. Les providers par défaut sont retirés pour ne pas doubler la console.
+builder.Logging.ClearProviders();
+builder.Host.UseSerilog(
+    (context, config) =>
+        config.ReadFrom.Configuration(context.Configuration)
+              .Enrich.FromLogContext()
+              .Enrich.WithSpan() // TraceId/SpanId depuis Activity.Current → corrélation logs ↔ traces OTel
+              .WriteTo.Console(formatProvider: System.Globalization.CultureInfo.InvariantCulture),
+    writeToProviders: true);
 
 builder.WebHost.ConfigureKestrel(o => o.AddServerHeader = false);
 
@@ -87,9 +93,11 @@ builder.Services.AddApiVersioning(options =>
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.Configure<Microsoft.AspNetCore.Builder.ExceptionHandlerOptions>(
-    // .NET 10 supprime les diagnostics (logs/métriques) quand un IExceptionHandler gère l'exception —
-    // on les garde : Serilog/OTel doivent voir les 500.
-    options => options.SuppressDiagnosticsCallback = _ => false);
+    // .NET 10 supprime par défaut les diagnostics (log d'erreur, métriques) d'une exception gérée
+    // par un IExceptionHandler. On les garde pour les 500, et seulement pour eux : une erreur de
+    // validation transformée en 400 n'est pas une erreur serveur.
+    options => options.SuppressDiagnosticsCallback = context =>
+        context.HttpContext.Response.StatusCode < StatusCodes.Status500InternalServerError);
 builder.Services.AddProblemDetails(options =>
     // Injecte traceId dans TOUS les ProblemDetails (validation, status-code pages, etc.),
     // pas seulement ceux du GlobalExceptionHandler — pour la corrélation logs/traces OTel.
@@ -156,6 +164,10 @@ if (app.Environment.IsDevelopment()
     await strategy.ExecuteAsync(async () => await db.Database.MigrateAsync());
 }
 
+// Journal des requêtes avant le gestionnaire d'exceptions : il voit le statut final (400, 409…)
+// et non l'exception en transit, qu'il journaliserait comme un 500. Il écrit dans le logger de
+// cet hôte plutôt que dans le logger statique de Serilog, partagé entre hôtes (tests).
+app.UseSerilogRequestLogging(options => options.Logger = app.Services.GetRequiredService<Serilog.ILogger>());
 app.UseExceptionHandler();
 app.UseSecurityHeaders(new HeaderPolicyCollection().AddDefaultApiSecurityHeaders());
 
@@ -193,7 +205,6 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
     app.UseHttpsRedirection();
 }
-app.UseSerilogRequestLogging();
 app.UseRouting();
 // Ordre officiel (learn.microsoft.com/aspnet/core/performance/timeouts) : après UseRouting,
 // avant l'exécution des endpoints — pour couvrir le temps passé dans le endpoint lui-même.
