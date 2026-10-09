@@ -1,17 +1,17 @@
 {
   "stryker-config": {
-    "solution": "Saas.slnx",
     "project": "Saas.Domain.csproj",
-    "test-projects": [
-      "src/tests/UnitTests/Saas.UnitTests.csproj"
-    ],
+    "test-runner": "mtp",
     "mutate": [
       "**/*.cs",
-      "!**/Migrations/**/*.cs",
       "!**/*.g.cs"
     ],
     "coverage-analysis": "off",
-    "reporters": ["html", "progress"],
+    "reporters": [
+      "html",
+      "json",
+      "progress"
+    ],
     "thresholds": {
       "high": 80,
       "low": 60,
