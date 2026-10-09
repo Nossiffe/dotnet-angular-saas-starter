@@ -50,11 +50,14 @@ public sealed class InvitationEndpoints : IEndpoint
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(req);
-        var role = EndpointHelpers.ParseRole(req.Role);
-        var result = await sender.Send(new InviteMemberCommand(orgId, req.Email, role), ct);
+        var result = await EndpointHelpers.ParseRole(req.Role)
+            .ThenAsync(role => sender.Send(new InviteMemberCommand(orgId, req.Email, role), ct).AsTask());
+
+        // Pas de route de lecture d'une invitation seule : Location désigne la liste des invitations
+        // en attente, qui la contient.
         return result
             .Then(id => new InviteResponse(id))
-            .ToCreatedHttpResult(response => $"/api/v1/organizations/{orgId}/invitations/{response.InvitationId}");
+            .ToCreatedHttpResult(_ => $"/api/v1/organizations/{orgId}/invitations");
     }
 
     private static async Task<IResult> ListPendingInvitations(

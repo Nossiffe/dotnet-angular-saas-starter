@@ -29,8 +29,8 @@ public sealed class MemberEndpoints : IEndpoint
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(req);
-        var role = EndpointHelpers.ParseRole(req.Role);
-        var result = await sender.Send(new ChangeMemberRoleCommand(orgId, userId, role), ct);
+        var result = await EndpointHelpers.ParseRole(req.Role)
+            .ThenAsync(role => sender.Send(new ChangeMemberRoleCommand(orgId, userId, role), ct).AsTask());
         return result.ToNoContentHttpResult();
     }
 }

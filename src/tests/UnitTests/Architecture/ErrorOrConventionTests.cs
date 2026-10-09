@@ -52,6 +52,28 @@ public sealed class ErrorOrConventionTests
             $"Exceptions custom dans Domain (utiliser ErrorOr) : {string.Join(", ", offenders)}");
     }
 
+    // Un refus métier est une erreur ErrorOr. ValidationException reste réservée au pipeline
+    // FluentValidation et aux refus d'Identity liés à un champ (docs/adr/0003).
+    [Fact]
+    public void ValidationException_is_thrown_only_at_the_input_boundary()
+    {
+        string[] allowed = ["ValidationBehavior.cs", "RegisterHandler.cs", "AcceptInvitationHandler.cs"];
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "Saas.slnx")))
+        {
+            root = root.Parent;
+        }
+
+        root.ShouldNotBeNull();
+        var throwers = Directory.EnumerateFiles(Path.Combine(root.FullName, "src", "Application"), "*.cs", SearchOption.AllDirectories)
+            .Where(f => File.ReadAllText(f).Contains("throw new ValidationException", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .ToList();
+
+        throwers.ShouldNotBeEmpty(); // le test lit bien le code source
+        throwers.Except(allowed, StringComparer.Ordinal).ShouldBeEmpty();
+    }
+
     // Contrat OpenAPI->TS : toute propriété non-nullable d'un contract Api est
     // requise dans le schéma — garanti par ctor positionnel (record) ou `required`.
     [Fact]

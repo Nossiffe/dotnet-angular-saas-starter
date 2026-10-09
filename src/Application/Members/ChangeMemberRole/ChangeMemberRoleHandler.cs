@@ -1,6 +1,4 @@
 using ErrorOr;
-using FluentValidation;
-using FluentValidation.Results;
 using Mediator;
 using Saas.Application.Common.Interfaces;
 using Saas.Domain.Tenancy;
@@ -17,15 +15,11 @@ public sealed class ChangeMemberRoleHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        // Garde anti self-demotion : un admin ne peut pas changer son propre rôle (évite de se verrouiller
-        // ou de contourner la garde « dernier Owner » via soi-même). Field-tied (ValidationFailure liée à
-        // MemberUserId) → reste un throw ValidationException, comme les échecs Identity d'AcceptInvitation.
-        if (currentUser.UserId is not null
-            && Guid.TryParse(currentUser.UserId, out var currentUserId)
-            && currentUserId == command.MemberUserId)
+        // Personne ne change son propre rôle : on ne se retire pas ses droits par erreur, et la garde
+        // du dernier Owner ne se contourne pas par soi-même.
+        if (Guid.TryParse(currentUser.UserId, out var currentUserId) && currentUserId == command.MemberUserId)
         {
-            throw new ValidationException(
-                [new ValidationFailure("MemberUserId", "Vous ne pouvez pas modifier votre propre rôle.")]);
+            return OrganizationErrors.CannotChangeOwnRole;
         }
 
         var organization = await organizations.GetByIdAsync(OrganizationId.From(command.OrganizationId), cancellationToken);

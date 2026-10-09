@@ -1,6 +1,4 @@
 using ErrorOr;
-using FluentValidation;
-using FluentValidation.Results;
 using Mediator;
 using Saas.Application.Common.Interfaces;
 
@@ -17,8 +15,7 @@ public sealed class ResetPasswordHandler(IIdentityService identity, IRefreshToke
             command.UserId, command.Token, command.NewPassword, cancellationToken);
         if (!ok)
         {
-            throw new ValidationException(
-                [new ValidationFailure(nameof(command.Token), "Le lien de réinitialisation est invalide ou expiré.")]);
+            return AuthErrors.InvalidResetLink;
         }
 
         // Un mot de passe réinitialisé ferme toutes les sessions ouvertes, y compris celle d'un

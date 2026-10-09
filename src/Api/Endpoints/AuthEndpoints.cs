@@ -128,7 +128,6 @@ public sealed class AuthEndpoints : IEndpoint
         ResetPasswordRequest request, ISender sender, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
-        // Échec → ValidationException (400) ou ErrorOr (ToHttpResult) selon la cause.
         var result = await sender.Send(
             new ResetPasswordCommand(request.UserId, request.Token, request.NewPassword), ct);
         return result.Match(_ => Results.Ok(), _ => result.ToHttpResult());
