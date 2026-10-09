@@ -1,13 +1,13 @@
 using Mediator;
 using Saas.Api.Common;
 using Saas.Api.Contracts;
-using Saas.Application.Common.Interfaces;
 using Saas.Application.Invitations;
 using Saas.Application.Invitations.AcceptInvitation;
 using Saas.Application.Invitations.InviteMember;
 using Saas.Application.Invitations.ListPendingInvitations;
 using Saas.Application.Invitations.ResendInvitation;
 using Saas.Application.Invitations.RevokeInvitation;
+using Saas.Infrastructure.Identity;
 
 namespace Saas.Api.Endpoints;
 
@@ -17,10 +17,11 @@ public sealed class InvitationEndpoints : IEndpoint
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        // Routes organisation-scoped : Owner uniquement.
+        // Routes d'une organisation : Owner ou Admin, sur sa propre organisation.
         var orgGroup = app.MapGroup("/organizations/{orgId:guid}/invitations")
             .WithTags("Invitations")
-            .RequireAuthorization("TenantAdmin");
+            .RequireAuthorization(AuthorizationPolicies.TenantAdmin)
+            .AddEndpointFilter<OrganizationScopeFilter>();
 
         orgGroup.MapPost("/", InviteMember)
             .WithCreatedResponses<InviteResponse>()
@@ -46,15 +47,9 @@ public sealed class InvitationEndpoints : IEndpoint
         Guid orgId,
         InviteMemberRequest req,
         ISender sender,
-        ITenantProvider tenant,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(req);
-        if (EndpointHelpers.CheckTenantScope(orgId, tenant) is { } scopeError)
-        {
-            return scopeError;
-        }
-
         var role = EndpointHelpers.ParseRole(req.Role);
         var result = await sender.Send(new InviteMemberCommand(orgId, req.Email, role), ct);
         return result
@@ -65,14 +60,8 @@ public sealed class InvitationEndpoints : IEndpoint
     private static async Task<IResult> ListPendingInvitations(
         Guid orgId,
         ISender sender,
-        ITenantProvider tenant,
         CancellationToken ct)
     {
-        if (EndpointHelpers.CheckTenantScope(orgId, tenant) is { } scopeError)
-        {
-            return scopeError;
-        }
-
         var result = await sender.Send(new ListPendingInvitationsQuery(orgId), ct);
         return result.ToHttpResult();
     }
@@ -81,14 +70,8 @@ public sealed class InvitationEndpoints : IEndpoint
         Guid orgId,
         Guid id,
         ISender sender,
-        ITenantProvider tenant,
         CancellationToken ct)
     {
-        if (EndpointHelpers.CheckTenantScope(orgId, tenant) is { } scopeError)
-        {
-            return scopeError;
-        }
-
         var result = await sender.Send(new ResendInvitationCommand(orgId, id), ct);
         return result.ToNoContentHttpResult();
     }
@@ -97,14 +80,8 @@ public sealed class InvitationEndpoints : IEndpoint
         Guid orgId,
         Guid id,
         ISender sender,
-        ITenantProvider tenant,
         CancellationToken ct)
     {
-        if (EndpointHelpers.CheckTenantScope(orgId, tenant) is { } scopeError)
-        {
-            return scopeError;
-        }
-
         var result = await sender.Send(new RevokeInvitationCommand(orgId, id), ct);
         return result.ToNoContentHttpResult();
     }
@@ -120,5 +97,4 @@ public sealed class InvitationEndpoints : IEndpoint
             .Then(r => new AcceptInvitationResponse(r.IsNewUser))
             .ToHttpResult();
     }
-
 }

@@ -37,10 +37,16 @@ public sealed class RefreshTokenHandler(
             new { rotated.UserId, rotated.TenantId },
             cancellationToken: cancellationToken));
 
-        var tenantRole = membership?.Role ?? "Member";
+        // Retiré de l'organisation depuis la connexion : la session sur ce tenant s'arrête.
+        if (membership is null)
+        {
+            await refresh.RevokeAsync(rotated.NewRefreshToken, cancellationToken);
+            return AuthErrors.SessionExpired;
+        }
+
         var roles = await identity.GetRolesAsync(rotated.UserId, cancellationToken);
         var (token, exp) = tokens.CreateAccessToken(
-            rotated.UserId, user.Email, rotated.TenantId, roles, tenantRole);
+            rotated.UserId, user.Email, rotated.TenantId, roles, membership.Role);
 
         return new AuthResult(token, exp, rotated.NewRefreshToken, rotated.RefreshTokenDays);
     }

@@ -1,16 +1,21 @@
+using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Saas.Application.Common.Interfaces;
+using Saas.Domain.Identity;
 using Saas.Infrastructure.Jobs;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Auth;
 using Saas.IntegrationTests.Invitations;
+using Saas.IntegrationTests.Platform;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -28,6 +33,12 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     /// <summary>Fake IEmailSender capturant les emails envoyés — utilisé pour extraire userId/token en test.</summary>
     public CapturingEmailSender Emails { get; } = new();
+
+    /// <summary>Logs émis par l'API pendant les tests de la collection.</summary>
+    public CapturingLoggerProvider Logs { get; } = new();
+
+    /// <summary>Mots de passe vérifiés par le hasher de l'application, dans l'ordre.</summary>
+    public ConcurrentQueue<string> VerifiedPasswords { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -52,6 +63,10 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             services.RemoveAll<IEmailSender>();
             services.AddSingleton<IEmailSender>(Emails);
+            services.AddSingleton<ILoggerProvider>(Logs);
+            services.RemoveAll<IPasswordHasher<ApplicationUser>>();
+            services.AddScoped<IPasswordHasher<ApplicationUser>>(sp => new RecordingPasswordHasher(
+                VerifiedPasswords, sp.GetRequiredService<IOptions<PasswordHasherOptions>>()));
 
             services.AddScoped<ProcessPasswordResetJob>();
             services.RemoveAll<IPasswordResetEnqueuer>();
@@ -64,22 +79,11 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         if (UseTestAuth)
         {
+            // Le schéma de test devient le schéma par défaut : les politiques de l'application
+            // (DependencyInjection.AddAuthorization) s'appliquent telles quelles, sans copie ici.
             builder.ConfigureTestServices(services =>
-            {
                 services.AddAuthentication(TestAuthHandler.SchemeName)
-                    .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
-                services.AddAuthorizationBuilder()
-                    .SetFallbackPolicy(
-                        new AuthorizationPolicyBuilder(TestAuthHandler.SchemeName).RequireAuthenticatedUser().Build())
-                    .SetDefaultPolicy(
-                        new AuthorizationPolicyBuilder(TestAuthHandler.SchemeName).RequireAuthenticatedUser().Build())
-                    .AddPolicy("HasTenant", p => p.RequireAssertion(ctx =>
-                    {
-                        var v = ctx.User.FindFirst("tenant")?.Value;
-                        return Guid.TryParse(v, out var id) && id != Guid.Empty;
-                    }))
-                    .AddPolicy("TenantAdmin", p => p.RequireClaim("tenant_role", "Owner"));
-            });
+                    .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { }));
         }
     }
 

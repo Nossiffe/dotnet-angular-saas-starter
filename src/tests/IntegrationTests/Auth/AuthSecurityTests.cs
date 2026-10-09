@@ -44,9 +44,8 @@ public sealed class AuthSecurityTests(PostgresApiFactory factory)
     }
 
     // ── Refresh-token reuse → révocation famille ─────────────────────────
-    // Le mécanisme métier (rotation + détection de réutilisation dans RefreshTokenStore) est inchangé —
-    // seul le transport change : le refresh token voyage désormais en cookie `rt` HttpOnly, plus dans le
-    // body JSON. Le client par défaut de WebApplicationFactory rejoue le cookie automatiquement pour le
+    // Rotation et détection de réutilisation : RefreshTokenStore. Le refresh token voyage dans le
+    // cookie `rt` HttpOnly. Le client par défaut de WebApplicationFactory rejoue le cookie automatiquement pour le
     // login + le premier refresh légitime ; la présentation de l'ANCIEN cookie révoqué doit en revanche
     // être manuelle (le cookie-jar automatique l'aurait déjà écrasé par la rotation), via un client SANS
     // cookie-jar (`HandleCookies = false`) et un header `Cookie` explicite portant la valeur capturée.

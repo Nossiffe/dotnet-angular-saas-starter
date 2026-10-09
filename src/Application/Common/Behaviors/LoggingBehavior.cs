@@ -14,9 +14,6 @@ public sealed class LoggingBehavior<TMessage, TResponse>(
     private static readonly Action<ILogger, string, Exception?> _logHandled =
         LoggerMessage.Define<string>(LogLevel.Information, new EventId(2, "Handled"), "Handled {MessageType}");
 
-    private static readonly Action<ILogger, string, Exception?> _logError =
-        LoggerMessage.Define<string>(LogLevel.Error, new EventId(3, "Error"), "Error handling {MessageType}");
-
     public async ValueTask<TResponse> Handle(
         TMessage message,
         MessageHandlerDelegate<TMessage, TResponse> next,
@@ -24,18 +21,12 @@ public sealed class LoggingBehavior<TMessage, TResponse>(
     {
         ArgumentNullException.ThrowIfNull(next);
 
+        // Pas de journalisation des exceptions ici : une erreur de validation devient un 400, et une
+        // vraie erreur est journalisée une seule fois par le gestionnaire d'exceptions de l'API.
         var name = typeof(TMessage).Name;
         _logHandling(logger, name, null);
-        try
-        {
-            var response = await next(message, cancellationToken);
-            _logHandled(logger, name, null);
-            return response;
-        }
-        catch (Exception ex)
-        {
-            _logError(logger, name, ex);
-            throw;
-        }
+        var response = await next(message, cancellationToken);
+        _logHandled(logger, name, null);
+        return response;
     }
 }

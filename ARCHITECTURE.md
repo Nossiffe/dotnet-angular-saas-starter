@@ -130,7 +130,14 @@ Request → LoggingBehavior → ValidationBehavior → CachingBehavior → Handl
   configuration au cas par cas par entité (pas de `HasQueryFilter` dans `XxxConfiguration.cs`).
   `"TenantFilter"` n'est jamais contournable métier ; `"SoftDeleteFilter"` peut être ignoré
   ponctuellement via `IgnoreQueryFilters(["SoftDeleteFilter"])`.
-- L'`AuditableEntityInterceptor` injecte `TenantId` sur les nouveaux agrégats tenant-scoped.
+- L'`AuditableEntityInterceptor` injecte `TenantId` sur les nouveaux agrégats tenant-scoped, en
+  `SaveChanges` comme en `SaveChangesAsync`, et refuse qu'une entité existante change de tenant.
+  `TenantId`, l'audit et la suppression logique n'ont pas de setter public dans le Domain.
+- **Lectures Dapper** : elles ne passent pas par les query filters EF, donc chaque requête filtre
+  elle-même sur `"TenantId" = @TenantId`. `TenantGuardTests` vérifie que toute requête SQL du code
+  qui lit une table d'entité `ITenantOwned` contient ce filtre.
+- **Routes `/organizations/{orgId}/...`** : `OrganizationScopeFilter` compare l'`orgId` de la route
+  au tenant du token et répond 404 sinon.
 
 ### Identité & Auth
 
@@ -143,13 +150,31 @@ Request → LoggingBehavior → ValidationBehavior → CachingBehavior → Handl
   `docs/adr/0004`.
 - **Hardening mots de passe** : PBKDF2-SHA512, `IterationCount = 210_000` (OWASP Password
   Storage Cheat Sheet) ; **lockout** après 5 tentatives échouées, verrouillage 5 minutes.
-- Policies : `"HasTenant"` (claim `tenant` non vide), `"TenantAdmin"` (claim `tenant_role = Owner`).
+- **Connexion sans oracle de timing** : pour un e-mail inconnu ou un compte verrouillé,
+  `IdentityService.CheckCredentialsAsync` vérifie quand même un hash factice de même coût
+  (`DummyPasswordCheck`), pour que la durée de la réponse ne révèle pas l'existence du compte.
+  Sans organisation demandée, la connexion ouvre la plus ancienne adhésion.
+- **Sessions** : le refresh token est refusé (et révoqué) si l'utilisateur n'est plus membre de
+  l'organisation ; une réinitialisation de mot de passe révoque toutes les sessions ouvertes.
+- **Rôles d'organisation et policies** (`AuthorizationPolicies`) :
+
+  | Policy | Claim exigé | Routes |
+  |---|---|---|
+  | `HasTenant` | `tenant` non vide | Produits |
+  | `TenantAdmin` | `tenant_role` = `Owner` ou `Admin` | Invitations, suppression d'un produit |
+  | `TenantOwner` | `tenant_role` = `Owner` | Changement de rôle d'un membre |
+
+  Les tests d'intégration appliquent ces policies telles quelles : la factory de test remplace
+  seulement le schéma d'authentification.
 - Fallback policy : `RequireAuthenticatedUser` (toutes les routes sont auth par défaut).
 
 ### Résilience & observabilité
 
 - **OpenTelemetry** : traces ASP.NET Core + HTTP client + métriques runtime. Exporte via OTLP si `OTEL_EXPORTER_OTLP_ENDPOINT` configuré.
-- **Serilog** : structuré, lit la config JSON, console en dev.
+- **Serilog** : structuré, lit la config JSON, écrit sur la console et transmet aux providers
+  enregistrés, dont OpenTelemetry (export OTLP des logs). Un journal par requête, avec le statut
+  final : une erreur de validation est un 400 journalisé en Information, pas une erreur ; seule
+  une vraie erreur serveur produit un log d'erreur (`ErrorLoggingTests`).
 - **Rate limiter** : sliding window 100 req/min par user ou IP, fixed window 10 req/30s sur `/auth`.
 
 ---

@@ -6,11 +6,26 @@ using Saas.Domain.Common;
 
 namespace Saas.Infrastructure.Persistence.Interceptors;
 
+// Renseigne le tenant, l'audit et la suppression logique. Ces propriétés n'ont pas de setter
+// public dans le Domain : seules les écritures EF ci-dessous les modifient.
 public sealed class AuditableEntityInterceptor(
     ICurrentUser currentUser,
     ITenantProvider tenant,
     IDateTimeProvider clock) : SaveChangesInterceptor
 {
+    public override InterceptionResult<int> SavingChanges(
+        DbContextEventData eventData,
+        InterceptionResult<int> result)
+    {
+        ArgumentNullException.ThrowIfNull(eventData);
+        if (eventData.Context is not null)
+        {
+            Apply(eventData.Context);
+        }
+
+        return base.SavingChanges(eventData, result);
+    }
+
     public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
         DbContextEventData eventData,
         InterceptionResult<int> result,
@@ -30,10 +45,18 @@ public sealed class AuditableEntityInterceptor(
         var now = clock.UtcNow;
         var user = currentUser.UserId;
 
-        foreach (EntityEntry<ITenantOwned> entry in context.ChangeTracker.Entries<ITenantOwned>()
-            .Where(e => e.State is EntityState.Added))
+        foreach (EntityEntry<ITenantOwned> entry in context.ChangeTracker.Entries<ITenantOwned>())
         {
-            entry.Entity.TenantId = tenant.TenantId;
+            var tenantId = entry.Property(nameof(ITenantOwned.TenantId));
+            if (entry.State is EntityState.Added)
+            {
+                tenantId.CurrentValue = tenant.TenantId;
+            }
+            else if (tenantId.IsModified)
+            {
+                throw new InvalidOperationException(
+                    $"Le tenant d'une entité {entry.Metadata.ClrType.Name} existante ne peut pas changer.");
+            }
         }
 
         // ISoftDeletable must run BEFORE IAuditable so that soft-deleted entities
@@ -42,8 +65,8 @@ public sealed class AuditableEntityInterceptor(
             .Where(e => e.State is EntityState.Deleted))
         {
             entry.State = EntityState.Modified;
-            entry.Entity.IsDeleted = true;
-            entry.Entity.DeletedAt = now;
+            entry.Property(nameof(ISoftDeletable.IsDeleted)).CurrentValue = true;
+            entry.Property(nameof(ISoftDeletable.DeletedAt)).CurrentValue = now;
 
             // EF a marqué les owned dependents (ex. Money/Price) en Deleted en cascade.
             // On les remet en Unchanged pour ne pas supprimer physiquement les colonnes owned.
@@ -61,13 +84,13 @@ public sealed class AuditableEntityInterceptor(
         {
             if (entry.State is EntityState.Added)
             {
-                entry.Entity.CreatedAt = now;
-                entry.Entity.CreatedBy = user;
+                entry.Property(nameof(IAuditable.CreatedAt)).CurrentValue = now;
+                entry.Property(nameof(IAuditable.CreatedBy)).CurrentValue = user;
             }
             else if (entry.State is EntityState.Modified)
             {
-                entry.Entity.UpdatedAt = now;
-                entry.Entity.UpdatedBy = user;
+                entry.Property(nameof(IAuditable.UpdatedAt)).CurrentValue = now;
+                entry.Property(nameof(IAuditable.UpdatedBy)).CurrentValue = user;
             }
         }
     }

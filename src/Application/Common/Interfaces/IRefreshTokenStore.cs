@@ -7,4 +7,6 @@ public interface IRefreshTokenStore
 
     /// <summary>Révoque un refresh token (logout). Idempotent : aucune erreur si déjà révoqué ou inconnu.</summary>
     Task RevokeAsync(string rawToken, CancellationToken cancellationToken);
+    /// <summary>Révoque toutes les sessions actives d'un utilisateur (réutilisation détectée, mot de passe réinitialisé).</summary>
+    Task RevokeAllAsync(Guid userId, CancellationToken cancellationToken);
 }

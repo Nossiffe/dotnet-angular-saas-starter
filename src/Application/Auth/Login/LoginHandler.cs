@@ -17,14 +17,8 @@ public sealed class LoginHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var user = await identity.FindByEmailAsync(command.Email, cancellationToken);
+        var user = await identity.CheckCredentialsAsync(command.Email, command.Password, cancellationToken);
         if (user is null)
-        {
-            return AuthErrors.InvalidCredentials;
-        }
-
-        var passwordOk = await identity.CheckPasswordAsync(user.Id, command.Password, cancellationToken);
-        if (!passwordOk)
         {
             return AuthErrors.InvalidCredentials;
         }
@@ -51,6 +45,7 @@ public sealed class LoginHandler(
             SELECT "OrganizationId", "Role"
             FROM "OrganizationMemberships"
             WHERE "UserId" = @UserId
+            ORDER BY "Id"
             """,
             new { UserId = user.Id },
             cancellationToken: cancellationToken))).ToList();
@@ -60,10 +55,9 @@ public sealed class LoginHandler(
             return AuthErrors.InvalidCredentials;
         }
 
-        var membership = command.TenantId is { } requested
-            && rows.Exists(m => m.OrganizationId == requested)
-            ? rows.First(m => m.OrganizationId == requested)
-            : rows[0];
+        // Sans organisation demandée (ou si l'utilisateur n'en est pas membre), la plus ancienne
+        // adhésion : les Id sont des UUID v7, donc triés par date de création.
+        var membership = rows.Find(m => m.OrganizationId == command.TenantId) ?? rows[0];
 
         var tenantId = membership.OrganizationId;
         var tenantRole = membership.Role;

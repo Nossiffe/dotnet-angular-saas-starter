@@ -12,18 +12,22 @@ public sealed class Product : AggregateRoot<ProductId>, IAuditable, ISoftDeletab
     public string Name { get; private set; } = null!;
     public Money Price { get; private set; } = null!;
 
-    // ITenantOwned — discriminant tenant, renseigné par l'intercepteur.
-    public Guid TenantId { get; set; }
+    // Tenant, audit et suppression logique : renseignés par l'intercepteur EF, jamais par le code
+    // métier. Les setters privés n'existent que pour EF, d'où la suppression de S1144.
+#pragma warning disable S1144
+    // ITenantOwned
+    public Guid TenantId { get; private set; }
 
     // IAuditable
-    public DateTimeOffset CreatedAt { get; set; }
-    public string? CreatedBy { get; set; }
-    public DateTimeOffset? UpdatedAt { get; set; }
-    public string? UpdatedBy { get; set; }
+    public DateTimeOffset CreatedAt { get; private set; }
+    public string? CreatedBy { get; private set; }
+    public DateTimeOffset? UpdatedAt { get; private set; }
+    public string? UpdatedBy { get; private set; }
 
     // ISoftDeletable
-    public bool IsDeleted { get; set; }
-    public DateTimeOffset? DeletedAt { get; set; }
+    public bool IsDeleted { get; private set; }
+    public DateTimeOffset? DeletedAt { get; private set; }
+#pragma warning restore S1144
 
     public static Product Create(string name, Money price)
     {

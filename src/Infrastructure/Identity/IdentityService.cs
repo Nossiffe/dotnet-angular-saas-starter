@@ -6,9 +6,10 @@ using Saas.Domain.Identity;
 
 namespace Saas.Infrastructure.Identity;
 
-public sealed class IdentityService(
+internal sealed class IdentityService(
     UserManager<ApplicationUser> users,
-    SignInManager<ApplicationUser> signIn) : IIdentityService
+    SignInManager<ApplicationUser> signIn,
+    DummyPasswordCheck dummyPasswordCheck) : IIdentityService
 {
     private static readonly IReadOnlyDictionary<string, string[]> _emptyErrors =
         new Dictionary<string, string[]>(StringComparer.Ordinal);
@@ -44,16 +45,21 @@ public sealed class IdentityService(
         return user is null ? null : new AppUser(user.Id, user.Email!, user.EmailConfirmed);
     }
 
-    public async Task<bool> CheckPasswordAsync(Guid userId, string password, CancellationToken cancellationToken)
+    public async Task<AppUser?> CheckCredentialsAsync(string email, string password, CancellationToken cancellationToken)
     {
-        var user = await users.FindByIdAsync(userId.ToString());
-        if (user is null)
+        var user = await users.FindByEmailAsync(email);
+
+        // Sans compte, ou compte verrouillé, Identity répondrait sans calculer de hash PBKDF2
+        // (~400 ms à 210 000 itérations) : la durée de la réponse révélerait quels e-mails ont un
+        // compte. On calcule donc un hash de même coût dans tous les cas.
+        if (user is null || await users.IsLockedOutAsync(user))
         {
-            return false;
+            dummyPasswordCheck.Run(users.PasswordHasher, password);
+            return null;
         }
 
         var result = await signIn.CheckPasswordSignInAsync(user, password, lockoutOnFailure: true);
-        return result.Succeeded;
+        return result.Succeeded ? new AppUser(user.Id, user.Email!, user.EmailConfirmed) : null;
     }
 
     public async Task<IReadOnlyList<string>> GetRolesAsync(Guid userId, CancellationToken cancellationToken)
@@ -87,7 +93,12 @@ public sealed class IdentityService(
             return false;
         }
 
-        var result = await users.ConfirmEmailAsync(user, Decode(token));
+        if (TryDecode(token) is not { } decoded)
+        {
+            return false;
+        }
+
+        var result = await users.ConfirmEmailAsync(user, decoded);
         return result.Succeeded;
     }
 
@@ -128,7 +139,12 @@ public sealed class IdentityService(
             return false;
         }
 
-        var result = await users.ResetPasswordAsync(user, Decode(token), newPassword);
+        if (TryDecode(token) is not { } decoded)
+        {
+            return false;
+        }
+
+        var result = await users.ResetPasswordAsync(user, decoded, newPassword);
         return result.Succeeded;
     }
 
@@ -136,6 +152,17 @@ public sealed class IdentityService(
     private static string Encode(string token)
         => WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
 
-    private static string Decode(string token)
-        => Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
+    // Un token reçu d'un lien peut être tronqué ou forgé : un Base64Url invalide est un token
+    // invalide (400), pas une erreur serveur.
+    private static string? TryDecode(string token)
+    {
+        try
+        {
+            return Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
 }

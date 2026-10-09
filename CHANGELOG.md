@@ -25,9 +25,21 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Job gitleaks en échec sur les pull requests (permission `pull-requests: read` manquante).
 - `.env.example` : nom de variable SMTP corrigé (`Email__UseSslOnConnect`), variables inutilisées retirées.
 - `OutboxProcessor` utilise `IDateTimeProvider` (testabilité).
+- Une erreur de validation produisait trois logs d'erreur, dont un faux 500 ; elle est maintenant journalisée une fois, en 400.
+- Les logs n'atteignaient pas le provider OpenTelemetry : Serilog les transmet maintenant aux providers enregistrés.
 
 ### Removed
 - Package `Microsoft.Extensions.Http.Resilience`, référencé mais jamais utilisé.
+
+### Security
+- Connexion : même coût de hash pour un e-mail inconnu ou un compte verrouillé que pour un mauvais mot de passe (oracle de timing fermé).
+- Un jeton de confirmation ou de réinitialisation mal formé renvoie 400 au lieu de 500.
+- Le refresh token est refusé et révoqué si l'utilisateur n'est plus membre de l'organisation (il recevait le rôle Member).
+- Une réinitialisation de mot de passe révoque toutes les sessions ouvertes.
+- Organisation par défaut à la connexion : la plus ancienne adhésion, au lieu d'un ordre SQL indéterminé.
+- `TenantId`, l'audit et la suppression logique n'ont plus de setter public ; l'intercepteur couvre aussi `SaveChanges` synchrone et refuse un changement de tenant.
+- Routes `/organizations/{orgId}` : contrôle de portée centralisé dans `OrganizationScopeFilter` ; test qui vérifie le filtre tenant de chaque requête Dapper.
+- Rôle Admin effectif (invitations, suppression de produits) ; changement de rôle réservé à l'Owner. Les tests appliquent les vraies policies au lieu d'une copie.
 
 ### Migrations DB
 - (aucune)
