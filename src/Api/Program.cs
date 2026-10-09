@@ -152,12 +152,6 @@ builder.Services.AddRequestTimeouts(options =>
         Timeout = TimeSpan.FromSeconds(timeoutSeconds),
     });
 
-// Output cache : câblé sans policy par défaut — opt-in strict par endpoint
-// (.CacheOutput(...)). Multi-tenant : ne jamais l'appliquer à un endpoint
-// authentifié/tenant-scoped sans VaryBy explicite sur le tenant — le défaut
-// (les requêtes authentifiées ne sont pas cachées) protège, ne pas le contourner.
-builder.Services.AddOutputCache();
-
 AddCors(builder);
 AddRateLimiter(builder);
 AddOpenTelemetry(builder);
@@ -238,10 +232,6 @@ app.UseCors("spa");
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
-// Après UseRouting, UseCors, UseAuthentication et UseAuthorization : sinon le cache peut servir
-// à un utilisateur une réponse mise en cache pour un autre
-// (learn.microsoft.com/aspnet/core/performance/caching/output).
-app.UseOutputCache();
 
 if (app.Environment.IsDevelopment())
 {

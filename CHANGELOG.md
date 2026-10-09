@@ -7,7 +7,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 ## [Unreleased]
 
 ### Added
-- Timeouts de requête globaux (`RequestTimeouts:DefaultSeconds`, 30 s par défaut) et output cache opt-in strict (aucune policy par défaut, activation par endpoint via `.CacheOutput(...)`).
+- Timeouts de requête globaux (`RequestTimeouts:DefaultSeconds`, 30 s par défaut).
 - Cache HybridCache de la lecture d'un produit, avec clé et tag propres au tenant, invalidé à la modification et à la suppression.
 - Tests Playwright de la page de connexion, API simulée, avec un contrôle axe des règles WCAG 2.2 A et AA : toute violation détectée fait échouer le test (axe ne vérifie qu'une partie des critères WCAG).
 - Job Hangfire quotidien `purge-processed-outbox-messages` : supprime les messages de l'outbox traités depuis plus de 7 jours.
