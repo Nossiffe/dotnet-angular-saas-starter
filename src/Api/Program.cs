@@ -99,7 +99,11 @@ builder.Services.AddProblemDetails(options =>
     options.CustomizeProblemDetails = context =>
         context.ProblemDetails.Extensions["traceId"] =
             System.Diagnostics.Activity.Current?.Id ?? context.HttpContext.TraceIdentifier);
-builder.Services.AddOpenApi(options => options.AddDocumentTransformer<BearerSecuritySchemeTransformer>());
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+    options.AddOperationTransformer<BearerSecuritySchemeTransformer>();
+});
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>(name: "db", tags: ["ready"]);

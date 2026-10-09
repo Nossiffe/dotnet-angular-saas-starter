@@ -3,8 +3,8 @@ import { HttpClient, HttpContext } from '@angular/common/http';
 import { Observable, catchError, map, of, tap } from 'rxjs';
 import type {
   AuthResponse,
-  LoginCommand,
-  RegisterCommand,
+  LoginRequest,
+  RegisterRequest,
   PostApiV1AuthLoginData,
   PostApiV1AuthRegisterData,
   PostApiV1AuthForgotPasswordData,
@@ -15,8 +15,8 @@ import { SKIP_ERROR_TOAST } from '../error/http-error.interceptor';
 
 // Réponse jeton = DTO généré `AuthResponse` (Hey API). Pas d'interface à la main.
 export type TokenResponse = AuthResponse;
-// Identifiants de connexion = DTO généré `LoginCommand` (tenantId facultatif côté UI).
-export type Credentials = Omit<LoginCommand, 'tenantId'> & Partial<Pick<LoginCommand, 'tenantId'>>;
+// Identifiants de connexion = DTO généré `LoginRequest` (tenantId facultatif côté UI).
+export type Credentials = Omit<LoginRequest, 'tenantId'> & Partial<Pick<LoginRequest, 'tenantId'>>;
 export interface CurrentUser {
   email: string;
 }
@@ -35,7 +35,7 @@ export class AuthService {
     return this.accessToken();
   }
 
-  register(body: RegisterCommand): Observable<unknown> {
+  register(body: RegisterRequest): Observable<unknown> {
     const reqBody: PostApiV1AuthRegisterData['body'] = body;
     return this.http.post('/api/v1/auth/register', reqBody, {
       context: new HttpContext().set(SKIP_ERROR_TOAST, true),

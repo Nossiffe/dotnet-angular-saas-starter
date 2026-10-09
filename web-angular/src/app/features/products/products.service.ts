@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, httpResource } from '@angular/common/http';
 import type { PagedResultOfProductDto, PostApiV1ProductsData } from '../../api/generated';
 
-// Corps de création = DTO généré `CreateProductCommand` (via le type Hey API). Pas d'interface à la main.
+// Corps de création = DTO généré `CreateProductRequest` (via le type Hey API). Pas d'interface à la main.
 export type ProductInput = PostApiV1ProductsData['body'];
 
 @Injectable({ providedIn: 'root' })

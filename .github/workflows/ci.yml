@@ -36,6 +36,14 @@ jobs:
           cache: true
           cache-dependency-path: '**/packages.lock.json'
       - run: dotnet build
+      # Le build régénère web-angular/openapi.json : un écart avec le fichier versionné veut dire
+      # qu'un endpoint a changé sans que le contrat (et les types du front) suivent.
+      - name: Contrat OpenAPI à jour
+        run: |
+          if ! git diff --exit-code -- web-angular/openapi.json; then
+            echo "::error file=web-angular/openapi.json::Contrat OpenAPI périmé : lancer 'dotnet build src/Api' et committer web-angular/openapi.json."
+            exit 1
+          fi
       # Microsoft Testing Platform natif (global.json §test) : couverture via l'extension
       # Microsoft.Testing.Extensions.CodeCoverage — options passées directement (sans « -- »).
       - run: dotnet test --coverage --coverage-output-format cobertura --results-directory ./coverage

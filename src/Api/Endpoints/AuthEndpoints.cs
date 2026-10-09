@@ -59,19 +59,20 @@ public sealed class AuthEndpoints : IEndpoint
             .ProducesProblem(StatusCodes.Status400BadRequest);
     }
 
-    private static async Task<IResult> Register(RegisterCommand cmd, ISender sender, CancellationToken ct)
+    // 201 sans Location : l'API n'expose pas de ressource « utilisateur » à lire.
+    private static async Task<IResult> Register(RegisterRequest request, ISender sender, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(cmd);
-        var result = await sender.Send(cmd, ct);
+        ArgumentNullException.ThrowIfNull(request);
+        var result = await sender.Send(new RegisterCommand(request.Email, request.Password), ct);
         return result.Match(
-            id => Results.Created($"/users/{id}", new RegisterResponse(id)),
+            id => Results.Created((string?)null, new RegisterResponse(id)),
             _ => result.ToHttpResult());
     }
 
-    private static async Task<IResult> Login(LoginCommand cmd, ISender sender, HttpResponse response, CancellationToken ct)
+    private static async Task<IResult> Login(LoginRequest request, ISender sender, HttpResponse response, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(cmd);
-        var result = await sender.Send(cmd, ct);
+        ArgumentNullException.ThrowIfNull(request);
+        var result = await sender.Send(new LoginCommand(request.Email, request.Password, request.TenantId), ct);
         return result.Match(
             auth =>
             {

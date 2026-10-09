@@ -90,15 +90,18 @@ contient des requêtes).
   mesuré ici (modèle actuel : quelques agrégats, très loin des « centaines/milliers » où le gain
   devient perceptible). YAGNI à cette taille de modèle.
 
-### Régénérer les types TypeScript de l'API
+### Régénérer le contrat OpenAPI et les types TypeScript
 
-`web-angular/openapi.json` est le contrat versionné ; les types TypeScript en sont générés
-(`src/app/api/generated/`, non versionné). Après un changement d'endpoint, API lancée :
+Le build de l'API écrit le contrat dans `web-angular/openapi.json`, le fichier versionné dont le
+front génère ses types (`src/app/api/generated/`, non versionné). Après un changement d'endpoint :
 
 ```bash
-curl http://localhost:5123/openapi/v1.json -o web-angular/openapi.json
-cd web-angular && npm run api:gen
+dotnet build src/Api                 # met à jour web-angular/openapi.json
+cd web-angular && npm run api:gen    # régénère les types TypeScript
 ```
+
+Committer `web-angular/openapi.json` avec le changement : la CI échoue si le contrat versionné
+diffère de celui que produit le build.
 
 ---
 

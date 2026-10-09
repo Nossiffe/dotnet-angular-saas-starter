@@ -1,5 +1,6 @@
 # Generated files
 src/app/api/generated/
+openapi.json
 dist/
 node_modules/
 

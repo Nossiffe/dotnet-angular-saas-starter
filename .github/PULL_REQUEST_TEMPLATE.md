@@ -20,7 +20,7 @@
 - [ ] Un ADR a été créé si la PR implique une décision d'architecture significative
 - [ ] Aucun secret/credential n'est inclus dans les fichiers committés
 - [ ] La migration EF a été relue avant commit (si applicable)
-- [ ] `web-angular/openapi.json` et les types TypeScript ont été régénérés (`npm run api:gen`) si un endpoint a changé
+- [ ] `web-angular/openapi.json` est à jour (`dotnet build src/Api`) si un endpoint a changé
 
 ## Notes de revue
 
