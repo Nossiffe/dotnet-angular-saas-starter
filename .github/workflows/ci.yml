@@ -47,25 +47,16 @@ jobs:
       # Microsoft Testing Platform natif (global.json §test) : couverture via l'extension
       # Microsoft.Testing.Extensions.CodeCoverage — options passées directement (sans « -- »).
       - run: dotnet test --coverage --coverage-output-format cobertura --results-directory ./coverage
+      # Un rapport Cobertura par projet de test, sur les mêmes lignes : ReportGenerator (outil local,
+      # .config/dotnet-tools.json) les réunit ligne par ligne, hors migrations EF et code généré.
       - name: Résumé couverture
         run: |
-          # defusedxml plutôt que le parseur XML de la stdlib (XXE, billion laughs).
-          pip install --quiet defusedxml
-          python3 - <<'EOF'
-          import glob
-          import os
-          import defusedxml.ElementTree as ET
-
-          # MTP nomme les fichiers <guid>.cobertura.xml (un par projet de test), à plat
-          # dans --results-directory — glob sur *.cobertura.xml (≠ coverage.cobertura.xml VSTest).
-          files = sorted(glob.glob("coverage/**/*.cobertura.xml", recursive=True))
-          covered = sum(int(ET.parse(f).getroot().get("lines-covered")) for f in files)
-          valid = sum(int(ET.parse(f).getroot().get("lines-valid")) for f in files)
-          rate = (covered / valid * 100) if valid else 0.0
-          print(f"Couverture lignes backend : {rate:.1f}% ({covered}/{valid}, {len(files)} projet(s))")
-          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-              f.write(f"### Couverture backend : {rate:.1f}% (lignes, {covered}/{valid} sur {len(files)} projet(s))\n")
-          EOF
+          dotnet tool restore
+          dotnet reportgenerator "-reports:coverage/**/*.cobertura.xml" -targetdir:coverage/summary \
+            -reporttypes:MarkdownAssembliesSummary "-filefilters:-*Migrations*;-*.g.cs;-*.generated.cs" \
+            "-title:Couverture backend"
+          tee -a "$GITHUB_STEP_SUMMARY" < coverage/summary/Summary.md
+          echo "Tests unitaires et d'intégration réunis, hors migrations EF et code généré." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-backend
