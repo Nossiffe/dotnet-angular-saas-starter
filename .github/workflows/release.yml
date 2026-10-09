@@ -66,7 +66,7 @@ jobs:
           # (cache-poisoning — https://docs.zizmor.sh/audits/#cache-poisoning)
           # note : `package-manager-cache` n'existe pas encore en tant qu'input
           # sur actions/setup-node v4 (no-op aujourd'hui) — il devient actif dès
-          # le bump v5 (Renovate ouvrira la PR) ; laissé en place volontairement
+          # le bump v5 (Dependabot ouvrira la PR) ; laissé en place volontairement
           # pour ce jour-là.
           package-manager-cache: false
       - name: SBOM backend (CycloneDX)

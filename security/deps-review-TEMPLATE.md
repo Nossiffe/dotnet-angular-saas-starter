@@ -45,7 +45,7 @@ _Si vide, écrire « Aucune »._
 
 ## 5. Actions ouvertes
 
-- [ ] _ex._ Vérifier que le groupage Renovate `nuget non-major` ne mélange pas des majors
+- [ ] _ex._ Vérifier que le groupage Dependabot `nuget-minor-patch` ne mélange pas des majors
 - [ ] _ex._ Réexaminer l'exception `some-transitive-pkg` avant YYYY-MM-DD
 
 ## 6. Santé des contrôles
@@ -53,7 +53,7 @@ _Si vide, écrire « Aucune »._
 - **`dotnet-audit`** (deps-audit.yml) — dernier run vert : YYYY-MM-DD
 - **`npm-audit`** (deps-audit.yml, web-angular) — dernier run vert : YYYY-MM-DD
 - **Runs rouges depuis la dernière revue** : N (lien vers les runs si pertinent)
-- **PR Renovate fusionnées depuis la dernière revue** : N
+- **PR Dependabot fusionnées depuis la dernière revue** : N
 
 ## 7. Validation
 

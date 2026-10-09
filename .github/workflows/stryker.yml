@@ -28,7 +28,7 @@ jobs:
   # stryker-net ne supporte pas MTP. Le job reste câblé (cron hebdo +
   # workflow_dispatch) comme sonde : dès qu'un run produit de vrais compteurs
   # Killed (≠ 0), le support MTP sera arrivé → retirer ce continue-on-error.
-  # Réévaluer à chaque montée de dotnet-stryker (Renovate ouvrira les PRs) et
+  # Réévaluer à chaque montée de dotnet-stryker (Dependabot ouvrira les PRs) et
   # surveiller #3094.
   # ---------------------------------------------------------------------------
   stryker:

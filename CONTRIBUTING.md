@@ -180,10 +180,8 @@ dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulemen
 | `release.yml` | Tag `v*` + manuel | Build + push image GHCR, SBOM (CycloneDX backend + npm du front), attestation de provenance (SLSA build L2) | Voir `DEPLOYMENT.md` § Release — image, SBOM, attestation |
 | `codeql.yml` / `security.yml` | Push/PR (préexistants) | SAST (CodeQL C#/TS) + secret scanning (gitleaks) | Voir l'onglet Security du repo |
 
-> **CodeQL sur repo privé** : `codeql.yml` requiert GitHub Advanced Security sur un
-> dépôt privé (payant hors Enterprise) — sans ça, le job `analyze` ressort rouge,
-> pré-existant à ce chantier. Activer Advanced Security ou désactiver le workflow
-> selon le plan GitHub du dépôt.
+> **CodeQL** : gratuit sur un dépôt public. Tant que le dépôt est privé (sans GitHub
+> Advanced Security), le job `analyze` est ignoré au lieu d'échouer.
 
 > **Merge queue** : si la merge queue GitHub est activée sur `main`, ajouter le
 > déclencheur `merge_group:` à chaque workflow marqué comme required check (déjà
@@ -192,13 +190,12 @@ dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulemen
 > de `smoke.yml` : un run de merge queue n'a pas le même diff `paths` qu'une PR —
 > un required check qui ne se déclenche jamais bloquerait la queue indéfiniment.
 
-### Renovate — mises à jour de dépendances
+### Dependabot — mises à jour de dépendances
 
-`renovate.json5` remplace Dependabot (`config:best-practices`, cooldown `minimumReleaseAge: 7 days`,
-groupage par écosystème, `@hey-api/openapi-ts` jamais groupé — pré-1.0, minors potentiellement
-breaking). **Action requise une seule fois côté utilisateur** : installer l'app GitHub
-*Mend Renovate* sur le dépôt (https://github.com/apps/renovate) — le fichier de config seul ne
-déclenche rien tant que l'app n'est pas installée sur le repo.
+`.github/dependabot.yml` ouvre chaque lundi des PR groupées par écosystème : NuGet (mineures et
+correctifs), npm (Angular d'un côté, le reste de l'autre ; `@hey-api/openapi-ts`, pré-1.0, garde
+sa propre PR), GitHub Actions et images Docker. Un délai de 7 jours (`cooldown`) écarte les
+versions publiées trop récemment. Les montées majeures arrivent en PR séparées.
 
 ### Procédure d'exception CVE
 
@@ -260,7 +257,7 @@ le jour où la mesure redeviendra fiable ; ils ne sont pas appliqués aujourd'hu
 Un futur run hebdomadaire qui **produit un rapport avec des compteurs `Killed` non nuls**
 (au lieu de s'abandonner sur « MTP not supported ») signalera que le support MTP est arrivé
 côté stryker-net. Dans ce cas : retirer le `continue-on-error: true` du job, et réévaluer les
-seuils `break` à la lumière du vrai score. Renovate ouvrira les PRs de montée de version de
+seuils `break` à la lumière du vrai score. Dependabot ouvrira les PRs de montée de version de
 `dotnet-stryker` — chaque montée est l'occasion de relancer les deux configs et de surveiller
 [#3094](https://github.com/stryker-mutator/stryker-net/issues/3094).
 

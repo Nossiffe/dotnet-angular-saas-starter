@@ -13,7 +13,7 @@ laissé en l'état (et pourquoi), et à quelle échéance c'est réexaminé. Il 
 |---|---|---|
 | À chaque PR touchant les manifests de dépendances | `.github/workflows/deps-audit.yml` | Bloque le merge si CVE High/Critical (direct ou transitif) |
 | Hebdomadaire (lundi 05h UTC) | `deps-audit.yml` (cron) | Attrape les CVE publiées sans changement de code |
-| Hebdomadaire (lundi 00h–04h Europe/Zurich) | Renovate (`renovate.json5`) | PR automatiques de mise à jour, groupées par écosystème |
+| Hebdomadaire (lundi 05h Europe/Zurich) | Dependabot (`.github/dependabot.yml`) | PR automatiques de mise à jour, groupées par écosystème |
 | Continu, à chaque build | `NuGetAuditLevel=low` (`Directory.Build.props`) | Filet local : toute sévérité NuGet remonte en warning (→ erreur via `TreatWarningsAsErrors`) dès `dotnet build`, sans attendre le CI |
 | Ad hoc (avant merge, avant release) | Revue manuelle datée (ce dossier) | Documente une décision fix/pin/exception |
 
@@ -38,23 +38,20 @@ High/Critical) :
 Déclencheurs : PR (si les manifests changent), cron hebdomadaire, et
 `workflow_dispatch` (relance manuelle).
 
-### 2. Renovate — `renovate.json5`
+### 2. Dependabot — `.github/dependabot.yml`
 
-Remplace Dependabot (voir historique git : `.github/dependabot.yml` supprimé).
 Points clés :
 
-- `extends: config:best-practices` — inclut le pin des SHA d'actions GitHub
-  (`helpers:pinGitHubActionDigests`), digests, réglages par défaut sains.
-- `minimumReleaseAge: '7 days'` — cooldown anti-supply-chain : Renovate ne
-  propose pas un package publié il y a moins de 7 jours (leçon des attaques de
-  type « ver npm » 2025 : un package compromis est généralement détecté et
-  retiré avant 7 jours).
-- Groupage : mises à jour mineures/patch groupées par écosystème (`nuget non-major`,
-  `npm non-major`) pour limiter le bruit de PR ; `@hey-api/openapi-ts` (pré-1.0,
-  minors potentiellement breaking) reste **hors groupe**, une PR par mise à jour.
-- **Action requise côté utilisateur** : Renovate nécessite l'installation de
-  l'app GitHub *Mend Renovate* sur le dépôt — le fichier de config seul ne
-  déclenche rien (voir `CONTRIBUTING.md`).
+- `cooldown: default-days: 7` — délai anti-supply-chain : Dependabot ne propose
+  pas une version publiée il y a moins de 7 jours (leçon des attaques de type
+  « ver npm » 2025 : un package compromis est généralement détecté et retiré
+  avant 7 jours).
+- Groupage : mises à jour mineures et correctifs groupés par écosystème
+  (`nuget-minor-patch`, `angular`, `npm-minor-patch`, `github-actions`, `docker`)
+  pour limiter le bruit de PR ; `@hey-api/openapi-ts` (pré-1.0, minors
+  potentiellement breaking) reste **hors groupe**, une PR par mise à jour.
+- Les actions GitHub restent épinglées par SHA : Dependabot met à jour le SHA et
+  le commentaire de version ensemble.
 
 ### 3. `NuGetAuditLevel=low` — `Directory.Build.props`
 
@@ -131,7 +128,7 @@ upstream, breaking change non absorbable dans le délai, etc.) :
 
 - **Politique** : ce fichier.
 - **Configuration des contrôles** : `.github/workflows/deps-audit.yml`,
-  `renovate.json5`, `Directory.Build.props` (`NuGetAuditLevel`).
+  `.github/dependabot.yml`, `Directory.Build.props` (`NuGetAuditLevel`).
 - **Preuve d'exécution** : historique des runs GitHub Actions du workflow
   *Dependencies audit (CVE)*.
 - **Décisions historiques et exceptions actives** : fichiers
