@@ -23,7 +23,7 @@ public sealed class DependencyRuleTests
     public void Domain_references_no_framework()
     {
         var references = _domainAsm.GetReferencedAssemblies().Select(a => a.Name!).ToList();
-        references.ShouldContain("ErrorOr"); // le test lit bien les références réelles
+        references.ShouldContain("ErrorOr", StringComparer.Ordinal); // le test lit bien les références réelles
 
         var forbidden = references
             .Where(name => !string.Equals(name, "System", StringComparison.Ordinal)

@@ -48,14 +48,14 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         accept.StatusCode.ShouldBe(HttpStatusCode.OK);
         var body = await accept.Content.ReadFromJsonAsync<AcceptResponse>(ct);
         body.ShouldNotBeNull();
-        body!.IsNewUser.ShouldBeTrue();
+        body.IsNewUser.ShouldBeTrue();
 
         var login = await anon.PostAsJsonAsync(
             "/api/v1/auth/login", new { email, password }, ct);
         login.StatusCode.ShouldBe(HttpStatusCode.OK);
         var auth = await login.Content.ReadFromJsonAsync<AuthResponse>(ct);
         auth.ShouldNotBeNull();
-        auth!.AccessToken.ShouldNotBeNullOrWhiteSpace();
+        auth.AccessToken.ShouldNotBeNullOrWhiteSpace();
 
         // Le JWT porte le tenant de l'organisation invitée → membership effectif.
         ReadJwtClaim(auth.AccessToken, "tenant").ShouldBe(orgId.ToString());
@@ -85,7 +85,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         accept.StatusCode.ShouldBe(HttpStatusCode.OK);
         var body = await accept.Content.ReadFromJsonAsync<AcceptResponse>(ct);
         body.ShouldNotBeNull();
-        body!.IsNewUser.ShouldBeFalse();
+        body.IsNewUser.ShouldBeFalse();
     }
 
     // InvitationErrors.AlreadyPending est un Error.Conflict, comme la branche 23505 du
@@ -178,7 +178,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
             $"/api/v1/organizations/{orgId}/invitations/{created!.InvitationId}/resend", content: null, ct);
         resend.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         var (_, token2) = factory.Emails.For(email)!.ExtractInvitationLink();
-        token2.ShouldNotBe(token1);
+        token2.ShouldNotBe(token1, StringComparer.Ordinal);
 
         // L'ancien token n'est plus valide → 400.
         var acceptOld = await anon.PostAsJsonAsync(
@@ -216,7 +216,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var list = await owner.GetFromJsonAsync<List<InvitationDto>>(
             $"/api/v1/organizations/{orgId}/invitations", ct);
         list.ShouldNotBeNull();
-        list!.Count.ShouldBe(2);
+        list.Count.ShouldBe(2);
         list.ShouldAllBe(i => i.Email != null);
     }
 
@@ -392,7 +392,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
 
             var organization = await organizations.GetByIdAsync(OrganizationId.From(orgId), ct);
             organization.ShouldNotBeNull();
-            organization!.AddMember(user!.Id, OrganizationRole.Member);
+            organization.AddMember(user.Id, OrganizationRole.Member);
             await uow.SaveChangesAsync(ct);
 
             rawToken = tokens.GenerateRawToken();
@@ -415,7 +415,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         accept.StatusCode.ShouldBe(HttpStatusCode.OK);
         var body = await accept.Content.ReadFromJsonAsync<AcceptResponse>(ct);
         body.ShouldNotBeNull();
-        body!.IsNewUser.ShouldBeFalse();
+        body.IsNewUser.ShouldBeFalse();
     }
 
     /// <summary>Décode le payload d'un JWT (base64url) et lit un claim par nom.</summary>

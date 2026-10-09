@@ -33,7 +33,7 @@ public sealed class ProductsEndpointTests(PostgresApiFactory factory)
         // List (Dapper) — paginated response
         var page = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products", ct);
         page.ShouldNotBeNull();
-        page!.Items.ShouldContain(p => string.Equals(p.Name, name, StringComparison.Ordinal));
+        page.Items.ShouldContain(p => string.Equals(p.Name, name, StringComparison.Ordinal));
         var id = page.Items.Single(p => string.Equals(p.Name, name, StringComparison.Ordinal)).Id;
 
         var got = await client.GetFromJsonAsync<ProductDto>($"/api/v1/products/{id}", ct);
@@ -79,7 +79,7 @@ public sealed class ProductsEndpointTests(PostgresApiFactory factory)
 
         var page1 = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products?page=1&pageSize=2", ct);
         page1.ShouldNotBeNull();
-        page1!.Items.Count.ShouldBe(2);
+        page1.Items.Count.ShouldBe(2);
         page1.TotalCount.ShouldBe(4);
         page1.TotalPages.ShouldBe(2);
         page1.Page.ShouldBe(1);
@@ -87,7 +87,7 @@ public sealed class ProductsEndpointTests(PostgresApiFactory factory)
 
         var page2 = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products?page=2&pageSize=2", ct);
         page2.ShouldNotBeNull();
-        page2!.Items.Count.ShouldBe(2);
+        page2.Items.Count.ShouldBe(2);
         page2.TotalCount.ShouldBe(4);
     }
 }

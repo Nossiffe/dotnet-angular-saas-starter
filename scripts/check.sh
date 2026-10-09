@@ -8,7 +8,6 @@ cd "$ROOT"
 
 echo "▶ build + tests backend"
 dotnet build
-docker network create devnet 2>/dev/null || true
 dotnet test
 
 echo "▶ check web-angular"

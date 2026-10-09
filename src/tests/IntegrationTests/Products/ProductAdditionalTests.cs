@@ -37,7 +37,7 @@ public sealed class ProductAdditionalTests(PostgresApiFactory factory)
 
         var page = await clientA.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products?pageSize=100", ct);
         page.ShouldNotBeNull();
-        var productId = page!.Items.Single(p => string.Equals(p.Name, name, StringComparison.Ordinal)).Id;
+        var productId = page.Items.Single(p => string.Equals(p.Name, name, StringComparison.Ordinal)).Id;
 
         // Tenant B demande ce produit par ID → 404 (global query filter EF)
         var resp = await clientB.GetAsync($"/api/v1/products/{productId}", ct);

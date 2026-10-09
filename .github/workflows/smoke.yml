@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       # Reprendre les mêmes valeurs que .env (sans secrets sensibles)
       POSTGRES_USER: saas
@@ -39,9 +39,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
-      - name: Créer le réseau Docker partagé
-        run: docker network create devnet 2>/dev/null || true
 
       - name: Démarrer Postgres + Mailpit (docker compose)
         run: docker compose up -d db mailpit

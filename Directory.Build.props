@@ -19,10 +19,12 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <NuGetAudit>true</NuGetAudit>
     <NuGetAuditMode>all</NuGetAuditMode>
-    <!-- NU1901-NU1904 sont des warnings → erreurs via TreatWarningsAsErrors.
-         Level low = toute sévérité remonte (le tri High/Critical bloquant vit
-         dans deps-audit.yml ; ici, tout est bloquant par design). -->
+    <!-- Toute sévérité remonte en warning (NU1901 à NU1904), sans faire échouer le build :
+         un avis publié du jour au lendemain ne doit pas empêcher de compiler un clone neuf.
+         Le blocage High/Critical vit dans deps-audit.yml. NU1900 (source des avis
+         injoignable) ne bloque pas non plus. -->
     <NuGetAuditLevel>low</NuGetAuditLevel>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1900;NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
   </PropertyGroup>
 
   <!-- Builds déterministes / reproductibles -->

@@ -179,7 +179,7 @@ dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulemen
 
 | Workflow | Déclencheur | Rôle | Si ça casse |
 |---|---|---|---|
-| `ci.yml` | Push/PR/`merge_group` sur `main` | Build + tests (unit/intégration/archi) + front Angular (lint/format/typecheck, tests unitaires, build, Playwright + axe sur la page de connexion) + vérification des chemins cités dans la doc (`scripts/check-docs.sh`) + couverture backend (Microsoft.CodeCoverage MTP → summary + artifact, **non bloquante** — cf. § Couverture) | Lire le log du job en échec (build/tests/front) ; une couverture qui baisse n'échoue jamais le job, c'est un signal |
+| `ci.yml` | Push/PR/`merge_group` sur `main` | Build + tests (unit/intégration/archi) + front Angular (lint/format/typecheck, tests unitaires, build, Playwright + axe sur la page de connexion) + vérification des chemins cités dans la doc (`scripts/check-docs.sh`) + couverture backend (Microsoft.CodeCoverage MTP, résumé ReportGenerator + artifact, **non bloquante** — cf. § Couverture) | Lire le log du job en échec (build/tests/front) ; une couverture qui baisse n'échoue jamais le job, c'est un signal |
 | `smoke.yml` | Push `main` + PR touchant le backend (`src/`, `Directory.Packages.props`, `scripts/smoke.sh`, `docker-compose.yml`) + manuel | Bout-en-bout réel (Postgres + Mailpit + API + Hangfire) via `scripts/smoke.sh` | Reproduire en local : `docker compose up -d db mailpit && dotnet run --project src/Api` puis `bash scripts/smoke.sh` |
 | `deps-audit.yml` | PR touchant les manifests de deps (`Directory.Packages.props`, `packages.lock.json`, `package.json`/`package-lock.json`) + cron hebdo (lundi 05h UTC) + manuel | Bloque sur CVE High/Critical — `dotnet-audit` (NuGet, direct + transitif) et `npm-audit` (front Angular, dépendances de prod seulement) | Corriger (bump/pin) ou documenter une exception datée — voir § Procédure d'exception CVE ci-dessous |
 | `zizmor.yml` | Push/PR touchant `.github/workflows/**` | Lint de sécurité des workflows GitHub Actions (permissions, injections, cache-poisoning…) — mode console (`advanced-security: false`), exit non nul = bloquant | Reproduire en local : `uvx zizmor .github/workflows/` ; corriger le finding (permissions minimales, pin SHA, échappement d'input) |
@@ -214,11 +214,21 @@ pour être lisible par un auditeur externe sans contexte préalable.
 ### Couverture de code
 
 `ci.yml` collecte la couverture backend via l'extension Microsoft Testing Platform
-`Microsoft.Testing.Extensions.CodeCoverage` (`dotnet test --coverage --coverage-output-format cobertura`,
-format Cobertura) à chaque run, l'affiche en summary et la publie en artifact
-(`coverage-backend`, fichiers `<guid>.cobertura.xml`) — **volontairement non bloquante** : un
-seuil de lignes couvertes se contourne trivialement avec des tests sans assertion. La qualité des
-tests unitaires du Domain est contrôlée par le mutation testing (ci-dessous).
+`Microsoft.Testing.Extensions.CodeCoverage` (`dotnet test --coverage --coverage-output-format cobertura`)
+et publie les rapports en artifact (`coverage-backend`, un fichier `<guid>.cobertura.xml` par
+projet de test). ReportGenerator, outil local déclaré dans `.config/dotnet-tools.json`, les réunit
+ligne par ligne (une ligne est couverte dès qu'un projet de test l'exécute), hors migrations EF et
+code généré, et affiche le résultat par couche dans le résumé du run. Pour obtenir le même rapport
+en local, en HTML dans `coverage/report/index.html` :
+
+```bash
+dotnet test --coverage --coverage-output-format cobertura --results-directory ./coverage
+dotnet tool restore
+dotnet reportgenerator "-reports:coverage/**/*.cobertura.xml" -targetdir:coverage/report "-filefilters:-*Migrations*;-*.g.cs;-*.generated.cs"
+```
+
+La couverture est suivie, pas bloquante : la qualité des tests est mesurée par le mutation testing
+(ci-dessous).
 
 ---
 
@@ -268,8 +278,8 @@ fichiers générés (`.g.cs`) et désactive l'analyse de couverture (`"coverage-
 
 ## Outillage développeur
 
-Démarrage local : voir le Quickstart du `README.md` (réseau Docker, `.env`, clé JWT en
-user-secrets, API sur http://localhost:5123, Angular sur http://localhost:4200).
+Démarrage local : voir le Quickstart du `README.md` (`.env`, clé JWT en user-secrets,
+API sur http://localhost:5123, Angular sur http://localhost:4200).
 
 ```bash
 

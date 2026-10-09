@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   dotnet-audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       pull-requests: write # commentaire d'échec sur la PR
@@ -29,14 +29,10 @@ jobs:
         with:
           dotnet-version: '10.x'
       - name: Restore
-        # TreatWarningsAsErrors=false + NuGetAudit=false : ce restore sert uniquement
-        # à alimenter l'audit ci-dessous, qui fait lui-même le tri de sévérité
-        # (High/Critical bloquant). Sans ça, le restore explose sur la moindre CVE
-        # Low/Moderate (Directory.Build.props impose NuGetAuditLevel=low +
-        # TreatWarningsAsErrors=true en build normal) avant même que le parseur ait
-        # pu trier — le triage ne se ferait jamais. Le garde-fou strict côté build
-        # normal reste inchangé (défense en profondeur, cf. security/README.md).
-        run: dotnet restore Saas.slnx -p:TreatWarningsAsErrors=false -p:NuGetAudit=false
+        # NuGetAudit=false : ce restore sert uniquement à alimenter l'audit ci-dessous,
+        # qui fait lui-même le tri de sévérité (High/Critical bloquant). Les avis
+        # remontés par le restore feraient doublon dans le log.
+        run: dotnet restore Saas.slnx -p:NuGetAudit=false
       - name: Audit NuGet (fail sur High/Critical, direct + transitif)
         run: |
           # `dotnet list package --vulnerable` peut sortir en exit non nul dès qu'une
@@ -75,7 +71,7 @@ jobs:
             "⛔ **deps-audit** : vulnérabilité(s) High/Critical détectée(s) — voir le log du job \`dotnet-audit\` de ce run. Corriger (bump/pin) ou documenter une exception datée via \`security/deps-review-TEMPLATE.md\`."
 
   npm-audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: web-angular

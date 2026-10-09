@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
@@ -65,6 +68,13 @@ if (isBuildTimeOpenApi)
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddEndpoints();
+
+// Le serveur Hangfire exécute les jobs en arrière-plan. Il ne démarre pas pendant la génération
+// OpenAPI au build : pas de base à interroger, et une dizaine de lignes de log à chaque build.
+if (!isBuildTimeOpenApi)
+{
+    builder.Services.AddHangfireServer();
+}
 
 builder.Services.AddMediator(options =>
 {
@@ -142,12 +152,6 @@ builder.Services.AddRequestTimeouts(options =>
         Timeout = TimeSpan.FromSeconds(timeoutSeconds),
     });
 
-// Output cache : câblé sans policy par défaut — opt-in strict par endpoint
-// (.CacheOutput(...)). Multi-tenant : ne jamais l'appliquer à un endpoint
-// authentifié/tenant-scoped sans VaryBy explicite sur le tenant — le défaut
-// (les requêtes authentifiées ne sont pas cachées) protège, ne pas le contourner.
-builder.Services.AddOutputCache();
-
 AddCors(builder);
 AddRateLimiter(builder);
 AddOpenTelemetry(builder);
@@ -163,7 +167,20 @@ if (app.Environment.IsDevelopment()
     await using var scope = app.Services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var strategy = db.Database.CreateExecutionStrategy();
-    await strategy.ExecuteAsync(async () => await db.Database.MigrateAsync());
+    await strategy.ExecuteAsync(async () =>
+    {
+        // Sur une base vide, MigrateAsync lit d'abord la table d'historique absente et EF journalise
+        // cet échec attendu en erreur : la base et la table sont créées avant, pour un premier
+        // lancement propre.
+        var creator = db.GetService<IRelationalDatabaseCreator>();
+        if (!await creator.ExistsAsync())
+        {
+            await creator.CreateAsync();
+        }
+
+        await db.GetService<IHistoryRepository>().CreateIfNotExistsAsync();
+        await db.Database.MigrateAsync();
+    });
 }
 
 // Journal des requêtes avant le gestionnaire d'exceptions : il voit le statut final (400, 409…)
@@ -215,10 +232,6 @@ app.UseCors("spa");
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
-// Après UseRouting, UseCors, UseAuthentication et UseAuthorization : sinon le cache peut servir
-// à un utilisateur une réponse mise en cache pour un autre
-// (learn.microsoft.com/aspnet/core/performance/caching/output).
-app.UseOutputCache();
 
 if (app.Environment.IsDevelopment())
 {
@@ -286,7 +299,7 @@ static void AddRateLimiter(WebApplicationBuilder b)
             }
 
             var key = http.User.Identity?.IsAuthenticated == true
-                ? $"user:{http.User.Identity!.Name}"
+                ? $"user:{http.User.Identity.Name}"
                 : $"ip:{http.Connection.RemoteIpAddress}";
             return RateLimitPartition.GetSlidingWindowLimiter(key, _ => new SlidingWindowRateLimiterOptions
             {

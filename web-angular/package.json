@@ -3,9 +3,11 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
+    "prestart": "npm run api:gen",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
+    "pretest": "npm run api:gen",
     "test": "ng test",
     "test:coverage": "ng test --coverage",
     "api:gen": "openapi-ts",

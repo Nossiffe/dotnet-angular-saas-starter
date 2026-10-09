@@ -21,15 +21,15 @@ Every change has to pass these gates, whoever or whatever wrote it:
 
 | Gate | Tooling | When |
 |---|---|---|
-| Build | .NET analyzers, warnings treated as errors | Every build |
-| Architecture rules | Architecture tests: dependency rules on the assemblies' actual references, conventions, ErrorOr usage, security conventions, tenant filter on every SQL read | Every CI run |
+| Build | .NET analyzers, warnings treated as errors (NuGet advisories excepted, see Dependencies) | Every build |
+| Architecture rules | Architecture tests: dependency rules on the assemblies' actual references, conventions, ErrorOr usage, security conventions, and a source scan: every raw SQL string literal (`"""…"""`) naming a tenant-owned table must contain the `"TenantId" = @TenantId` filter | Every CI run |
 | API contract | OpenAPI document rebuilt and compared with the committed one the front end types come from | Every CI run |
 | Behaviour | Unit tests, integration tests against a real PostgreSQL (Testcontainers), end-to-end smoke test (API + PostgreSQL + Mailpit + Hangfire) | Every CI run; smoke test on backend changes |
 | Front end | Lint, format, type check, unit tests, Playwright tests of the login page with axe accessibility checks (API mocked) | Every CI run |
 | Test quality | Stryker mutation testing of the unit tests: blocking for the Domain, measured for the Application | Pull requests touching the Domain, weekly |
 | Static analysis | CodeQL for C# and TypeScript | Push, pull request, weekly |
 | Secrets | gitleaks with its default rules | Pre-commit hook (when gitleaks is installed) and CI |
-| Dependencies | Audit blocking High/Critical CVEs (NuGet including transitive, npm), `NuGetAuditLevel=low` locally, grouped Dependabot updates with a 7-day cooldown | Pull requests touching manifests, weekly |
+| Dependencies | Audit blocking High/Critical CVEs (NuGet including transitive, npm); NuGet advisories of every severity shown as build warnings, without failing the build; grouped Dependabot updates with a 7-day cooldown | Audit: pull requests touching manifests, weekly. Warnings: every build |
 | CI security | zizmor workflow linting, actions pinned by SHA | Workflow changes |
 | Supply chain | CycloneDX SBOM and build provenance attestation | Every release |
 
@@ -42,23 +42,20 @@ Design decisions are recorded as ADRs in [`docs/adr`](docs/adr). How the project
 Requirements: .NET SDK 10, Node.js 24, Docker.
 
 ```bash
-# 1. Shared Docker network (once per machine)
-docker network create devnet 2>/dev/null || true
-
-# 2. Environment variables for Docker Compose
+# 1. Environment variables for Docker Compose
 cp .env.example .env
 
-# 3. PostgreSQL, Adminer, Mailpit, Aspire dashboard
+# 2. PostgreSQL, Adminer, Mailpit, Aspire dashboard
 docker compose up -d
 
-# 4. JWT signing key for local development, kept out of the repository (once)
+# 3. JWT signing key for local development, kept out of the repository (once)
 dotnet user-secrets set "Jwt:SigningKey" "$(openssl rand -base64 48)" --project src/Api
 
-# 5. API → http://localhost:5123 (OpenAPI: http://localhost:5123/openapi/v1.json)
+# 4. API → http://localhost:5123 (OpenAPI: http://localhost:5123/openapi/v1.json)
 #    Migrations are applied at startup.
 dotnet run --project src/Api
 
-# 6. Angular front end, in another terminal → http://localhost:4200
+# 5. Angular front end, in another terminal → http://localhost:4200
 cd web-angular && npm ci && npm start
 ```
 
@@ -77,7 +74,7 @@ Confirmation and password reset e-mails land in Mailpit (http://localhost:8025).
 
 ## Documentation
 
-The architecture notes, ADRs and contribution guide are written in French.
+`README.md`, `web-angular/README.md` and `SECURITY.md` are in English, as are identifiers, test names and the commit messages since October 2026. Code comments, API error messages, the Angular interface, the other documents listed below and the changelog are in French.
 
 | File | Content |
 |---|---|
@@ -86,6 +83,7 @@ The architecture notes, ADRs and contribution guide are written in French.
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | Docker image, production secrets, migration bundles, health probes, release |
 | [`docs/adr`](docs/adr) | Architecture decision records |
 | [`docs/error-codes.md`](docs/error-codes.md) | Business error registry |
+| [`SECURITY.md`](SECURITY.md) | How to report a vulnerability |
 | [`security/README.md`](security/README.md) | Dependency security policy |
 
 ## Local ports

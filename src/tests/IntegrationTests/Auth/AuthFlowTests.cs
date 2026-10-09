@@ -24,7 +24,7 @@ public sealed class AuthFlowTests(PostgresApiFactory factory)
         login.EnsureSuccessStatusCode();
         var auth = await login.Content.ReadFromJsonAsync<AuthResponse>(ct);
         auth.ShouldNotBeNull();
-        auth!.AccessToken.ShouldNotBeNullOrWhiteSpace();
+        auth.AccessToken.ShouldNotBeNullOrWhiteSpace();
         var loginCookie = AuthTestFlow.ExtractRefreshCookieValue(login);
 
         // Vérifie que le refresh fonctionne de bout en bout côté serveur (cookie rejoué automatiquement).
@@ -32,7 +32,7 @@ public sealed class AuthFlowTests(PostgresApiFactory factory)
         refresh.EnsureSuccessStatusCode();
         var refreshed = await refresh.Content.ReadFromJsonAsync<AuthResponse>(ct);
         refreshed.ShouldNotBeNull();
-        AuthTestFlow.ExtractRefreshCookieValue(refresh).ShouldNotBe(loginCookie); // rotation
+        AuthTestFlow.ExtractRefreshCookieValue(refresh).ShouldNotBe(loginCookie, StringComparer.Ordinal); // rotation
     }
 
     [Fact]

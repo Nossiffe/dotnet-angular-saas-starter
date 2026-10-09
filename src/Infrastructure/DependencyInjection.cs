@@ -70,7 +70,7 @@ public static class DependencyInjection
             .UseRecommendedSerializerSettings()
             .UsePostgreSqlStorage(opt =>
                 opt.UseNpgsqlConnection(configuration.GetConnectionString("Default"))));
-        services.AddHangfireServer();
+        // Le serveur qui exécute les jobs est ajouté par l'hôte (Program.cs), qui sait s'il doit tourner.
 
         services.AddScoped<PurgeExpiredRefreshTokensJob>();
         services.AddScoped<PurgeProcessedOutboxMessagesJob>();
