@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Saas.Application.Common.Interfaces;
@@ -99,6 +98,5 @@ public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> opti
         }
     }
 
-    private static string Hash(string raw)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
+    private static string Hash(string raw) => TokenHash.Sha256(raw);
 }

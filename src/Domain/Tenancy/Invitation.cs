@@ -5,6 +5,9 @@ namespace Saas.Domain.Tenancy;
 
 public sealed class Invitation : AggregateRoot<InvitationId>
 {
+    /// <summary>Durée de validité d'une invitation, à l'envoi comme au renvoi.</summary>
+    public static readonly TimeSpan Lifetime = TimeSpan.FromDays(7);
+
     private Invitation()
     {
         // EF

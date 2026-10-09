@@ -28,27 +28,16 @@ public sealed class InviteMemberHandler(
             return OrganizationErrors.NotFound;
         }
 
-        var normalizedEmail = command.Email.Trim().ToUpperInvariant();
+        // Identity stocke l'e-mail normalisé en majuscules (NormalizedEmail, indexé) ; les invitations
+        // le stockent en minuscules (Invitation.Create). Chaque requête utilise la forme de sa table.
+        var email = command.Email.Trim().ToLowerInvariant();
 
-        await using (var connection = await connections.OpenConnectionAsync(cancellationToken))
+        if (await IsAlreadyMemberAsync(command.OrganizationId, email, cancellationToken))
         {
-            var alreadyMember = await connection.QuerySingleOrDefaultAsync<int?>(new CommandDefinition(
-                """
-                SELECT 1
-                FROM "OrganizationMemberships" m
-                JOIN "AspNetUsers" u ON u."Id" = m."UserId"
-                WHERE m."OrganizationId" = @OrgId AND u."NormalizedEmail" = @Email
-                """,
-                new { OrgId = command.OrganizationId, Email = normalizedEmail },
-                cancellationToken: cancellationToken));
-
-            if (alreadyMember is not null)
-            {
-                return OrganizationErrors.AlreadyMember;
-            }
+            return OrganizationErrors.AlreadyMember;
         }
 
-        if (await invitations.HasPendingInvitationAsync(orgId, command.Email.Trim().ToLowerInvariant(), cancellationToken))
+        if (await invitations.HasPendingInvitationAsync(orgId, email, cancellationToken))
         {
             return InvitationErrors.AlreadyPending;
         }
@@ -64,7 +53,7 @@ public sealed class InviteMemberHandler(
             invitedBy,
             tokenHash,
             clock.UtcNow,
-            clock.UtcNow.AddDays(7));
+            clock.UtcNow.Add(Invitation.Lifetime));
 
         if (created.IsError)
         {
@@ -78,5 +67,20 @@ public sealed class InviteMemberHandler(
         enqueuer.Enqueue(invitation.Id.Value, rawToken, invitation.InviteeEmail);
 
         return invitation.Id.Value;
+    }
+
+    private async Task<bool> IsAlreadyMemberAsync(Guid organizationId, string email, CancellationToken cancellationToken)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        var member = await connection.QuerySingleOrDefaultAsync<int?>(new CommandDefinition(
+            """
+            SELECT 1
+            FROM "OrganizationMemberships" m
+            JOIN "AspNetUsers" u ON u."Id" = m."UserId"
+            WHERE m."OrganizationId" = @OrgId AND u."NormalizedEmail" = @Email
+            """,
+            new { OrgId = organizationId, Email = email.ToUpperInvariant() },
+            cancellationToken: cancellationToken));
+        return member is not null;
     }
 }
