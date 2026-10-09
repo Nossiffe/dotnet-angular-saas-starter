@@ -56,19 +56,19 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
         //   via IgnoreQueryFilters(["SoftDeleteFilter"]) SANS lever le filtre tenant.
         //
         // Invocation des helpers génériques privés via réflexion (MethodInfo mis en cache
-        // statiquement, cf. ApplyTenantFilterMethod/ApplySoftDeleteFilterMethod) : seul moyen
+        // statiquement, cf. _applyTenantFilterMethod/_applySoftDeleteFilterMethod) : seul moyen
         // d'appeler HasQueryFilter<TEntity> pour un ClrType découvert dynamiquement au sein
         // du modèle. Accès contrôlé (même classe, pas d'entrée utilisateur) — sûr.
         foreach (var clrType in builder.Model.GetEntityTypes().Select(entityType => entityType.ClrType))
         {
             if (typeof(ITenantOwned).IsAssignableFrom(clrType))
             {
-                ApplyTenantFilterMethod.MakeGenericMethod(clrType).Invoke(this, [builder]);
+                _applyTenantFilterMethod.MakeGenericMethod(clrType).Invoke(this, [builder]);
             }
 
             if (typeof(ISoftDeletable).IsAssignableFrom(clrType))
             {
-                ApplySoftDeleteFilterMethod.MakeGenericMethod(clrType).Invoke(null, [builder]);
+                _applySoftDeleteFilterMethod.MakeGenericMethod(clrType).Invoke(null, [builder]);
             }
         }
     }
@@ -78,11 +78,11 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
     // d'appeler HasQueryFilter<TEntity> générique pour un ClrType découvert dynamiquement
     // dans le modèle. MethodInfo mis en cache statiquement (pas de résolution par requête).
 #pragma warning disable S3011
-    private static readonly MethodInfo ApplyTenantFilterMethod =
+    private static readonly MethodInfo _applyTenantFilterMethod =
         typeof(AppDbContext).GetMethod(nameof(ApplyTenantFilter),
             BindingFlags.NonPublic | BindingFlags.Instance)!;
 
-    private static readonly MethodInfo ApplySoftDeleteFilterMethod =
+    private static readonly MethodInfo _applySoftDeleteFilterMethod =
         typeof(AppDbContext).GetMethod(nameof(ApplySoftDeleteFilter),
             BindingFlags.NonPublic | BindingFlags.Static)!;
 #pragma warning restore S3011
