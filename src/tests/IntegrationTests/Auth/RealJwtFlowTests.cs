@@ -26,7 +26,7 @@ public sealed class RealJwtFlowTests(RealJwtApiFactory factory)
         login.EnsureSuccessStatusCode();
         var auth = await login.Content.ReadFromJsonAsync<AuthResponse>(ct);
         auth.ShouldNotBeNull();
-        auth!.AccessToken.ShouldNotBeNullOrWhiteSpace();
+        auth.AccessToken.ShouldNotBeNullOrWhiteSpace();
 
         var authed = factory.CreateClient();
         authed.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);

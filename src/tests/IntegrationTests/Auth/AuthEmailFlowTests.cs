@@ -36,7 +36,7 @@ public sealed class AuthEmailFlowTests(PostgresApiFactory factory)
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var user = await users.FindByIdAsync(userId.ToString());
         user.ShouldNotBeNull();
-        user!.EmailConfirmed.ShouldBeTrue();
+        user.EmailConfirmed.ShouldBeTrue();
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class AuthEmailFlowTests(PostgresApiFactory factory)
 
         var captured = factory.Emails.For(email);
         captured.ShouldNotBeNull();
-        captured!.Subject.ShouldContain("mot de passe");
+        captured.Subject.ShouldContain("mot de passe");
         var (userId, token) = captured.ExtractLink();
 
         var reset = await client.PostAsJsonAsync(

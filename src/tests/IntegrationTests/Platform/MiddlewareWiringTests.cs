@@ -22,7 +22,7 @@ public sealed class MiddlewareWiringTests(PostgresApiFactory factory)
         var options = scope.ServiceProvider.GetRequiredService<IOptions<RequestTimeoutOptions>>().Value;
 
         options.DefaultPolicy.ShouldNotBeNull();
-        options.DefaultPolicy!.Timeout.ShouldBe(TimeSpan.FromSeconds(30));
+        options.DefaultPolicy.Timeout.ShouldBe(TimeSpan.FromSeconds(30));
     }
 
     [Fact]

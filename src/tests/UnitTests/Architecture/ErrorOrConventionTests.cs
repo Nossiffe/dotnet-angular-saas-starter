@@ -100,7 +100,7 @@ public sealed class ErrorOrConventionTests
                 {
                     continue;
                 }
-                var isRequired = ctorParams.Contains(prop.Name!)
+                var isRequired = ctorParams.Contains(prop.Name)
                     || prop.GetCustomAttributes().Any(a =>
                         string.Equals(a.GetType().Name, "RequiredMemberAttribute", StringComparison.Ordinal));
                 if (!isRequired)

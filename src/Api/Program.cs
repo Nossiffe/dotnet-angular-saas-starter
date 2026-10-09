@@ -299,7 +299,7 @@ static void AddRateLimiter(WebApplicationBuilder b)
             }
 
             var key = http.User.Identity?.IsAuthenticated == true
-                ? $"user:{http.User.Identity!.Name}"
+                ? $"user:{http.User.Identity.Name}"
                 : $"ip:{http.Connection.RemoteIpAddress}";
             return RateLimitPartition.GetSlidingWindowLimiter(key, _ => new SlidingWindowRateLimiterOptions
             {

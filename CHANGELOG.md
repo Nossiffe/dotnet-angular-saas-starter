@@ -30,6 +30,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Docker Compose utilise son réseau par défaut : le réseau externe `devnet`, à créer à la main avant le premier `docker compose up`, disparaît du Quickstart, du smoke test et de `scripts/check.sh`.
 - Les avis de sécurité NuGet (NU1901 à NU1904) restent des warnings au lieu de faire échouer `dotnet build` : un avis publié du jour au lendemain n'empêche plus de compiler un clone neuf. Une source d'avis injoignable (NU1900) ne bloque plus le build non plus. `deps-audit.yml` reste la barrière bloquante pour High/Critical.
 - Résumé de couverture de la CI produit par ReportGenerator (outil local) : les rapports des tests unitaires et d'intégration sont réunis ligne par ligne, hors migrations EF et code généré. Le résumé précédent additionnait les deux rapports et affichait 47,5 %.
+- Analyseurs Meziantou, SonarAnalyzer et Roslynator en dernière version : les mises à jour NuGet de Dependabot échouaient faute d'espace disque, en téléchargeant une à une les versions intermédiaires.
 - Runners CI fixés sur `ubuntu-24.04` au lieu de `ubuntu-latest` : une nouvelle image ne change plus l'environnement de la CI sans commit.
 
 ### Fixed

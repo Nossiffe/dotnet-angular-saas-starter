@@ -27,10 +27,10 @@ public sealed class TenantIsolationTests(PostgresApiFactory factory)
 
         var listB = await clientB.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products", ct);
         listB.ShouldNotBeNull();
-        listB!.Items.ShouldNotContain(p => p.Name == name);
+        listB.Items.ShouldNotContain(p => p.Name == name);
 
         var listA = await clientA.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products", ct);
         listA.ShouldNotBeNull();
-        listA!.Items.ShouldContain(p => p.Name == name);
+        listA.Items.ShouldContain(p => p.Name == name);
     }
 }

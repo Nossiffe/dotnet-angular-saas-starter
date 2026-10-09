@@ -63,7 +63,7 @@ public sealed class AuthSecurityTests(PostgresApiFactory factory)
         refresh1.StatusCode.ShouldBe(HttpStatusCode.OK);
         var currentRefreshToken = AuthTestFlow.ExtractRefreshCookieValue(refresh1);
 
-        currentRefreshToken.ShouldNotBe(originalRefreshToken);
+        currentRefreshToken.ShouldNotBe(originalRefreshToken, StringComparer.Ordinal);
 
         // Re-présenter l'ancien cookie révoqué (client sans cookie-jar, header Cookie manuel)
         // → détection de réutilisation → révocation de tous les tokens actifs de l'utilisateur → 401
