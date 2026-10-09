@@ -143,6 +143,34 @@ public sealed class InvitationEmailTests(PostgresApiFactory factory)
         (await AcceptAsync(invitationId, newToken, Password, ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
+    // Statut et expiration sont vérifiés avant le mot de passe : un invité sans compte apprend tout
+    // de suite que l'invitation n'est plus valable, sans saisir de mot de passe.
+    [Theory]
+    [InlineData("expired", "Invitation.Expired")]
+    [InlineData("revoked", "Invitation.NotPending")]
+    public async Task An_invitation_no_longer_valid_is_refused_without_asking_a_new_user_for_a_password(
+        string state, string expectedCode)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (orgId, email, invitationId) = await InviteAsync(UniqueEmail($"no-password-{state}"), ct);
+        await OutboxRunner.RunUntilIdleAsync(factory, ct);
+        var (_, token) = factory.Emails.For(email).ShouldNotBeNull().ExtractInvitationLink();
+        if (string.Equals(state, "expired", StringComparison.Ordinal))
+        {
+            await ExpireAsync(invitationId, ct);
+        }
+        else
+        {
+            (await Owner(orgId).DeleteAsync($"/api/v1/organizations/{orgId}/invitations/{invitationId}", ct))
+                .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        }
+
+        var accept = await AcceptAsync(invitationId, token, password: null, ct);
+
+        accept.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await ErrorCodeAsync(accept, ct)).ShouldBe(expectedCode);
+    }
+
     private static string UniqueEmail(string prefix) => $"{prefix}-{Guid.NewGuid():N}@saas.local";
 
     private HttpClient Owner(Guid orgId) => InvitationTestFlow.ClientFor(factory, orgId, _ownerId);
@@ -163,6 +191,16 @@ public sealed class InvitationEmailTests(PostgresApiFactory factory)
 
     private Task<HttpResponseMessage> AcceptAsync(Guid invitationId, string token, string? password, CancellationToken ct)
         => factory.CreateClient().PostAsJsonAsync("/api/v1/invitations/accept", new { invitationId, token, password }, ct);
+
+    private async Task ExpireAsync(Guid invitationId, CancellationToken ct)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var rows = await db.Database.ExecuteSqlAsync(
+            $"""UPDATE "Invitations" SET "ExpiresAt" = {DateTimeOffset.UtcNow.AddMinutes(-1)} WHERE "Id" = {invitationId}""",
+            ct);
+        rows.ShouldBe(1);
+    }
 
     private static async Task<string?> ErrorCodeAsync(HttpResponseMessage response, CancellationToken ct)
         => (await response.Content.ReadFromJsonAsync<JsonElement>(ct)).GetProperty("code").GetString();

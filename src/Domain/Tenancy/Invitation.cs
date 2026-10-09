@@ -72,9 +72,15 @@ public sealed class Invitation : AggregateRoot<InvitationId>
         return Result.Success;
     }
 
+    /// <summary>
+    /// Vérifie, sans rien modifier, qu'une acceptation serait possible : l'invitation est en attente
+    /// et n'a pas expiré.
+    /// </summary>
+    public ErrorOr<Success> CheckAcceptable(DateTimeOffset now) => CheckUsable(now, InvitationErrors.NotPendingAccept);
+
     public ErrorOr<Success> Accept(DateTimeOffset now)
     {
-        var acceptable = CheckUsable(now, InvitationErrors.NotPendingAccept);
+        var acceptable = CheckAcceptable(now);
         if (acceptable.IsError)
         {
             return acceptable.Errors;

@@ -29,6 +29,14 @@ public sealed class AcceptInvitationHandler(
             return InvitationErrors.Invalid;
         }
 
+        // Statut et expiration avant le mot de passe : une invitation expirée ou révoquée est refusée
+        // directement, sans faire saisir un mot de passe à un invité qui n'a pas de compte.
+        var acceptable = invitation.CheckAcceptable(clock.UtcNow);
+        if (acceptable.IsError)
+        {
+            return acceptable.Errors;
+        }
+
         var existingUser = await identity.FindByEmailAsync(invitation.InviteeEmail, cancellationToken);
         var isNewUser = existingUser is null;
         if (isNewUser && string.IsNullOrEmpty(command.Password))

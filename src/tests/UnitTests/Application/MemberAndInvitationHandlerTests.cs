@@ -158,6 +158,35 @@ public sealed class MemberAndInvitationHandlerTests
         await _identity.DidNotReceiveWithAnyArgs().CreateUserAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
+    // Statut et expiration sont vérifiés avant le mot de passe : un invité sans compte n'a pas à en
+    // saisir un pour apprendre que l'invitation n'est plus valable.
+    [Fact]
+    public async Task An_expired_invitation_is_refused_before_asking_a_new_user_for_a_password()
+    {
+        var invitation = PendingInvitation(expiresAt: _now.AddMinutes(-1));
+        _invitations.GetByIdAsync(invitation.Id, Arg.Any<CancellationToken>()).Returns(invitation);
+        _tokens.VerifyToken("token", invitation.TokenHash).Returns(true);
+
+        var result = await Accept(invitation, "token", password: null);
+
+        result.FirstError.ShouldBe(InvitationErrors.Expired);
+        await _identity.DidNotReceiveWithAnyArgs().FindByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_revoked_invitation_is_refused_before_asking_a_new_user_for_a_password()
+    {
+        var invitation = PendingInvitation();
+        invitation.Revoke();
+        _invitations.GetByIdAsync(invitation.Id, Arg.Any<CancellationToken>()).Returns(invitation);
+        _tokens.VerifyToken("token", invitation.TokenHash).Returns(true);
+
+        var result = await Accept(invitation, "token", password: null);
+
+        result.FirstError.ShouldBe(InvitationErrors.NotPendingAccept);
+        await _identity.DidNotReceiveWithAnyArgs().FindByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task An_existing_user_joins_the_organization_without_a_password()
     {

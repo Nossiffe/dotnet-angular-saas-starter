@@ -174,6 +174,34 @@ public sealed class InvitationTests
     }
 
     [Fact]
+    public void Checking_a_pending_invitation_succeeds_without_accepting_it()
+    {
+        var invitation = CreatePending();
+
+        invitation.CheckAcceptable(_now).IsError.ShouldBeFalse();
+
+        invitation.Status.ShouldBe(InvitationStatus.Pending);
+        invitation.DomainEvents.OfType<InvitationAcceptedDomainEvent>().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Checking_an_invitation_at_its_expiry_returns_an_error()
+    {
+        var invitation = CreatePending(expiresAt: _now);
+
+        invitation.CheckAcceptable(_now).FirstError.ShouldBe(InvitationErrors.Expired);
+    }
+
+    [Fact]
+    public void Checking_a_revoked_invitation_returns_an_error()
+    {
+        var invitation = CreatePending();
+        invitation.Revoke();
+
+        invitation.CheckAcceptable(_now).FirstError.ShouldBe(InvitationErrors.NotPendingAccept);
+    }
+
+    [Fact]
     public void Accepting_an_expired_invitation_returns_an_error()
     {
         var invitation = CreatePending(expiresAt: _now.AddDays(-1));
