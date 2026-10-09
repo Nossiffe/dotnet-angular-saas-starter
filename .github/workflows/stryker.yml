@@ -29,7 +29,7 @@ permissions:
 jobs:
   domain:
     name: Domain (bloquant)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: src/tests/UnitTests
@@ -51,7 +51,7 @@ jobs:
   application:
     name: Application (mesuré)
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: src/tests/UnitTests

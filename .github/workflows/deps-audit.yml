@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   dotnet-audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       pull-requests: write # commentaire d'échec sur la PR
@@ -71,7 +71,7 @@ jobs:
             "⛔ **deps-audit** : vulnérabilité(s) High/Critical détectée(s) — voir le log du job \`dotnet-audit\` de ce run. Corriger (bump/pin) ou documenter une exception datée via \`security/deps-review-TEMPLATE.md\`."
 
   npm-audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: web-angular

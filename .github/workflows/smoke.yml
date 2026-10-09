@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       # Reprendre les mêmes valeurs que .env (sans secrets sensibles)
       POSTGRES_USER: saas
