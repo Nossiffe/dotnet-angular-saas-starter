@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -64,22 +63,11 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         if (UseTestAuth)
         {
+            // Le schéma de test devient le schéma par défaut : les politiques de l'application
+            // (DependencyInjection.AddAuthorization) s'appliquent telles quelles, sans copie ici.
             builder.ConfigureTestServices(services =>
-            {
                 services.AddAuthentication(TestAuthHandler.SchemeName)
-                    .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
-                services.AddAuthorizationBuilder()
-                    .SetFallbackPolicy(
-                        new AuthorizationPolicyBuilder(TestAuthHandler.SchemeName).RequireAuthenticatedUser().Build())
-                    .SetDefaultPolicy(
-                        new AuthorizationPolicyBuilder(TestAuthHandler.SchemeName).RequireAuthenticatedUser().Build())
-                    .AddPolicy("HasTenant", p => p.RequireAssertion(ctx =>
-                    {
-                        var v = ctx.User.FindFirst("tenant")?.Value;
-                        return Guid.TryParse(v, out var id) && id != Guid.Empty;
-                    }))
-                    .AddPolicy("TenantAdmin", p => p.RequireClaim("tenant_role", "Owner"));
-            });
+                    .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { }));
         }
     }
 

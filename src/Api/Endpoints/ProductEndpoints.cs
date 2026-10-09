@@ -8,6 +8,7 @@ using Saas.Application.Products.DeleteProduct;
 using Saas.Application.Products.GetProductById;
 using Saas.Application.Products.ListProducts;
 using Saas.Application.Products.UpdateProduct;
+using Saas.Infrastructure.Identity;
 
 namespace Saas.Api.Endpoints;
 
@@ -17,7 +18,7 @@ public sealed class ProductEndpoints : IEndpoint
     {
         ArgumentNullException.ThrowIfNull(app);
         var group = app.MapGroup("/products").WithTags("Products")
-            .RequireAuthorization("HasTenant");
+            .RequireAuthorization(AuthorizationPolicies.HasTenant);
 
         group.MapPost("/", CreateProduct)
             .WithCreatedResponses<CreateProductResponse>();
@@ -33,7 +34,7 @@ public sealed class ProductEndpoints : IEndpoint
 
         group.MapDelete("/{id:guid}", DeleteProduct)
             .WithNoContentResponses()
-            .RequireAuthorization("TenantAdmin");
+            .RequireAuthorization(AuthorizationPolicies.TenantAdmin);
     }
 
     private static async Task<IResult> CreateProduct(

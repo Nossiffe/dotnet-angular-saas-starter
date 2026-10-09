@@ -45,7 +45,6 @@ public sealed class TestAuthHandler(
             new(JwtRegisteredClaimNames.Sub, userId),
             new(JwtRegisteredClaimNames.Email, "test@saas.local"),
             new("tenant", tenant),
-            new(ClaimTypes.Role, "Admin"),
             new("tenant_role", tenantRole),
         };
         if (Request.Headers.TryGetValue(PlatformRoleHeader, out var p) && p.Count > 0)

@@ -91,9 +91,8 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
     }
 
     // ── Doublon d'invitation pending → 409 ──────────────────────────────────────────
-    // Changement de contrat volontaire (chantier ErrorOr) : InvitationErrors.AlreadyPending
-    // est un Error.Conflict (aligné avec la branche 23505 du GlobalExceptionHandler) → 409,
-    // et non plus 400.
+    // InvitationErrors.AlreadyPending est un Error.Conflict, comme la branche 23505 du
+    // GlobalExceptionHandler qui couvre la même règle en cas de course.
     [Fact]
     public async Task Duplicate_pending_invite_returns_409()
     {
@@ -284,11 +283,8 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
     }
 
     // ── orgId de la route ≠ tenant du token → 404 (anti-énumération) ────────────────
-    // Changement de contrat volontaire (chantier 3, minor différé du chantier 2) :
-    // avant, un mismatch levait une ValidationException (400) exposant "l'organisation
-    // demandée ne correspond pas au tenant" — révélant qu'une AUTRE organisation existe.
-    // EnforceTenantScope renvoie désormais OrganizationErrors.NotFound (404), indiscernable
-    // d'un orgId qui n'existe simplement pas.
+    // OrganizationScopeFilter renvoie OrganizationErrors.NotFound : la réponse est la même que
+    // pour une organisation inexistante, et ne révèle pas qu'une autre organisation existe.
     [Fact]
     public async Task Invite_with_mismatched_orgId_returns_404()
     {

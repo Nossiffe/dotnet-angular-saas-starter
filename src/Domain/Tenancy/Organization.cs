@@ -18,10 +18,13 @@ public sealed class Organization : AggregateRoot<OrganizationId>, IAuditable
 
     public IReadOnlyList<OrganizationMembership> Memberships => _memberships.AsReadOnly();
 
-    public DateTimeOffset CreatedAt { get; set; }
-    public string? CreatedBy { get; set; }
-    public DateTimeOffset? UpdatedAt { get; set; }
-    public string? UpdatedBy { get; set; }
+    // Audit : renseigné par l'intercepteur EF. Les setters privés n'existent que pour EF (S1144).
+#pragma warning disable S1144
+    public DateTimeOffset CreatedAt { get; private set; }
+    public string? CreatedBy { get; private set; }
+    public DateTimeOffset? UpdatedAt { get; private set; }
+    public string? UpdatedBy { get; private set; }
+#pragma warning restore S1144
 
     public static Organization Create(string name, Slug slug, Guid ownerUserId)
     {
