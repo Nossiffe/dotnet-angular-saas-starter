@@ -163,10 +163,13 @@ Request → LoggingBehavior → ValidationBehavior → Handler
 - **Limite connue : l'inscription révèle un e-mail déjà pris.** Elle répond par l'erreur
   `DuplicateEmail` d'Identity, un compromis d'ergonomie courant. La fermer demanderait une
   inscription qui répond toujours de la même façon et prévient par e-mail le titulaire du compte.
-- **Sessions** : l'adhésion est vérifiée avant la rotation du refresh token. Un utilisateur
-  retiré d'une organisation perd toutes ses sessions sur celle-ci, et seulement celles-ci ; le
-  cookie refusé est supprimé, pour qu'il ne soit pas présenté de nouveau et pris pour une
-  réutilisation. Une réinitialisation de mot de passe révoque toutes les sessions ouvertes.
+- **Sessions** : chaque refresh fait tourner le refresh token. Présenter de nouveau un token déjà
+  remplacé par une rotation est un signe de vol : toutes les sessions de l'utilisateur sont
+  révoquées. Un token révoqué autrement (logout, réinitialisation, retrait d'une organisation)
+  est seulement refusé, et un refresh refusé supprime le cookie. L'adhésion est vérifiée avant
+  la rotation : un utilisateur retiré d'une organisation perd ses sessions sur celle-ci, sur
+  chaque appareil, et garde celles de ses autres organisations. Une réinitialisation de mot de
+  passe révoque toutes les sessions ouvertes.
 - **Rôles d'organisation et policies** (`AuthorizationPolicies`) :
 
   | Policy | Claim exigé | Routes |

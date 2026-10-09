@@ -97,8 +97,7 @@ public sealed class AuthEndpoints : IEndpoint
             },
             _ =>
             {
-                // Le token refusé ne doit pas rester dans le navigateur : présenté de nouveau, un token
-                // révoqué déclenche la détection de réutilisation, qui ferme toutes les sessions.
+                // Le token refusé ne servira plus : le navigateur n'a pas à le garder.
                 RefreshCookie.Delete(response);
                 return result.ToHttpResult();
             });

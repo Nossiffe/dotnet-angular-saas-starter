@@ -41,10 +41,16 @@ public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> opti
         var hash = Hash(rawToken);
         var existing = await db.RefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == hash, cancellationToken);
 
-        // Reuse detection: already-revoked token presented → theft signal → revoke all active tokens for user
-        if (existing is not null && existing.RevokedAt is not null)
+        // Détection de réutilisation : un token déjà remplacé par une rotation est présenté de nouveau,
+        // signe de vol, et toutes les sessions de l'utilisateur sont révoquées. Un token révoqué sans
+        // rotation (logout, réinitialisation, retrait d'une organisation) est seulement refusé.
+        if (existing is { RevokedAt: not null })
         {
-            await RevokeAllAsync(existing.UserId, cancellationToken);
+            if (existing.ReplacedByTokenId is not null)
+            {
+                await RevokeAllAsync(existing.UserId, cancellationToken);
+            }
+
             return null;
         }
 

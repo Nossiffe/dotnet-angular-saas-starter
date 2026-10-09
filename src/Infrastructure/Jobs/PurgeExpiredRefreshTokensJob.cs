@@ -10,11 +10,10 @@ namespace Saas.Infrastructure.Jobs;
 // par DependencyInjection.RegisterRecurringJobs.
 //
 // On ne purge que les tokens dont ExpiresAt < now (expirés), même s'ils sont révoqués.
-// Les tokens révoqués mais encore dans leur fenêtre de vie sont conservés intentionnellement :
-// RefreshTokenStore.ValidateAndRotateAsync les détecte comme signal de vol (reuse detection)
-// et révoque toute la famille active. Purger prématurément un token révoqué le ferait disparaître
-// de la base → un replay de l'ancien token serait traité comme "non trouvé" (401 ordinaire)
-// au lieu de déclencher la révocation famille. Fenêtre de rétention = durée de vie du refresh
+// Les tokens remplacés par une rotation mais encore dans leur fenêtre de vie sont conservés :
+// présentés de nouveau, RefreshTokenStore.ValidateAndRotateAsync y voit un signal de vol et
+// révoque toutes les sessions de l'utilisateur. Purgé trop tôt, un tel token serait traité comme
+// "non trouvé" (401 ordinaire) au lieu de déclencher cette révocation. Fenêtre de rétention = durée de vie du refresh
 // (RefreshTokenDays, 7 jours par défaut).
 internal sealed partial class PurgeExpiredRefreshTokensJob(
     AppDbContext db,

@@ -43,6 +43,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Connexion : un e-mail inconnu ou un compte verrouillé coûte le même calcul de hash qu'un mauvais mot de passe, qui fait l'essentiel de la durée de la réponse ; un échec sur un compte existant enregistre encore la tentative en base, un écart bien plus faible. L'inscription, elle, signale toujours un e-mail déjà pris (voir `ARCHITECTURE.md`).
 - Un jeton de confirmation ou de réinitialisation mal formé renvoie 400 au lieu de 500.
 - Un utilisateur retiré d'une organisation perd ses sessions sur celle-ci (le rafraîchissement lui accordait le rôle Member) ; ses sessions sur ses autres organisations continuent. Un refresh refusé supprime le cookie.
+- Détection de réutilisation limitée aux refresh tokens déjà remplacés par une rotation : un token révoqué par un logout, une réinitialisation ou un retrait d'organisation est refusé sans fermer les autres sessions.
 - Une réinitialisation de mot de passe révoque toutes les sessions ouvertes.
 - Organisation par défaut à la connexion : la plus ancienne adhésion, au lieu d'un ordre SQL indéterminé.
 - `TenantId`, l'audit et la suppression logique n'ont plus de setter public ; l'intercepteur couvre aussi `SaveChanges` synchrone et refuse un changement de tenant.

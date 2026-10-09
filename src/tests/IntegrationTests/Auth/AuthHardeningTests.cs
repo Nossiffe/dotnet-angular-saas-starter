@@ -104,16 +104,19 @@ public sealed class AuthHardeningTests(PostgresApiFactory factory)
         refresh.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
-    // Retiré d'une organisation, l'utilisateur perd sa session sur celle-ci, et seulement celle-ci :
-    // le cookie refusé est supprimé, et sa session sur une autre organisation continue.
+    // Retiré d'une organisation, l'utilisateur perd ses sessions sur celle-ci, sur chaque appareil,
+    // et seulement celles-ci : le cookie refusé est supprimé, et le refus d'une session révoquée ne
+    // passe pas pour une réutilisation de token, qui fermerait aussi sa session sur l'autre organisation.
     [Fact]
     public async Task Removal_from_an_organization_ends_only_the_sessions_on_it()
     {
         var ct = TestContext.Current.CancellationToken;
         var (userId, email, ownOrgId, otherOrgId) = await UserInTwoOrganizationsAsync("removed-member", ct);
         var onOwnOrg = AuthTestFlow.HttpsClient(factory);
+        var onOwnOrgElsewhere = AuthTestFlow.HttpsClient(factory);
         var onOtherOrg = AuthTestFlow.HttpsClient(factory);
         await LoginAsync(onOwnOrg, email, ownOrgId, ct);
+        await LoginAsync(onOwnOrgElsewhere, email, ownOrgId, ct);
         await LoginAsync(onOtherOrg, email, otherOrgId, ct);
 
         await using (var scope = factory.Services.CreateAsyncScope())
@@ -125,11 +128,13 @@ public sealed class AuthHardeningTests(PostgresApiFactory factory)
 
         var refused = await onOwnOrg.PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);
         var retried = await onOwnOrg.PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);
+        var otherDevice = await onOwnOrgElsewhere.PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);
         var otherSession = await onOtherOrg.PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         refused.Headers.GetValues("Set-Cookie").ShouldContain(c => c.StartsWith("rt=;", StringComparison.Ordinal));
         retried.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        otherDevice.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         otherSession.StatusCode.ShouldBe(HttpStatusCode.OK);
         await using var check = factory.Services.CreateAsyncScope();
         (await check.ServiceProvider.GetRequiredService<AppDbContext>().Set<RefreshToken>()
