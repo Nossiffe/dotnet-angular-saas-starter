@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
@@ -163,7 +166,20 @@ if (app.Environment.IsDevelopment()
     await using var scope = app.Services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var strategy = db.Database.CreateExecutionStrategy();
-    await strategy.ExecuteAsync(async () => await db.Database.MigrateAsync());
+    await strategy.ExecuteAsync(async () =>
+    {
+        // Sur une base vide, MigrateAsync lit d'abord la table d'historique absente et EF journalise
+        // cet échec attendu en erreur : la base et la table sont créées avant, pour un premier
+        // lancement propre.
+        var creator = db.GetService<IRelationalDatabaseCreator>();
+        if (!await creator.ExistsAsync())
+        {
+            await creator.CreateAsync();
+        }
+
+        await db.GetService<IHistoryRepository>().CreateIfNotExistsAsync();
+        await db.Database.MigrateAsync();
+    });
 }
 
 // Journal des requêtes avant le gestionnaire d'exceptions : il voit le statut final (400, 409…)
