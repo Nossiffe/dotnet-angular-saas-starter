@@ -27,6 +27,11 @@ export const routes: Routes = [
       import('./features/auth/confirm-email.page').then((m) => m.ConfirmEmailPage),
   },
   {
+    path: 'accept-invitation',
+    loadComponent: () =>
+      import('./features/invitations/accept-invitation.page').then((m) => m.AcceptInvitationPage),
+  },
+  {
     path: 'products',
     canActivate: [authGuard],
     loadComponent: () => import('./features/products/products.page').then((m) => m.ProductsPage),
