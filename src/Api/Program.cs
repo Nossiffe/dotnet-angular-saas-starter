@@ -69,6 +69,13 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddEndpoints();
 
+// Le serveur Hangfire exécute les jobs en arrière-plan. Il ne démarre pas pendant la génération
+// OpenAPI au build : pas de base à interroger, et une dizaine de lignes de log à chaque build.
+if (!isBuildTimeOpenApi)
+{
+    builder.Services.AddHangfireServer();
+}
+
 builder.Services.AddMediator(options =>
 {
     options.Assemblies = [typeof(Saas.Application.DependencyInjection).Assembly];

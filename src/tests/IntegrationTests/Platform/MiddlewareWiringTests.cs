@@ -1,6 +1,8 @@
 using System.Net;
+using Hangfire;
 using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
@@ -29,5 +31,13 @@ public sealed class MiddlewareWiringTests(PostgresApiFactory factory)
         var client = factory.CreateClient();
         var resp = await client.GetAsync("/health/live", TestContext.Current.CancellationToken);
         resp.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    // Program.cs n'ajoute le serveur Hangfire qu'en dehors de la génération OpenAPI au build.
+    [Fact]
+    public void The_Hangfire_server_runs_with_the_application()
+    {
+        factory.Services.GetServices<IHostedService>()
+            .ShouldContain(service => service is BackgroundJobServerHostedService);
     }
 }
