@@ -10,7 +10,7 @@ A SaaS starter with Clean Architecture, DDD and CQRS: **.NET 10**, **Angular 22*
 
 - **Architecture**: Clean Architecture layers with a framework-free Domain, rich DDD aggregates with strongly-typed IDs (Vogen), CQRS with Mediator and FluentValidation, EF Core for writes and Dapper for reads, ErrorOr results instead of business exceptions.
 - **Multi-tenancy**: EF Core global query filters driven by a `tenant` claim. A resource owned by another tenant returns 404, never 403, so its existence is not disclosed.
-- **Robustness**: transactional outbox for domain events with at-least-once delivery: one transaction per message, several API instances sharing the work through row locks, delayed retries that skip the handlers that already succeeded. Hangfire background jobs, HybridCache, database retry on transient failures.
+- **Robustness**: transactional outbox for domain events with at-least-once delivery: one transaction per message, several API instances sharing the work through row locks, delayed retries that skip the handlers that already succeeded. Invitation e-mails go through it: the link's token is created when the e-mail is sent and only its hash is stored, and a duplicate e-mail replaces the previous link. Hangfire background jobs (the password reset e-mail, retried three times), HybridCache, database retry on transient failures.
 - **Observability**: Serilog and OpenTelemetry (OTLP), with the Aspire dashboard locally.
 - **API and front end**: minimal APIs with versioning and OpenAPI, TypeScript API types generated from the OpenAPI contract with Hey API, Angular 22 signal-first and zoneless with Angular Material.
 - **Security by default**: ASP.NET Core Identity with PBKDF2 at 210,000 iterations (OWASP), account lockout, rate limiting, JWT access tokens with the refresh token in an HttpOnly cookie, HSTS.
@@ -33,7 +33,7 @@ Every change has to pass these gates, whoever or whatever wrote it:
 | CI security | zizmor workflow linting, actions pinned by SHA | Workflow changes |
 | Supply chain | CycloneDX SBOM and build provenance attestation | Every release |
 
-Mutation testing runs on the unit tests only. The Domain scores 84 % against a blocking threshold of 60 %. The Application scores about 35 % and is not gated: the handlers that read with Dapper (login, refresh, invitations, queries) are covered by the integration tests against PostgreSQL, which Stryker does not run.
+Mutation testing runs on the unit tests only. The Domain scores 86 % against a blocking threshold of 60 %. The Application scores about 35 % and is not gated: the handlers that read with Dapper (login, refresh, invitations, queries) are covered by the integration tests against PostgreSQL, which Stryker does not run.
 
 Design decisions are recorded as ADRs in [`docs/adr`](docs/adr). How the project got here is in [Project history](#project-history).
 
@@ -59,7 +59,7 @@ dotnet run --project src/Api
 cd web-angular && npm ci && npm start
 ```
 
-Confirmation and password reset e-mails land in Mailpit (http://localhost:8025). To run the API in Docker instead of `dotnet run`, use `docker compose --profile full up -d`.
+Confirmation, invitation and password reset e-mails land in Mailpit (http://localhost:8025). To run the API in Docker instead of `dotnet run`, use `docker compose --profile full up -d`.
 
 ## Key commands
 
