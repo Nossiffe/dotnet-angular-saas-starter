@@ -1,11 +1,8 @@
 name: Smoke
 
-# Déclencheur : workflow_dispatch + push sur main + PR ciblées backend.
-# Rationale : le smoke est lourd (Postgres + Mailpit + API complète + Hangfire).
-# Avant, limité à main pour économiser les ressources. Maintenant, on le lance aussi
-# sur les PR qui touchent le backend (src/, Directory.Packages.props, scripts/smoke.sh,
-# docker-compose.yml) pour attraper les régressions d'intégration avant merge.
-# Le filtre `paths:` maintient le coût maîtrisé : PRs front-only bypassen le smoke.
+# Parcours de bout en bout de l'API (PostgreSQL, Mailpit, Hangfire) via scripts/smoke.sh.
+# Lancé sur main, à la demande et sur les PR qui touchent le backend : le filtre
+# `paths` évite ce job coûteux pour les PR purement front.
 on:
   push:
     branches: [main]
@@ -39,7 +36,7 @@ jobs:
       API_PORT: 5123
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -60,7 +57,7 @@ jobs:
             sleep 2
           done
 
-      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '10.x'
 
