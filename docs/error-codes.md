@@ -67,7 +67,7 @@ Notes :
 - Pas de `OrganizationErrors.AlreadyJoined` : le cas « déjà membre pendant l'accept »
   est un accept **idempotent** (retourne un succès), pas une erreur.
 
-## Workflow « chercher avant d'inventer »
+## Ajouter une erreur
 
 Avant d'ajouter une nouvelle erreur, vérifier qu'elle n'existe pas déjà :
 

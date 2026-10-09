@@ -38,7 +38,6 @@ public sealed class InvitationEndpoints : IEndpoint
         orgGroup.MapDelete("/{id:guid}", RevokeInvitation)
             .WithNoContentResponses();
 
-        // Route anonyme : accept invitation.
         app.MapPost("/invitations/accept", AcceptInvitation)
             .WithTags("Invitations")
             .AllowAnonymous()

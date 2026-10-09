@@ -65,12 +65,10 @@ grep-able** (`grep -rn 'static Error ' src/ --include='*Errors.cs'`) et un point
 relire les messages exposés à l'utilisateur. Le registre complet est dans
 `docs/error-codes.md`, que `ErrorRegistryTests` compare au code (type, code, description).
 
-**Contrat HTTP touché par cette décision** : `InvitationErrors.AlreadyPending` (« invitation déjà
-en attente ») est passée de **400** (`Validation`) à **409** (`Conflict`) — alignée avec la
-branche `DbUpdateException` (contrainte d'unicité Postgres 23505) du `GlobalExceptionHandler`,
-qui protège la même règle en cas de race entre le check applicatif et l'insert. Les deux
-chemins (check applicatif `ErrorOr` et contrainte DB en filet de sécurité) renvoient
-maintenant le même code HTTP pour la même situation métier.
+**Contrat HTTP** : `InvitationErrors.AlreadyPending` (« invitation déjà en attente ») est un
+`Conflict` (409), comme la branche `DbUpdateException` (contrainte d'unicité Postgres 23505) du
+`GlobalExceptionHandler`, qui protège la même règle en cas de course entre le check applicatif
+et l'insert : les deux chemins renvoient le même code pour la même situation métier.
 
 ## Dépendance `ErrorOr` dans `Domain`
 
@@ -82,8 +80,8 @@ une librairie pure (aucune dépendance ASP.NET/EF, pas d'IO, pas de DI requise),
 que `Vogen` (strongly-typed IDs, déjà dans `Domain`) ou `Mediator.Abstractions`
 (marker interfaces `ICommand<T>`/`IQuery<T>`, déjà dans `Application`). Le test d'architecture
 `DependencyRuleTests` vérifie que `Domain` ne référence que le runtime .NET, `Vogen` et `ErrorOr` ;
-`ErrorOrConventionTests.Aucune_exception_metier_custom_dans_Domain` bloque le retour en
-arrière vers des exceptions custom.
+`ErrorOrConventionTests.The_Domain_declares_no_business_exception` vérifie que le `Domain` ne
+déclare aucune exception métier.
 
 ## Asymétrie des factories : `ErrorOr` pour les règles métier, `ArgumentException` pour les gardes techniques
 
@@ -112,8 +110,6 @@ sur des erreurs impossibles), tout en gardant les vraies règles métier dans le
   `ToCreatedHttpResult`) pour tous les `ErrorType` — cohérent par construction.
 - Deux mécanismes d'erreur coexistent (`ErrorOr` métier, exceptions forme/infra) — documenté
   ci-dessus pour éviter la confusion ; vérifié par `ErrorOrConventionTests`.
-- Contrat HTTP changé pour l'invitation déjà en attente (400 → 409) — un client de cet
-  endpoint doit traiter le 409.
 
 ## Alternatives écartées
 

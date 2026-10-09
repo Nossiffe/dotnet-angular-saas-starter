@@ -35,7 +35,7 @@ public sealed class AuthEndpoints : IEndpoint
             .Produces<AuthResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
-        // Logout : AllowAnonymous délibéré. La credential réelle du logout EST le cookie HttpOnly
+        // Logout : AllowAnonymous délibéré. La credential réelle du logout est le cookie HttpOnly
         // `rt` (possession), pas l'access token — la révocation est idempotente et la suppression du
         // cookie est inoffensive ; un access token expiré/absent ne doit donc jamais empêcher un
         // utilisateur de se déconnecter. SameSite=Strict couvre déjà le logout-CSRF (nuisance

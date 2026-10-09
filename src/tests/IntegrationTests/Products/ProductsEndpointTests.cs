@@ -27,7 +27,6 @@ public sealed class ProductsEndpointTests(PostgresApiFactory factory)
 
         var name = $"Stylo-{Guid.NewGuid():N}";
 
-        // Create
         var create = await client.PostAsJsonAsync("/api/v1/products", new { name, price = 2.5m }, ct);
         create.StatusCode.ShouldBe(HttpStatusCode.Created);
 
@@ -37,11 +36,9 @@ public sealed class ProductsEndpointTests(PostgresApiFactory factory)
         page!.Items.ShouldContain(p => string.Equals(p.Name, name, StringComparison.Ordinal));
         var id = page.Items.Single(p => string.Equals(p.Name, name, StringComparison.Ordinal)).Id;
 
-        // Get by id
         var got = await client.GetFromJsonAsync<ProductDto>($"/api/v1/products/{id}", ct);
         got!.Price.ShouldBe(2.5m);
 
-        // Update
         var update = await client.PutAsJsonAsync($"/api/v1/products/{id}", new { name = "Stylo bleu", price = 3m }, ct);
         update.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
@@ -73,7 +70,6 @@ public sealed class ProductsEndpointTests(PostgresApiFactory factory)
         var tenant = Guid.CreateVersion7();
         var client = AuthedClient(factory, tenant);
 
-        // Create 4 products
         var names = Enumerable.Range(1, 4).Select(i => $"ProdPag-{i:D2}-{Guid.NewGuid():N}").ToList();
         foreach (var n in names)
         {
@@ -81,7 +77,6 @@ public sealed class ProductsEndpointTests(PostgresApiFactory factory)
                 .EnsureSuccessStatusCode();
         }
 
-        // Page 1, pageSize 2 → exactly 2 items + totalCount = 4
         var page1 = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products?page=1&pageSize=2", ct);
         page1.ShouldNotBeNull();
         page1!.Items.Count.ShouldBe(2);
@@ -90,7 +85,6 @@ public sealed class ProductsEndpointTests(PostgresApiFactory factory)
         page1.Page.ShouldBe(1);
         page1.PageSize.ShouldBe(2);
 
-        // Page 2, pageSize 2 → 2 items
         var page2 = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products?page=2&pageSize=2", ct);
         page2.ShouldNotBeNull();
         page2!.Items.Count.ShouldBe(2);

@@ -21,7 +21,6 @@ public sealed class ProductAdditionalTests(PostgresApiFactory factory)
         return client;
     }
 
-    // ── Cross-tenant GetById → 404 ────────────────────────────────────────
     [Fact]
     public async Task Reading_a_product_of_another_tenant_returns_404()
     {
@@ -36,7 +35,6 @@ public sealed class ProductAdditionalTests(PostgresApiFactory factory)
         var create = await clientA.PostAsJsonAsync("/api/v1/products", new { name, price = 9.99m }, ct);
         create.StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        // Récupérer l'ID via la liste de tenant A
         var page = await clientA.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products?pageSize=100", ct);
         page.ShouldNotBeNull();
         var productId = page!.Items.Single(p => string.Equals(p.Name, name, StringComparison.Ordinal)).Id;
@@ -46,14 +44,12 @@ public sealed class ProductAdditionalTests(PostgresApiFactory factory)
         resp.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
-    // ── DELETE par un Member → 403 (TenantAdmin exige Owner ou Admin) ─────
     [Fact]
     public async Task Deleting_as_a_Member_returns_403()
     {
         var ct = TestContext.Current.CancellationToken;
         var tenant = Guid.CreateVersion7();
 
-        // L'Owner crée le produit
         var ownerClient = AuthedClient(factory, tenant, "Owner");
         var name = $"NonOwnerDel-{Guid.NewGuid():N}";
         var create = await ownerClient.PostAsJsonAsync("/api/v1/products", new { name, price = 1m }, ct);
@@ -68,7 +64,6 @@ public sealed class ProductAdditionalTests(PostgresApiFactory factory)
         del.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
-    // ── Soft-delete GetById → 404 ─────────────────────────────────────────
     [Fact]
     public async Task A_deleted_product_returns_404()
     {
@@ -82,11 +77,9 @@ public sealed class ProductAdditionalTests(PostgresApiFactory factory)
         var page = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products?pageSize=100", ct);
         var id = page!.Items.Single(p => string.Equals(p.Name, name, StringComparison.Ordinal)).Id;
 
-        // Vérification préalable : le produit existe
         var before = await client.GetAsync($"/api/v1/products/{id}", ct);
         before.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        // Soft-delete
         var del = await client.DeleteAsync($"/api/v1/products/{id}", ct);
         del.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 

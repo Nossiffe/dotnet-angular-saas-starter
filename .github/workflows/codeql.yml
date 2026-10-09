@@ -1,7 +1,7 @@
 name: CodeQL (SAST)
 
-# CodeQL est gratuit sur un dépôt public. Tant que le dépôt est privé (sans
-# GitHub Advanced Security), le job est ignoré au lieu d'échouer.
+# CodeQL est gratuit sur un dépôt public. Sur un dépôt privé sans GitHub Advanced
+# Security, le job est ignoré au lieu d'échouer.
 on:
   push:
     branches: [main]

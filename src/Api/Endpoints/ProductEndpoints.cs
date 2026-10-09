@@ -45,7 +45,6 @@ public sealed class ProductEndpoints : IEndpoint
     {
         ArgumentNullException.ThrowIfNull(request);
         var result = await sender.Send(new CreateProductCommand(request.Name, request.Price), ct);
-        // enveloppe dans le contract existant sur le chemin succès
         return result.Match(
             id => Results.Created($"/api/v1/products/{id}", new CreateProductResponse(id)),
             _ => result.ToHttpResult());

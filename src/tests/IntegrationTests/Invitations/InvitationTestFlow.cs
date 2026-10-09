@@ -6,14 +6,14 @@ using Saas.IntegrationTests.Auth;
 namespace Saas.IntegrationTests.Invitations;
 
 /// <summary>
-/// Helpers pour les flux d'invitation : provisionne une VRAIE Organization (avec un Owner membre)
+/// Helpers pour les flux d'invitation : provisionne une vraie Organization (avec un Owner membre)
 /// directement en base via un scope DI, et construit un client HTTP piloté par TestAuthHandler dont
 /// les claims (tenant + tenant_role + sub) correspondent à cette organisation.
 ///
 /// Pourquoi une vraie Organization : les endpoints TenantAdmin (invite/accept/change-role) chargent
 /// l'organisation par id (`IOrganizationRepository.GetByIdAsync`) — TestAuthHandler ne fait que
-/// fabriquer des claims JWT, il ne crée AUCUNE ligne. Les tests Products n'en ont pas besoin (ils
-/// s'appuient sur le global query filter), mais les invitations OUI.
+/// fabriquer des claims JWT, il ne crée aucune ligne. Les tests Products n'en ont pas besoin (ils
+/// s'appuient sur le global query filter), mais les invitations, si.
 /// </summary>
 internal static class InvitationTestFlow
 {

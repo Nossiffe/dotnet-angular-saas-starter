@@ -1,8 +1,8 @@
 namespace Saas.Infrastructure.Persistence.Outbox;
 
-// Entité d'infrastructure (PAS un agrégat) : ligne de la table outbox.
-// Sérialisée dans la MÊME transaction que l'agrégat (atomicité) par le DomainEventsInterceptor,
-// puis dispatchée de façon fiable par l'OutboxProcessor (BackgroundService).
+// Entité d'infrastructure (pas un agrégat) : ligne de la table outbox.
+// Écrite dans la même transaction que l'agrégat (atomicité) par le DomainEventsInterceptor,
+// puis transmise aux handlers par l'OutboxProcessor, que lance OutboxPollingService.
 internal sealed class OutboxMessage
 {
     public Guid Id { get; set; } = Guid.CreateVersion7();

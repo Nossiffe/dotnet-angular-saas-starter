@@ -1,7 +1,7 @@
 name: Stryker (mutation testing)
 
 # Mutation testing sur les tests unitaires : chaque semaine, à la demande, et sur
-# les PR qui touchent le Domain ou ses tests (job Domain seul, ~3 min).
+# les PR qui touchent le Domain ou ses tests (job Domain seul, 1 à 2 min).
 # - Domain : bloquant. Le run échoue sous le seuil `break` de stryker-config-domain.json.
 # - Application : mesuré seulement (seuil `break` à 0), hors PR. Ses handlers sont couverts
 #   par les tests d'intégration sur PostgreSQL, que Stryker ne lance pas : un score

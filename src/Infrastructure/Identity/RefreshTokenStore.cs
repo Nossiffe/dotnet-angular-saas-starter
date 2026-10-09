@@ -48,7 +48,6 @@ public sealed class RefreshTokenStore(AppDbContext db, IOptions<JwtOptions> opti
             return null;
         }
 
-        // Token not found or expired
         if (existing is null || clock.UtcNow >= existing.ExpiresAt)
         {
             return null;

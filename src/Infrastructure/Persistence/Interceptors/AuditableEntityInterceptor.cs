@@ -59,7 +59,7 @@ public sealed class AuditableEntityInterceptor(
             }
         }
 
-        // ISoftDeletable must run BEFORE IAuditable so that soft-deleted entities
+        // ISoftDeletable must run before IAuditable so that soft-deleted entities
         // are promoted to Modified before IAuditable sets UpdatedAt/UpdatedBy on them.
         foreach (EntityEntry<ISoftDeletable> entry in context.ChangeTracker.Entries<ISoftDeletable>()
             .Where(e => e.State is EntityState.Deleted))

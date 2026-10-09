@@ -15,7 +15,7 @@ namespace Saas.IntegrationTests.Auth;
 public sealed class RefreshCookieTests(PostgresApiFactory factory)
 {
     [Fact]
-    public async Task Login_pose_un_cookie_refresh_HttpOnly_Secure_SameSiteStrict_PathAuth()
+    public async Task Login_sets_an_HttpOnly_Secure_SameSite_Strict_refresh_cookie_on_the_auth_path()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = AuthTestFlow.HttpsClient(factory);
@@ -34,7 +34,7 @@ public sealed class RefreshCookieTests(PostgresApiFactory factory)
         setCookie.ShouldContain("path=/api/v1/auth", Case.Insensitive);
 
         var body = await response.Content.ReadAsStringAsync(ct);
-        body.ShouldNotContain("refreshToken"); // le token ne fuit plus dans le JSON
+        body.ShouldNotContain("refreshToken"); // le refresh token n'apparaît jamais dans le JSON
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public sealed class RefreshCookieTests(PostgresApiFactory factory)
         deletedCookie.ShouldContain("expires=", Case.Insensitive);
         var expiresValue = ParseExpires(deletedCookie);
         expiresValue.ShouldBeLessThan(DateTimeOffset.UtcNow);
-        // Path/HttpOnly du Set-Cookie de suppression doivent matcher EXACTEMENT ceux posés au
+        // Path/HttpOnly du Set-Cookie de suppression doivent correspondre exactement à ceux posés au
         // login (RefreshCookie.Delete) : un navigateur n'efface un cookie que si Path (et Domain)
         // correspondent au cookie original — un mismatch laisserait `rt` orphelin dans le jar.
         deletedCookie.ShouldContain("path=/api/v1/auth", Case.Insensitive);

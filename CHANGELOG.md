@@ -40,7 +40,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Package `Microsoft.Extensions.Http.Resilience`, référencé mais jamais utilisé.
 
 ### Security
-- Connexion : même coût de hash pour un e-mail inconnu ou un compte verrouillé que pour un mauvais mot de passe (oracle de timing fermé).
+- Connexion : un e-mail inconnu ou un compte verrouillé coûte le même calcul de hash qu'un mauvais mot de passe, qui fait l'essentiel de la durée de la réponse ; un échec sur un compte existant enregistre encore la tentative en base, un écart bien plus faible. L'inscription, elle, signale toujours un e-mail déjà pris (voir `ARCHITECTURE.md`).
 - Un jeton de confirmation ou de réinitialisation mal formé renvoie 400 au lieu de 500.
 - Un utilisateur retiré d'une organisation perd ses sessions sur celle-ci (le rafraîchissement lui accordait le rôle Member) ; ses sessions sur ses autres organisations continuent. Un refresh refusé supprime le cookie.
 - Une réinitialisation de mot de passe révoque toutes les sessions ouvertes.

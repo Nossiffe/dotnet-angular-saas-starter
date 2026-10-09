@@ -13,7 +13,6 @@ public sealed class ErrorOrConventionTests
     private static readonly Assembly _apiAsm = typeof(Saas.Api.Common.GlobalExceptionHandler).Assembly;
     private static readonly Assembly _domainAsm = typeof(Saas.Domain.Products.ProductErrors).Assembly;
 
-    // Tout ICommand<T>/IQuery<T> a un TResponse ErrorOr<>.
     [Fact]
     public void Commands_and_queries_return_ErrorOr()
     {
@@ -39,7 +38,7 @@ public sealed class ErrorOrConventionTests
         violations.ShouldBeEmpty($"Use-cases hors pattern ErrorOr : {string.Join(", ", violations)}");
     }
 
-    // Les exceptions métier supprimées ne doivent pas réapparaître.
+    // Une règle métier violée est une erreur ErrorOr : le Domain ne déclare aucune exception.
     [Fact]
     public void The_Domain_declares_no_business_exception()
     {

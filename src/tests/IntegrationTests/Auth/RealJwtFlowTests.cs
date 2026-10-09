@@ -22,14 +22,12 @@ public sealed class RealJwtFlowTests(RealJwtApiFactory factory)
         // Register + confirmation d'email (requise au login)
         await AuthTestFlow.RegisterAndConfirmAsync(client, factory, email, password, ct);
 
-        // Login → real JWT
         var login = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password }, ct);
         login.EnsureSuccessStatusCode();
         var auth = await login.Content.ReadFromJsonAsync<AuthResponse>(ct);
         auth.ShouldNotBeNull();
         auth!.AccessToken.ShouldNotBeNullOrWhiteSpace();
 
-        // GET /api/v1/products with valid Bearer token → 200
         var authed = factory.CreateClient();
         authed.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
         var listResp = await authed.GetAsync("/api/v1/products", ct);
@@ -48,11 +46,11 @@ public sealed class RealJwtFlowTests(RealJwtApiFactory factory)
     [Fact]
     public async Task Logout_without_a_cookie_returns_204()
     {
-        // /auth/logout est AllowAnonymous (adjudiqué) : la credential réelle du logout est le
-        // cookie HttpOnly `rt` (possession), pas l'access token. Rationale : révocation
+        // /auth/logout est AllowAnonymous : la credential réelle du logout est le
+        // cookie HttpOnly `rt` (possession), pas l'access token : révocation
         // idempotente, suppression de cookie inoffensive, un access token absent/expiré ne doit
         // pas empêcher un utilisateur de se déconnecter (cf. AuthEndpoints.cs). SameSite=Strict
-        // couvre déjà le logout-CSRF (nuisance seulement). Sans Authorization NI cookie `rt` :
+        // couvre déjà le logout-CSRF (nuisance seulement). Sans Authorization ni cookie `rt` :
         // rien à révoquer côté serveur → 204 quand même (idempotent), jamais 401.
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();

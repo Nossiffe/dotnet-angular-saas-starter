@@ -21,7 +21,6 @@ public sealed class ListProductsHandler(IDbConnectionFactory factory, ITenantPro
 
         await using var connection = await factory.OpenConnectionAsync(cancellationToken);
 
-        // COUNT(*) OVER() is NULL when there are 0 rows — use separate count query for that case.
         var rowsCommand = new CommandDefinition(
             """
             SELECT "Id", "Name", "Price_Amount" AS "Price", COUNT(*) OVER() AS "TotalCount"
@@ -40,7 +39,7 @@ public sealed class ListProductsHandler(IDbConnectionFactory factory, ITenantPro
 
         if (rows.Count == 0)
         {
-            // COUNT(*) OVER() returns no rows when there are 0 matching rows — run a separate count.
+            // An empty page has no row to carry COUNT(*) OVER(): the total is counted separately.
             var countCommand = new CommandDefinition(
                 """
                 SELECT COUNT(*) FROM "Products"

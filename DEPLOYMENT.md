@@ -33,15 +33,14 @@ pour chaque release :
    - Backend : `dotnet tool run dotnet-CycloneDX -- Saas.slnx -o sbom --filename sbom-backend.json --json`
      (format CycloneDX ; le `--` sépare les arguments de `dotnet tool run` de ceux passés à
      l'outil).
-   - Chaque front : `npm sbom --sbom-format cyclonedx --omit dev` (SBOM natif npm, dépendances
+   - Front Angular : `npm sbom --sbom-format cyclonedx --omit dev` (SBOM natif npm, dépendances
      de prod uniquement).
    - Tous les fichiers `sbom/*.json` sont publiés en artifact du run (`actions/upload-artifact`).
 3. **Attestation de provenance** (SLSA build L2, `actions/attest-build-provenance`) sur le
    digest de l'image poussée — preuve vérifiable que l'image provient bien de ce repo/run/commit,
-   publiée sur le registre GHCR. Placée **après** les SBOM dans le workflow : sur ce repo privé
-   (hors GitHub Enterprise), cette étape échoue par construction (transparence log requiert
-   Advanced Security) — un échec attendu ici ne doit pas priver de leurs SBOM les images déjà
-   poussées.
+   publiée sur le registre GHCR. Placée **après** les SBOM dans le workflow : sur un dépôt
+   privé hors GitHub Enterprise, cette étape échoue (les attestations y exigent GitHub
+   Enterprise Cloud) ; les SBOM des images déjà poussées restent alors publiés.
 
 ### Vérifier l'attestation d'une image
 
@@ -102,7 +101,7 @@ Le refresh token est transporté par un cookie `rt` `HttpOnly` + `Secure` + `Sam
 signifie que le navigateur **n'envoie le cookie que si le front et l'API partagent le même
 site** (même schéma + même domaine enregistrable).
 
-**Conséquence pour le déploiement** : le reverse-proxy/ingress de production DOIT servir le
+**Conséquence pour le déploiement** : le reverse-proxy/ingress de production doit servir le
 SPA et l'API sous le **même host** (typiquement `app.example.com` avec `/api/*` réécrit vers
 le backend `api` interne). Exemple nginx :
 
@@ -171,7 +170,7 @@ certificat X.509) plutôt que la persistance en clair par défaut.
 
 Quand l'API tourne derrière un reverse-proxy/ingress qui termine TLS (nginx, Traefik, ALB,
 Ingress Controller Kubernetes), Kestrel ne voit que la connexion **interne** (souvent HTTP,
-IP du proxy) — sans réécriture, `Request.Scheme` et `Connection.RemoteIpAddress` sont FAUX
+IP du proxy) — sans réécriture, `Request.Scheme` et `Connection.RemoteIpAddress` sont faux
 au niveau applicatif, ce qui casse `UseHsts`/`UseHttpsRedirection` (le HTTPS externe n'est
 pas vu par ASP.NET Core) et le calcul du `Secure` du cookie refresh.
 
@@ -231,7 +230,7 @@ dotnet ef migrations bundle \
   --startup-project src/Api \
   -o efbundle
 
-# Appliquer les migrations (étape CI/CD AVANT le déploiement de l'app)
+# Appliquer les migrations (étape CI/CD, avant le déploiement de l'app)
 ./efbundle --connection "$DATABASE_URL"
 ```
 

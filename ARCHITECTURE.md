@@ -136,8 +136,10 @@ Request → LoggingBehavior → ValidationBehavior → Handler
   `SaveChanges` comme en `SaveChangesAsync`, et refuse qu'une entité existante change de tenant.
   `TenantId`, l'audit et la suppression logique n'ont pas de setter public dans le Domain.
 - **Lectures Dapper** : elles ne passent pas par les query filters EF, donc chaque requête filtre
-  elle-même sur `"TenantId" = @TenantId`. `TenantGuardTests` vérifie que toute requête SQL du code
-  qui lit une table d'entité `ITenantOwned` contient ce filtre.
+  elle-même sur `"TenantId" = @TenantId`. `TenantGuardTests` lit les raw string literals (`"""`)
+  de `src/` et vérifie que chaque requête qui vise une table d'entité `ITenantOwned` contient ce
+  filtre. Une requête écrite autrement (chaîne simple, concaténation) échappe au test : la
+  convention est d'écrire le SQL en raw string literal.
 - **Routes `/organizations/{orgId}/...`** : `OrganizationScopeFilter` compare l'`orgId` de la route
   au tenant du token et répond 404 sinon.
 
@@ -152,10 +154,15 @@ Request → LoggingBehavior → ValidationBehavior → Handler
   `docs/adr/0004`.
 - **Hardening mots de passe** : PBKDF2-SHA512, `IterationCount = 210_000` (OWASP Password
   Storage Cheat Sheet) ; **lockout** après 5 tentatives échouées, verrouillage 5 minutes.
-- **Connexion sans oracle de timing** : pour un e-mail inconnu ou un compte verrouillé,
+- **Connexion sans oracle de timing sur le hash** : pour un e-mail inconnu ou un compte verrouillé,
   `IdentityService.CheckCredentialsAsync` vérifie quand même un hash factice de même coût
-  (`DummyPasswordCheck`), pour que la durée de la réponse ne révèle pas l'existence du compte.
+  (`DummyPasswordCheck`) : le calcul PBKDF2, qui fait l'essentiel de la durée de la réponse, a
+  lieu dans tous les cas. Un écart bien plus faible subsiste : un échec sur un compte existant
+  enregistre aussi la tentative en base (`AccessFailedCount`).
   Sans organisation demandée, la connexion ouvre la plus ancienne adhésion.
+- **Limite connue : l'inscription révèle un e-mail déjà pris.** Elle répond par l'erreur
+  `DuplicateEmail` d'Identity, un compromis d'ergonomie courant. La fermer demanderait une
+  inscription qui répond toujours de la même façon et prévient par e-mail le titulaire du compte.
 - **Sessions** : l'adhésion est vérifiée avant la rotation du refresh token. Un utilisateur
   retiré d'une organisation perd toutes ses sessions sur celle-ci, et seulement celles-ci ; le
   cookie refusé est supprimé, pour qu'il ne soit pas présenté de nouveau et pris pour une
@@ -177,8 +184,8 @@ Request → LoggingBehavior → ValidationBehavior → Handler
 - **OpenTelemetry** : traces ASP.NET Core + HTTP client + métriques runtime. Exporte via OTLP si `OTEL_EXPORTER_OTLP_ENDPOINT` configuré.
 - **Serilog** : structuré, lit la config JSON, écrit sur la console et transmet aux providers
   enregistrés, dont OpenTelemetry (export OTLP des logs). Un journal par requête, avec le statut
-  final : une erreur de validation est un 400 journalisé en Information, pas une erreur ; seule
-  une vraie erreur serveur produit un log d'erreur (`ErrorLoggingTests`).
+  final : une erreur de validation est un 400 journalisé en Information, sans log d'erreur
+  (`ErrorLoggingTests`) ; une vraie erreur serveur garde son log d'erreur.
 - **Rate limiter** : sliding window 100 req/min par user ou IP, fixed window 10 req/30s sur `/auth`.
 
 ---
@@ -248,20 +255,20 @@ OutboxPollingService (toutes les 5 s) → OutboxProcessor → IDomainEventHandle
   derrière une vérification applicative `ErrorOr`), toute autre exception non prévue → 500 (Serilog
   la logue).
 - Vérifié par `ErrorOrConventionTests` (test d'archi) : tout `ICommand<T>`/`IQuery<T>` doit
-  retourner `ErrorOr<>`, aucune exception métier custom ne doit réapparaître dans `Domain`, et
+  retourner `ErrorOr<>`, le `Domain` ne déclare aucune exception métier, et
   aucun handler ne lève de `ValidationException` hors des cas ci-dessus.
 - Le registre `docs/error-codes.md` est comparé au code par `ErrorRegistryTests`.
 
 ---
 
-## Fronts
+## Front end
 
 ### Angular 22 (`web-angular/`)
 
 - Signal-first (signals, `httpResource`, `input()`/`output()`).
 - Standalone + zoneless. Control flow `@if`/`@for`.
 - Angular Material seul.
-- Client Hey API généré (`npm run api:gen`).
+- Types TypeScript générés par Hey API depuis `openapi.json` (`npm run api:gen`) ; les appels passent par `HttpClient`.
 
 ---
 
@@ -274,7 +281,7 @@ OutboxPollingService (toutes les 5 s) → OutboxProcessor → IDomainEventHandle
 | `docker-compose` | Postgres + Adminer + Mailpit + Aspire dashboard |
 | `lefthook` | Hooks git avant commit : format, lint, scan des secrets (gitleaks) |
 | `Vogen` | Strongly-typed IDs + value objects mono-valeur |
-| `openapi-ts` (Hey API) | Génération des clients TypeScript |
+| `openapi-ts` (Hey API) | Génération des types TypeScript de l'API |
 
 ---
 

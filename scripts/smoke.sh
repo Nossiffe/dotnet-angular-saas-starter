@@ -123,7 +123,7 @@ REGISTER_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   -d "{\"email\":\"${EMAIL2}\",\"password\":\"${PASSWORD}\",\"organizationName\":\"Enforce Corp\",\"organizationSlug\":\"enforce-$(date +%s)\"}")
 [ "$REGISTER_STATUS" = "201" ] || fail "Register (enforce): attendu 201, obtenu $REGISTER_STATUS"
 
-# Login SANS confirmation → doit échouer avec 400
+# Login sans confirmation → doit échouer avec 400
 LOGIN_NO_CONFIRM_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST "${BASE}/api/v1/auth/login" \
   -H "Content-Type: application/json" \
@@ -146,7 +146,7 @@ CONFIRM_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   -d "{\"userId\":\"${CONFIRM_USER_ID}\",\"token\":\"${CONFIRM_TOKEN}\"}")
 [ "$CONFIRM_STATUS" = "200" ] || fail "confirm-email: attendu 200, obtenu $CONFIRM_STATUS"
 
-# Login APRÈS confirmation → 200
+# Login après confirmation → 200
 LOGIN_CONFIRMED=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST "${BASE}/api/v1/auth/login" \
   -H "Content-Type: application/json" \
@@ -400,7 +400,7 @@ ok "Forgot-password (email inconnu) → 200 + aucun email envoyé"
 # ---- 12. Rate limiting ----
 echo "▶ Rate limiting (12 POST rapides → au moins un 429)"
 # Le rate limiter 'auth' : PermitLimit=10, Window=30s (FixedWindow).
-# Note: les IPs loopback sont exemptées du GLOBAL limiter, mais le rate limiter
+# Note: les IPs loopback sont exemptées du limiteur global, mais le rate limiter
 # 'auth' par endpoint est appliqué indépendamment (clé = IP, y compris loopback).
 GOT_429=0
 STATUSES=""

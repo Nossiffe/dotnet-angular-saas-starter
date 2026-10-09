@@ -6,7 +6,7 @@ namespace Saas.IntegrationTests.Invitations;
 
 /// <summary>
 /// Remplaçant de test de IInvitationEmailEnqueuer : exécute ProcessInvitationEmailJob
-/// SYNCHRONEMENT dans le même scope DI, de sorte que CapturingEmailSender capture
+/// synchronement dans le même scope DI, de sorte que CapturingEmailSender capture
 /// le mail d'invitation avant que le test n'aille lire factory.Emails.For(email).
 /// </summary>
 internal sealed class SynchronousInvitationEmailEnqueuer(IServiceProvider sp) : IInvitationEmailEnqueuer

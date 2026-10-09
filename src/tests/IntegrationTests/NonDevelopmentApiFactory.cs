@@ -5,12 +5,12 @@ namespace Saas.IntegrationTests;
 /// <summary>
 /// Force un environnement non-Development pour l'host de test. <see cref="PostgresApiFactory"/>
 /// (via <c>WebApplicationFactory&lt;Program&gt;</c>) tourne en Development par défaut — c'est
-/// précisément l'environnement où <c>HangfireDashboardAuthFilter</c> autorise le loopback SANS
+/// précisément l'environnement où <c>HangfireDashboardAuthFilter</c> autorise le loopback sans
 /// authentification (confort dev). Comme les requêtes du client de test arrivent elles-mêmes en
-/// loopback, un test naïf du dashboard passerait de façon vacuously vraie
+/// loopback, un test naïf du dashboard passerait sans rien prouver
 /// (200 obtenu via la dérogation dev, pas via une vraie auth). Cette factory bascule l'host sur
 /// "Production" pour exercer la branche prod du filtre (claim <c>platform_role=PlatformAdmin</c>
-/// exigé) SANS toucher au filtre lui-même — le contrat de prod reste inchangé et non affaibli.
+/// exigé) sans modifier le filtre.
 /// </summary>
 public sealed class NonDevelopmentApiFactory : PostgresApiFactory
 {

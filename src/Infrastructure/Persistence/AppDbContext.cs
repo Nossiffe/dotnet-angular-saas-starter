@@ -15,8 +15,8 @@ namespace Saas.Infrastructure.Persistence;
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenantProvider tenant)
     : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
-    // DbSets internes : seuls les repositories (Infrastructure) y accèdent côté write.
-    // Le read passe par Dapper. L'Application ne voit plus de DbSet (pas d'IAppDbContext).
+    // DbSets internes : les écritures passent par les repositories de l'Infrastructure, les
+    // lectures par Dapper. L'Application n'a accès à aucun DbSet.
     internal DbSet<Product> Products => Set<Product>();
     internal DbSet<Organization> Organizations => Set<Organization>();
     internal DbSet<Invitation> Invitations => Set<Invitation>();
@@ -48,18 +48,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
     protected override void OnModelCreating(ModelBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
-        base.OnModelCreating(builder); // REQUIS en premier : mappe les tables Identity
+        base.OnModelCreating(builder); // requis en premier : mappe les tables Identity
         builder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
-        // Filtres de sécurité PAR CONVENTION (EF Core 10 named query filters) :
-        // - "TenantFilter"     : toute entité ITenantOwned — JAMAIS désactivable métier.
+        // Filtres de sécurité par convention (EF Core 10 named query filters) :
+        // - "TenantFilter"     : toute entité ITenantOwned — jamais désactivable métier.
         // - "SoftDeleteFilter" : toute entité ISoftDeletable — désactivable ponctuellement
-        //   via IgnoreQueryFilters(["SoftDeleteFilter"]) SANS lever le filtre tenant.
-        //
-        // Invocation des helpers génériques privés via réflexion (MethodInfo mis en cache
-        // statiquement, cf. _applyTenantFilterMethod/_applySoftDeleteFilterMethod) : seul moyen
-        // d'appeler HasQueryFilter<TEntity> pour un ClrType découvert dynamiquement au sein
-        // du modèle. Accès contrôlé (même classe, pas d'entrée utilisateur) — sûr.
+        //   via IgnoreQueryFilters(["SoftDeleteFilter"]) sans lever le filtre tenant.
         foreach (var clrType in builder.Model.GetEntityTypes().Select(entityType => entityType.ClrType))
         {
             if (typeof(ITenantOwned).IsAssignableFrom(clrType))
@@ -74,8 +69,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
         }
     }
 
-    // Bypass d'accessibilité volontaire (S3011) : réflexion sur des helpers PRIVÉS de
-    // CETTE MÊME classe (pas d'entrée utilisateur, pas de type externe) — seul moyen
+    // Bypass d'accessibilité volontaire (S3011) : réflexion sur des helpers privés de
+    // cette même classe (pas d'entrée utilisateur, pas de type externe) — seul moyen
     // d'appeler HasQueryFilter<TEntity> générique pour un ClrType découvert dynamiquement
     // dans le modèle. MethodInfo mis en cache statiquement (pas de résolution par requête).
 #pragma warning disable S3011
@@ -89,7 +84,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
 #pragma warning restore S3011
 
     // Instance (non static) : la lambda référence le champ `tenant` du constructeur
-    // primaire DANS l'expression — évaluation par instance/requête (cf. TenantIsolationTests).
+    // primaire dans l'expression — évaluation par instance/requête (cf. TenantIsolationTests).
     private void ApplyTenantFilter<TEntity>(ModelBuilder builder)
         where TEntity : class, ITenantOwned
         => builder.Entity<TEntity>().HasQueryFilter("TenantFilter", e => e.TenantId == tenant.TenantId);

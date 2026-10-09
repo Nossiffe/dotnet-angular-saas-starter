@@ -62,7 +62,7 @@ public static class DependencyInjection
 
     private static void AddBackgroundJobs(IServiceCollection services, IConfiguration configuration)
     {
-        // Hangfire crée ses PROPRES tables Postgres au démarrage (pas de migration EF).
+        // Hangfire crée ses propres tables Postgres au démarrage (pas de migration EF).
         // API version-sensible (Hangfire.PostgreSql 1.20+) : UsePostgreSqlStorage(c => c.UseNpgsqlConnection(...)).
         services.AddHangfire(config => config
             .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
@@ -72,7 +72,6 @@ public static class DependencyInjection
                 opt.UseNpgsqlConnection(configuration.GetConnectionString("Default"))));
         services.AddHangfireServer();
 
-        // Jobs résolus par DI.
         services.AddScoped<PurgeExpiredRefreshTokensJob>();
         services.AddScoped<PurgeProcessedOutboxMessagesJob>();
         services.AddScoped<ProcessPasswordResetJob>();
@@ -140,7 +139,7 @@ public static class DependencyInjection
             {
                 options.User.RequireUniqueEmail = true;
                 options.Password.RequiredLength = 12;
-                // Lockout : défauts Identity rendus EXPLICITES (contrat testé par LockoutTests).
+                // Lockout : défauts Identity rendus explicites (contrat testé par LockoutTests).
                 options.Lockout.AllowedForNewUsers = true;
                 options.Lockout.MaxFailedAccessAttempts = 5;
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);

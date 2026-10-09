@@ -28,7 +28,7 @@ public sealed class LockoutTests(PostgresApiFactory factory)
             bad.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         }
 
-        // 6e tentative AVEC le bon mot de passe : compte verrouillé → toujours 401 (anti-énumération).
+        // 6e tentative avec le bon mot de passe : compte verrouillé → toujours 401 (anti-énumération).
         var locked = await client.PostAsJsonAsync(
             "/api/v1/auth/login", new { email, password }, ct);
         locked.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);

@@ -51,7 +51,6 @@ public sealed class AuthEmailFlowTests(PostgresApiFactory factory)
         // Register + confirmation d'email (requise pour pouvoir se connecter ensuite).
         await AuthTestFlow.RegisterAndConfirmAsync(client, factory, email, oldPassword, ct);
 
-        // Forgot (email connu) → 200 + email capturé
         var forgot = await client.PostAsJsonAsync("/api/v1/auth/forgot-password", new { email }, ct);
         forgot.StatusCode.ShouldBe(HttpStatusCode.OK);
 
@@ -60,16 +59,13 @@ public sealed class AuthEmailFlowTests(PostgresApiFactory factory)
         captured!.Subject.ShouldContain("mot de passe");
         var (userId, token) = captured.ExtractLink();
 
-        // Reset avec le token → 200
         var reset = await client.PostAsJsonAsync(
             "/api/v1/auth/reset-password", new { userId, token, newPassword }, ct);
         reset.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        // Login avec le nouveau mot de passe → OK
         var login = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password = newPassword }, ct);
         login.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        // L'ancien mot de passe ne fonctionne plus
         var loginOld = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password = oldPassword }, ct);
         loginOld.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
@@ -103,9 +99,9 @@ public sealed class AuthEmailFlowTests(PostgresApiFactory factory)
         var auth = await login.Content.ReadFromJsonAsync<AuthResponse>(ct);
         auth.ShouldNotBeNull();
 
-        // Capture la valeur BRUTE du cookie refresh avant logout : le jar du client `client` sera
+        // Capture la valeur brute du cookie refresh avant logout : le jar du client `client` sera
         // vidé par le Set-Cookie de suppression posé par /auth/logout, donc rejouer /auth/refresh
-        // avec CE MÊME client après logout ne prouverait que « le jar est vide côté client », pas
+        // avec ce même client après logout ne prouverait que « le jar est vide côté client », pas
         // que le token a réellement été révoqué en base côté serveur.
         var refreshCookieBeforeLogout = AuthTestFlow.ExtractRefreshCookieValue(login);
 
@@ -113,7 +109,7 @@ public sealed class AuthEmailFlowTests(PostgresApiFactory factory)
         var logout = await client.PostAsJsonAsync("/api/v1/auth/logout", new { }, ct);
         logout.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        // Rejoue l'ANCIENNE valeur de cookie via un client SANS cookie-jar (header `Cookie` manuel) :
+        // Rejoue l'ancienne valeur de cookie via un client sans cookie-jar (header `Cookie` manuel) :
         // 401 ici prouve que le token est révoqué côté serveur, indépendamment du jar vidé.
         var refresh = await AuthTestFlow.RawCookieClient(factory, refreshCookieBeforeLogout)
             .PostAsJsonAsync("/api/v1/auth/refresh", new { }, ct);

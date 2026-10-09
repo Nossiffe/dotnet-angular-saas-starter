@@ -1,7 +1,7 @@
 # ADR 0001 — Strongly-typed IDs & value objects mono-valeur via Vogen
 
 - **Statut** : Accepté (2026-06-07)
-- **Contexte** : élévation DDD du backend (agrégats riches, value objects, strongly-typed IDs).
+- **Contexte** : le backend modélise des agrégats riches, des value objects et des identifiants typés.
 
 ## Décision
 
@@ -13,7 +13,7 @@ Les value objects **multi-champs** (ex. `Money` = montant + devise) ne passent *
 
 ## Pourquoi pas l'intégration EF de Vogen ?
 
-Vogen sait générer un `EfCoreValueConverter`, **mais ce code généré référence `Microsoft.EntityFrameworkCore` dans l'assembly où vit le type** — donc **dans `Domain`**. Or `Domain` doit rester **pur** (aucune dépendance EF — c'est vérifié par le test d'architecture `NetArchTest`).
+Vogen sait générer un `EfCoreValueConverter`, **mais ce code généré référence `Microsoft.EntityFrameworkCore` dans l'assembly où vit le type** — donc **dans `Domain`**. Or `Domain` doit rester **pur** (aucune dépendance EF — c'est vérifié par le test d'architecture `DependencyRuleTests`, sur les assemblies réellement référencées).
 
 **Conséquence (convention du repo)** : les types Vogen sont générés en **`Conversions.SystemTextJson` uniquement** (pour la sérialisation API), et la **conversion de stockage EF est écrite à la main dans `Infrastructure`**.
 
@@ -21,7 +21,7 @@ On ajoute aussi `comparison: ComparisonGeneration.Omit` (sinon Vogen émet `ICom
 
 ## Conséquences
 
-- `Domain` ne dépend que de `Vogen` (analyzer/abstractions), pas d'EF → archi test vert.
+- `Domain` ne référence que `Vogen` et `ErrorOr` (voir ADR 0003), jamais EF ; `DependencyRuleTests` le vérifie.
 - Le **wire reste primitif** : les DTO/commands/route params utilisent `Guid`/`decimal`. Les IDs typés sont **internes au domaine** ; on convertit à la frontière des handlers (`ProductId.From(guid)`, `id.Value`).
 - Un peu de boilerplate manuel par ID (un converter EF + un enregistrement). Le pattern est documenté dans `CONTRIBUTING.md`.
 

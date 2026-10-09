@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace Saas.Infrastructure.Persistence.Outbox;
 
-// Options STJ PARTAGÉES entre l'écriture (DomainEventsInterceptor) et la lecture (OutboxProcessor).
+// Options STJ partagées entre l'écriture (DomainEventsInterceptor) et la lecture (OutboxProcessor).
 // Les domain events sont des `record` à ctor paramétré : STJ les supporte nativement (mapping
 // par nom de propriété sur le ctor). Vogen génère un converter SystemTextJson pour les IDs typés
 // (ProductId, etc.), donc pas besoin de converters supplémentaires ici.

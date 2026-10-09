@@ -38,7 +38,7 @@ public sealed class ProductCacheTests(PostgresApiFactory factory)
         var first = await client.GetFromJsonAsync<ProductDto>($"/api/v1/products/{id}", ct);
         first!.Price.ShouldBe(10m);
 
-        // On modifie le prix DIRECTEMENT en base, par-dessus la tête du cache (pas d'invalidation).
+        // On modifie le prix directement en base, par-dessus la tête du cache (pas d'invalidation).
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -47,7 +47,7 @@ public sealed class ProductCacheTests(PostgresApiFactory factory)
                 ct);
         }
 
-        // 2e GET → toujours servi par le CACHE → ancienne valeur.
+        // 2e GET → toujours servi par le cache → ancienne valeur.
         var cached = await client.GetFromJsonAsync<ProductDto>($"/api/v1/products/{id}", ct);
         cached!.Price.ShouldBe(10m);
 
