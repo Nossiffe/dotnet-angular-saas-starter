@@ -28,7 +28,7 @@ public sealed class AuthSecurityTests(PostgresApiFactory factory)
 
     // ── Mauvais password → 401 ───────────────────────────────────────────
     [Fact]
-    public async Task Mauvais_password_login_renvoie_401()
+    public async Task Login_with_a_wrong_password_returns_401()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
@@ -50,7 +50,7 @@ public sealed class AuthSecurityTests(PostgresApiFactory factory)
     // être manuelle (le cookie-jar automatique l'aurait déjà écrasé par la rotation), via un client SANS
     // cookie-jar (`HandleCookies = false`) et un header `Cookie` explicite portant la valeur capturée.
     [Fact]
-    public async Task Refresh_token_reuse_declenche_revocation_famille()
+    public async Task Reusing_a_refresh_token_revokes_every_session()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = AuthTestFlow.HttpsClient(factory);

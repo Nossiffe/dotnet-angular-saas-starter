@@ -7,17 +7,11 @@ namespace Saas.Infrastructure.Jobs;
 /// Job Hangfire résolu par DI : envoie l'email d'invitation hors bande de la requête HTTP.
 /// Exécuté par Hangfire après que le handler a persisté l'invitation et renvoyé sa réponse.
 /// </summary>
-internal sealed class ProcessInvitationEmailJob(
+internal sealed partial class ProcessInvitationEmailJob(
     IEmailSender email,
     IEmailLinkBuilder links,
     ILogger<ProcessInvitationEmailJob> logger)
 {
-    private static readonly Action<ILogger, Guid, Exception?> _logSendFailed =
-        LoggerMessage.Define<Guid>(
-            LogLevel.Error,
-            new EventId(1, "InvitationEmailSendFailed"),
-            "Échec de l'envoi de l'email d'invitation pour {InvitationId}");
-
     public async Task RunAsync(Guid invitationId, string rawToken, string inviteeEmail)
     {
         var link = links.AcceptInvitationLink(invitationId, rawToken);
@@ -35,7 +29,10 @@ internal sealed class ProcessInvitationEmailJob(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Ne jamais faire échouer le job si l'envoi SMTP échoue.
-            _logSendFailed(logger, invitationId, ex);
+            LogSendFailed(logger, invitationId, ex);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Échec de l'envoi de l'e-mail d'invitation pour {InvitationId}")]
+    private static partial void LogSendFailed(ILogger logger, Guid invitationId, Exception exception);
 }

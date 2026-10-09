@@ -331,10 +331,10 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         accept.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
-    // ── Régression Fix 1 : invitation expirée + nouvel email → 400 ET aucun user orphelin ──
-    // Le handler créait autrefois le compte Identity avant la vérification d'expiration, et un
+    // ── Invitation expirée + nouvel email → 400 et aucun compte orphelin ──
+    // Régression : si le compte Identity était créé avant la vérification d'expiration, un
     // early-return ErrorOr ne déclenche pas le rollback de la transaction (seule une exception le
-    // fait), donc le compte restait persisté malgré l'échec de l'acceptation. On vérifie ici
+    // fait) : le compte resterait en base malgré l'échec de l'acceptation. On vérifie ici
     // qu'une tentative de connexion avec ce couple email/mot de passe échoue.
     [Fact]
     public async Task Expired_invitation_with_new_email_creates_no_orphan_user()

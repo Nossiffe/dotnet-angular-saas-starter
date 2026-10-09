@@ -1,11 +1,9 @@
-import { ErrorHandler, inject, Injectable, NgZone } from '@angular/core';
+import { ErrorHandler, inject, Injectable } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 @Injectable()
 export class GlobalErrorHandler implements ErrorHandler {
-  // MatSnackBar needs NgZone to show in the Angular zone when called from outside
-  private readonly zone = inject(NgZone);
   private readonly snackBar = inject(MatSnackBar);
 
   handleError(error: unknown): void {
@@ -19,8 +17,7 @@ export class GlobalErrorHandler implements ErrorHandler {
       return;
     }
     console.error('[GlobalErrorHandler]', error);
-    this.zone.run(() => {
-      this.snackBar.open('Une erreur inattendue est survenue.', 'Fermer', { duration: 6000 });
-    });
+    // Zoneless application: the snack bar needs no NgZone.run.
+    this.snackBar.open('Une erreur inattendue est survenue.', 'Fermer', { duration: 6000 });
   }
 }

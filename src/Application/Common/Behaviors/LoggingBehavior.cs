@@ -3,17 +3,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Saas.Application.Common.Behaviors;
 
-public sealed class LoggingBehavior<TMessage, TResponse>(
+public sealed partial class LoggingBehavior<TMessage, TResponse>(
     ILogger<LoggingBehavior<TMessage, TResponse>> logger)
     : IPipelineBehavior<TMessage, TResponse>
     where TMessage : notnull, IMessage
 {
-    private static readonly Action<ILogger, string, Exception?> _logHandling =
-        LoggerMessage.Define<string>(LogLevel.Information, new EventId(1, "Handling"), "Handling {MessageType}");
-
-    private static readonly Action<ILogger, string, Exception?> _logHandled =
-        LoggerMessage.Define<string>(LogLevel.Information, new EventId(2, "Handled"), "Handled {MessageType}");
-
     public async ValueTask<TResponse> Handle(
         TMessage message,
         MessageHandlerDelegate<TMessage, TResponse> next,
@@ -24,9 +18,15 @@ public sealed class LoggingBehavior<TMessage, TResponse>(
         // Pas de journalisation des exceptions ici : une erreur de validation devient un 400, et une
         // vraie erreur est journalisée une seule fois par le gestionnaire d'exceptions de l'API.
         var name = typeof(TMessage).Name;
-        _logHandling(logger, name, null);
+        LogHandling(logger, name);
         var response = await next(message, cancellationToken);
-        _logHandled(logger, name, null);
+        LogHandled(logger, name);
         return response;
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Handling {MessageType}")]
+    private static partial void LogHandling(ILogger logger, string messageType);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Handled {MessageType}")]
+    private static partial void LogHandled(ILogger logger, string messageType);
 }

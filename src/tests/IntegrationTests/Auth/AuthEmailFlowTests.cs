@@ -14,7 +14,7 @@ public sealed class AuthEmailFlowTests(PostgresApiFactory factory)
     private sealed record AuthResponse(string AccessToken, DateTimeOffset ExpiresAt);
 
     [Fact]
-    public async Task Confirm_email_active_le_compte()
+    public async Task Confirming_the_email_activates_the_account()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
@@ -40,7 +40,7 @@ public sealed class AuthEmailFlowTests(PostgresApiFactory factory)
     }
 
     [Fact]
-    public async Task Forgot_then_reset_password_permet_de_se_reconnecter()
+    public async Task Forgot_then_reset_password_lets_the_user_sign_in_again()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
@@ -75,7 +75,7 @@ public sealed class AuthEmailFlowTests(PostgresApiFactory factory)
     }
 
     [Fact]
-    public async Task Forgot_password_email_inconnu_renvoie_200_sans_envoyer_de_mail()
+    public async Task Forgot_password_for_an_unknown_email_returns_200_and_sends_nothing()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
@@ -89,7 +89,7 @@ public sealed class AuthEmailFlowTests(PostgresApiFactory factory)
     }
 
     [Fact]
-    public async Task Logout_revoque_le_refresh_token()
+    public async Task Logout_revokes_the_refresh_token()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = AuthTestFlow.HttpsClient(factory);

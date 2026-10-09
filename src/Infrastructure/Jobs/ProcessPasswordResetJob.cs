@@ -8,22 +8,16 @@ namespace Saas.Infrastructure.Jobs;
 /// (lookup, génération de token, envoi d'email) hors bande de la requête HTTP.
 /// Exécuté par Hangfire après que le handler a renvoyé 200 instantanément.
 /// </summary>
-internal sealed class ProcessPasswordResetJob(
+internal sealed partial class ProcessPasswordResetJob(
     IIdentityService identity,
-    IEmailSender email,
+    IEmailSender emailSender,
     IEmailLinkBuilder links,
     ILogger<ProcessPasswordResetJob> logger)
 {
-    private static readonly Action<ILogger, Guid, Exception?> _logSendFailed =
-        LoggerMessage.Define<Guid>(
-            LogLevel.Error,
-            new EventId(1, "ResetEmailSendFailed"),
-            "Échec de l'envoi de l'email de reset de mot de passe pour {UserId}");
-
-    public async Task RunAsync(string email_address)
+    public async Task RunAsync(string email)
     {
         // Anti-énumération préservée : on no-op silencieusement si l'email est inconnu.
-        var generated = await identity.GeneratePasswordResetTokenAsync(email_address, CancellationToken.None)
+        var generated = await identity.GeneratePasswordResetTokenAsync(email, CancellationToken.None)
             .ConfigureAwait(false);
 
         if (generated is not { } reset)
@@ -40,13 +34,16 @@ internal sealed class ProcessPasswordResetJob(
 
         try
         {
-            await email.SendAsync(email_address, "Réinitialisation de votre mot de passe", body, CancellationToken.None)
+            await emailSender.SendAsync(email, "Réinitialisation de votre mot de passe", body, CancellationToken.None)
                 .ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Ne jamais faire échouer le job (ni révéler l'existence de l'email) si l'envoi SMTP échoue.
-            _logSendFailed(logger, reset.UserId, ex);
+            LogSendFailed(logger, reset.UserId, ex);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Échec de l'envoi de l'e-mail de réinitialisation du mot de passe pour {UserId}")]
+    private static partial void LogSendFailed(ILogger logger, Guid userId, Exception exception);
 }

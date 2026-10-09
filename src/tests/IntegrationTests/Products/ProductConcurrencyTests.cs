@@ -25,7 +25,7 @@ public sealed class ProductConcurrencyTests(PostgresApiFactory factory)
     }
 
     [Fact]
-    public async Task Update_concurrent_du_meme_produit_leve_DbUpdateConcurrencyException()
+    public async Task Concurrent_updates_of_a_product_raise_a_concurrency_exception()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = AuthedClient(factory);
@@ -54,7 +54,7 @@ public sealed class ProductConcurrencyTests(PostgresApiFactory factory)
     }
 
     [Fact]
-    public async Task Update_concurrent_via_endpoint_renvoie_409()
+    public async Task Concurrent_updates_through_the_endpoint_return_409()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = AuthedClient(factory);

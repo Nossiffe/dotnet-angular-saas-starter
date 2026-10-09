@@ -55,7 +55,7 @@ public sealed class ProductsEndpointTests(PostgresApiFactory factory)
     }
 
     [Fact]
-    public async Task Create_invalide_renvoie_400_ProblemDetails()
+    public async Task An_invalid_product_returns_a_400_problem()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = AuthedClient(factory);

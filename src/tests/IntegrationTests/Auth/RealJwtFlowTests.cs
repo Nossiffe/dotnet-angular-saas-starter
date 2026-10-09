@@ -12,7 +12,7 @@ public sealed class RealJwtFlowTests(RealJwtApiFactory factory)
     private sealed record AuthResponse(string AccessToken, DateTimeOffset ExpiresAt);
 
     [Fact]
-    public async Task Register_login_bearer_acces_produits_200()
+    public async Task Register_login_then_the_bearer_token_reads_products()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
@@ -37,7 +37,7 @@ public sealed class RealJwtFlowTests(RealJwtApiFactory factory)
     }
 
     [Fact]
-    public async Task GET_products_sans_token_retourne_401()
+    public async Task Products_without_a_token_return_401()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
@@ -46,7 +46,7 @@ public sealed class RealJwtFlowTests(RealJwtApiFactory factory)
     }
 
     [Fact]
-    public async Task Logout_sans_cookie_est_idempotent_204()
+    public async Task Logout_without_a_cookie_returns_204()
     {
         // /auth/logout est AllowAnonymous (adjudiqué) : la credential réelle du logout est le
         // cookie HttpOnly `rt` (possession), pas l'access token. Rationale : révocation

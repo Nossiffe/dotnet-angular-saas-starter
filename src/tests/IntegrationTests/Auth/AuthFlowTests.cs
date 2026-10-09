@@ -11,7 +11,7 @@ public sealed class AuthFlowTests(PostgresApiFactory factory)
     private sealed record AuthResponse(string AccessToken, DateTimeOffset ExpiresAt);
 
     [Fact]
-    public async Task Register_login_donne_un_token_utilisable()
+    public async Task Register_then_login_returns_a_usable_token()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = AuthTestFlow.HttpsClient(factory);

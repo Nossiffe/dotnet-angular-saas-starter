@@ -14,7 +14,7 @@ namespace Saas.IntegrationTests.Platform;
 public sealed class MiddlewareWiringTests(PostgresApiFactory factory)
 {
     [Fact]
-    public void RequestTimeouts_expose_la_policy_par_defaut_configuree()
+    public void Request_timeouts_use_the_configured_default_policy()
     {
         using var scope = factory.Services.CreateScope();
         var options = scope.ServiceProvider.GetRequiredService<IOptions<RequestTimeoutOptions>>().Value;
@@ -24,7 +24,7 @@ public sealed class MiddlewareWiringTests(PostgresApiFactory factory)
     }
 
     [Fact]
-    public async Task Une_requete_nominale_passe_toujours_avec_le_middleware_de_timeout_actif()
+    public async Task A_normal_request_succeeds_with_the_timeout_middleware()
     {
         var client = factory.CreateClient();
         var resp = await client.GetAsync("/health/live", TestContext.Current.CancellationToken);

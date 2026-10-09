@@ -19,7 +19,7 @@ public sealed class SecurityConventionTests
             .UseNpgsql("Host=localhost;Database=model-only").Options, new FixedTenant());
 
     [Fact]
-    public void Toute_entite_ITenantOwned_porte_le_filtre_nomme_TenantFilter()
+    public void Every_tenant_owned_entity_has_the_TenantFilter()
     {
         using var context = CreateContext();
         var violations = context.Model.GetEntityTypes()
@@ -32,7 +32,7 @@ public sealed class SecurityConventionTests
     }
 
     [Fact]
-    public void Toute_entite_ISoftDeletable_porte_le_filtre_nomme_SoftDeleteFilter()
+    public void Every_soft_deletable_entity_has_the_SoftDeleteFilter()
     {
         using var context = CreateContext();
         var violations = context.Model.GetEntityTypes()
@@ -45,7 +45,7 @@ public sealed class SecurityConventionTests
     }
 
     [Fact]
-    public void TenantProvider_leve_quand_le_claim_est_absent()
+    public void TenantProvider_throws_without_a_tenant_claim()
     {
         var accessor = new Microsoft.AspNetCore.Http.HttpContextAccessor
         {
@@ -56,7 +56,7 @@ public sealed class SecurityConventionTests
     }
 
     [Fact]
-    public void TenantProvider_leve_quand_le_claim_est_Guid_Empty()
+    public void TenantProvider_throws_for_an_empty_tenant()
     {
         var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
         context.User = new System.Security.Claims.ClaimsPrincipal(

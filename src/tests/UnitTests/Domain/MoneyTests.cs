@@ -7,15 +7,15 @@ namespace Saas.UnitTests.Domain;
 public sealed class MoneyTests
 {
     [Fact]
-    public void Montant_negatif_lance() =>
+    public void A_negative_amount_throws() =>
         Should.Throw<ArgumentOutOfRangeException>(() => Money.From(-1m));
 
     [Fact]
-    public void Devise_vide_lance() =>
+    public void An_empty_currency_throws() =>
         Should.Throw<ArgumentException>(() => Money.From(1m, " "));
 
     [Fact]
-    public void From_normalise_la_devise_en_majuscules()
+    public void From_upper_cases_the_currency()
     {
         var money = Money.From(10m, "usd");
 
@@ -24,11 +24,11 @@ public sealed class MoneyTests
     }
 
     [Fact]
-    public void From_devise_par_defaut_est_EUR() =>
+    public void From_defaults_to_EUR() =>
         Money.From(5m).Currency.ShouldBe("EUR");
 
     [Fact]
-    public void Egalite_par_valeur()
+    public void Equality_is_by_value()
     {
         Money.From(5m, "EUR").ShouldBe(Money.From(5m, "EUR"));
         Money.From(5m, "EUR").ShouldNotBe(Money.From(5m, "USD"));

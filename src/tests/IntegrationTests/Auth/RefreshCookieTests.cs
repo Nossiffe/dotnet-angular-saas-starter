@@ -38,7 +38,7 @@ public sealed class RefreshCookieTests(PostgresApiFactory factory)
     }
 
     [Fact]
-    public async Task Refresh_sans_cookie_renvoie_401()
+    public async Task Refresh_without_a_cookie_returns_401()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient(); // pas de login préalable → aucun cookie `rt`
@@ -49,7 +49,7 @@ public sealed class RefreshCookieTests(PostgresApiFactory factory)
     }
 
     [Fact]
-    public async Task Logout_supprime_le_cookie()
+    public async Task Logout_deletes_the_cookie()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = AuthTestFlow.HttpsClient(factory);

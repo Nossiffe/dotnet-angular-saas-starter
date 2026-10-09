@@ -169,7 +169,7 @@ REGISTER_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
 ok "POST /api/v1/auth/register → 201"
 
 # ---- 4b. Confirmer l'email (direct en base pour l'utilisateur principal) ----
-# Le login exige désormais un email confirmé. En production, l'utilisateur clique le lien reçu
+# Le login exige un email confirmé. En production, l'utilisateur clique le lien reçu
 # par email (Mailpit en dev). Pour le flux principal on confirme directement en base afin de
 # garder le test rapide et déterministe.
 echo "▶ Confirmation de l'email (directe en base)"

@@ -112,7 +112,7 @@ public static class DependencyInjection
         });
         services.AddScoped<IDbConnectionFactory, NpgsqlConnectionFactory>();
 
-        // Transactional Outbox : dispatch fiable des domain events (remplace le dispatch direct).
+        // Transmet les domain events de l'outbox à leurs handlers (voir OutboxProcessor).
         services.AddHostedService<OutboxProcessor>();
 
         // Repositories (write) + Unit of Work — pas de DbSet exposé à l'Application.

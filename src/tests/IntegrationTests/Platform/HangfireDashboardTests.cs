@@ -12,7 +12,7 @@ namespace Saas.IntegrationTests.Platform;
 public sealed class HangfireDashboardTests(NonDevelopmentApiFactory factory)
 {
     [Fact]
-    public async Task Dashboard_refuse_un_utilisateur_authentifie_sans_platform_role()
+    public async Task Dashboard_refuses_an_authenticated_user_without_platform_role()
     {
         var client = factory.CreateClient();
         var resp = await client.GetAsync("/hangfire", TestContext.Current.CancellationToken);
@@ -23,7 +23,7 @@ public sealed class HangfireDashboardTests(NonDevelopmentApiFactory factory)
     }
 
     [Fact]
-    public async Task Dashboard_accepte_platform_role_PlatformAdmin()
+    public async Task Dashboard_accepts_the_PlatformAdmin_platform_role()
     {
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add(TestAuthHandler.PlatformRoleHeader, "PlatformAdmin");
