@@ -1,12 +1,16 @@
+using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Saas.Application.Common.Interfaces;
+using Saas.Domain.Identity;
 using Saas.Infrastructure.Jobs;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Auth;
@@ -33,6 +37,9 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>Logs émis par l'API pendant les tests de la collection.</summary>
     public CapturingLoggerProvider Logs { get; } = new();
 
+    /// <summary>Mots de passe vérifiés par le hasher de l'application, dans l'ordre.</summary>
+    public ConcurrentQueue<string> VerifiedPasswords { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -57,6 +64,9 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.RemoveAll<IEmailSender>();
             services.AddSingleton<IEmailSender>(Emails);
             services.AddSingleton<ILoggerProvider>(Logs);
+            services.RemoveAll<IPasswordHasher<ApplicationUser>>();
+            services.AddScoped<IPasswordHasher<ApplicationUser>>(sp => new RecordingPasswordHasher(
+                VerifiedPasswords, sp.GetRequiredService<IOptions<PasswordHasherOptions>>()));
 
             services.AddScoped<ProcessPasswordResetJob>();
             services.RemoveAll<IPasswordResetEnqueuer>();

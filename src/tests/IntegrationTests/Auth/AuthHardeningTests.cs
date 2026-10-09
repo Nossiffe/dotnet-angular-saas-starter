@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -51,31 +50,35 @@ public sealed class AuthHardeningTests(PostgresApiFactory factory)
         reset.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
-    // Sans compte, la connexion répondait en quelques millisecondes, contre plusieurs centaines pour
-    // un compte existant (hash PBKDF2) : la durée révélait les e-mails inscrits. Le seuil de 50 %
-    // laisse une large marge au bruit de mesure : sans la correction, le rapport est inférieur à 10 %.
-    [Fact]
-    public async Task Login_takes_as_long_for_an_unknown_email_as_for_a_wrong_password()
+    // Sans compte, ou compte verrouillé, la connexion répondait sans calculer de hash PBKDF2 : en
+    // quelques millisecondes au lieu d'environ 400, ce qui révélait les e-mails inscrits. Le test
+    // vérifie le comportement, pas une durée : chaque échec vérifie le mot de passe soumis, une fois.
+    [Theory]
+    [InlineData("unknown-email")]
+    [InlineData("locked-account")]
+    [InlineData("wrong-password")]
+    public async Task Every_failed_login_verifies_the_submitted_password_once(string scenario)
     {
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
-        var email = UniqueEmail("timing");
-        await AuthTestFlow.RegisterAndConfirmAsync(client, factory, email, Password, ct);
-
-        // Premier appel de chaque chemin hors mesure (initialisations). Quatre échecs au total sur le
-        // compte existant : le verrouillage n'intervient qu'au cinquième.
-        await LoginDurationAsync(client, UniqueEmail("timing-unknown"), ct);
-        await LoginDurationAsync(client, email, ct);
-
-        var unknown = new List<TimeSpan>();
-        var existing = new List<TimeSpan>();
-        for (var i = 0; i < 3; i++)
+        var email = UniqueEmail(scenario);
+        if (!string.Equals(scenario, "unknown-email", StringComparison.Ordinal))
         {
-            unknown.Add(await LoginDurationAsync(client, UniqueEmail("timing-unknown"), ct));
-            existing.Add(await LoginDurationAsync(client, email, ct));
+            await AuthTestFlow.RegisterAndConfirmAsync(client, factory, email, Password, ct);
         }
 
-        Median(unknown).ShouldBeGreaterThan(Median(existing) * 0.5);
+        if (string.Equals(scenario, "locked-account", StringComparison.Ordinal))
+        {
+            for (var i = 0; i < 5; i++)
+            {
+                await LoginAsync(client, email, "WrongPass!!00", HttpStatusCode.Unauthorized, ct);
+            }
+        }
+
+        var probe = $"Probe!{Guid.NewGuid():N}";
+        await LoginAsync(client, email, probe, HttpStatusCode.Unauthorized, ct);
+
+        factory.VerifiedPasswords.Count(p => string.Equals(p, probe, StringComparison.Ordinal)).ShouldBe(1);
     }
 
     [Fact]
@@ -158,14 +161,11 @@ public sealed class AuthHardeningTests(PostgresApiFactory factory)
         ReadClaim(withTenant.AccessToken, "tenant").ShouldBe(otherOrgId.ToString());
     }
 
-    private static async Task<TimeSpan> LoginDurationAsync(HttpClient client, string email, CancellationToken ct)
+    private static async Task LoginAsync(
+        HttpClient client, string email, string password, HttpStatusCode expected, CancellationToken ct)
     {
-        var stopwatch = Stopwatch.StartNew();
-        var response = await client.PostAsJsonAsync(
-            "/api/v1/auth/login", new { email, password = "WrongPass!!00" }, ct);
-        stopwatch.Stop();
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-        return stopwatch.Elapsed;
+        var response = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password }, ct);
+        response.StatusCode.ShouldBe(expected);
     }
 
     private static async Task<AuthResponse> LoginAsync(HttpClient client, string email, Guid? tenantId, CancellationToken ct)
@@ -175,8 +175,6 @@ public sealed class AuthHardeningTests(PostgresApiFactory factory)
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         return (await response.Content.ReadFromJsonAsync<AuthResponse>(ct))!;
     }
-
-    private static TimeSpan Median(List<TimeSpan> values) => values.Order().ElementAt(values.Count / 2);
 
     private static string ReadClaim(string jwt, string claim)
     {

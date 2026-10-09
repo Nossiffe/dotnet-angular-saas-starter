@@ -1,25 +1,22 @@
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Options;
 using Saas.Domain.Identity;
 
 namespace Saas.Infrastructure.Identity;
 
 /// <summary>
-/// Vérifie un mot de passe contre un hash factice de même coût qu'un vrai (PBKDF2, mêmes options).
-/// Utilisé quand il n'y a pas de hash à vérifier (compte inconnu ou verrouillé), pour que la durée
-/// d'une connexion ne révèle pas l'existence du compte.
+/// Vérifie un mot de passe contre un hash factice, calculé une fois par le hasher de l'application :
+/// même algorithme et même coût qu'un vrai hash. Utilisé quand il n'y a pas de hash à vérifier
+/// (compte inconnu ou verrouillé), pour que la durée d'une connexion ne révèle pas si le compte existe.
 /// </summary>
 internal sealed class DummyPasswordCheck
 {
-    private readonly PasswordHasher<ApplicationUser> _hasher;
     private readonly ApplicationUser _user = new();
-    private readonly string _hash;
+    private string? _hash;
 
-    public DummyPasswordCheck(IOptions<PasswordHasherOptions> options)
+    public void Run(IPasswordHasher<ApplicationUser> hasher, string password)
     {
-        _hasher = new PasswordHasher<ApplicationUser>(options);
-        _hash = _hasher.HashPassword(_user, Guid.NewGuid().ToString());
+        var hash = LazyInitializer.EnsureInitialized(
+            ref _hash, () => hasher.HashPassword(_user, Guid.NewGuid().ToString()));
+        hasher.VerifyHashedPassword(_user, hash, password);
     }
-
-    public void Run(string password) => _hasher.VerifyHashedPassword(_user, _hash, password);
 }

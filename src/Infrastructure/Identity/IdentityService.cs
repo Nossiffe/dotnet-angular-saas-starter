@@ -54,7 +54,7 @@ internal sealed class IdentityService(
         // compte. On calcule donc un hash de même coût dans tous les cas.
         if (user is null || await users.IsLockedOutAsync(user))
         {
-            dummyPasswordCheck.Run(password);
+            dummyPasswordCheck.Run(users.PasswordHasher, password);
             return null;
         }
 
