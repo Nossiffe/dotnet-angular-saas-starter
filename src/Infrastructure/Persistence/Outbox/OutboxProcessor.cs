@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Saas.Application.Common.Events;
 using Saas.Application.Common.Interfaces;
@@ -10,7 +9,8 @@ using Saas.Domain.Common;
 
 namespace Saas.Infrastructure.Persistence.Outbox;
 
-// Transmet les domain events de l'outbox à leurs IDomainEventHandler, toutes les 5 secondes.
+// Transmet les domain events de l'outbox à leurs IDomainEventHandler. OutboxPollingService lance
+// un lot toutes les 5 secondes ; les tests d'intégration lancent les lots eux-mêmes.
 //
 // - Plusieurs instances : chaque lot est lu avec FOR UPDATE SKIP LOCKED, dans une transaction. Une
 //   instance ne lit pas les lignes qu'une autre est en train de traiter.
@@ -22,32 +22,11 @@ internal sealed partial class OutboxProcessor(
     IServiceScopeFactory scopeFactory,
     IDateTimeProvider clock,
     ILogger<OutboxProcessor> logger)
-    : BackgroundService
 {
     private const int MaxAttempts = 5;
     private const int BatchSize = 20;
-    private static readonly TimeSpan _interval = TimeSpan.FromSeconds(5);
     private static readonly ConcurrentDictionary<Type, IHandlerInvoker> _invokers = new();
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        using var timer = new PeriodicTimer(_interval);
-        while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
-        {
-            try
-            {
-                await ProcessBatchAsync(stoppingToken).ConfigureAwait(false);
-            }
-#pragma warning disable CA1031 // un BackgroundService ne doit jamais crasher sur un batch raté
-            catch (Exception ex)
-#pragma warning restore CA1031
-            {
-                LogBatchFailed(logger, ex);
-            }
-        }
-    }
-
-    // Exposé pour les tests d'intégration (déclenche un batch sans attendre un tick).
     public async Task<int> ProcessBatchAsync(CancellationToken cancellationToken)
     {
         await using var scope = scopeFactory.CreateAsyncScope();
@@ -141,9 +120,6 @@ internal sealed partial class OutboxProcessor(
         return (IDomainEvent)(JsonSerializer.Deserialize(message.Content, type, OutboxJson.Options)
             ?? throw new InvalidOperationException($"Désérialisation nulle pour {message.Type}"));
     }
-
-    [LoggerMessage(Level = LogLevel.Error, Message = "Outbox : échec du batch")]
-    private static partial void LogBatchFailed(ILogger logger, Exception ex);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Outbox : échec du message {MessageId} (tentative {Attempts})")]
     private static partial void LogMessageFailed(ILogger logger, Guid messageId, int attempts, Exception ex);

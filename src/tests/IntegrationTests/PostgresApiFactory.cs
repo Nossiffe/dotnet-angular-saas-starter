@@ -14,6 +14,7 @@ using Saas.Application.Common.Interfaces;
 using Saas.Infrastructure.Identity;
 using Saas.Infrastructure.Jobs;
 using Saas.Infrastructure.Persistence;
+using Saas.Infrastructure.Persistence.Outbox;
 using Saas.IntegrationTests.Auth;
 using Saas.IntegrationTests.Invitations;
 using Saas.IntegrationTests.Outbox;
@@ -74,6 +75,9 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.RemoveAll<IPasswordResetEnqueuer>();
             services.AddScoped<IPasswordResetEnqueuer, SynchronousPasswordResetEnqueuer>();
 
+            // Pas de lots de l'outbox en arrière-plan : ils prendraient les messages des tests au
+            // milieu d'une vérification. Les tests de l'outbox lancent les lots eux-mêmes.
+            services.Remove(services.Single(d => d.ImplementationType == typeof(OutboxPollingService)));
             services.AddScoped<IDomainEventHandler<OutboxProbeEvent>, CountingProbeHandler>();
             services.AddScoped<IDomainEventHandler<OutboxProbeEvent>, FailingOnceProbeHandler>();
 

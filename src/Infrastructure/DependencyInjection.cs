@@ -119,7 +119,8 @@ public static class DependencyInjection
         services.AddScoped<IDbConnectionFactory, NpgsqlConnectionFactory>();
 
         // Transmet les domain events de l'outbox à leurs handlers (voir OutboxProcessor).
-        services.AddHostedService<OutboxProcessor>();
+        services.AddSingleton<OutboxProcessor>();
+        services.AddHostedService<OutboxPollingService>();
 
         // Repositories (write) + Unit of Work — pas de DbSet exposé à l'Application.
         services.AddScoped<IProductRepository, ProductRepository>();

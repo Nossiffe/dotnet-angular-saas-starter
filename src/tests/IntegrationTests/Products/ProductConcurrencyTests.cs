@@ -2,8 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Saas.Application.Common;
-using Saas.Application.Products;
+using Npgsql;
+using Saas.Api.Contracts;
 using Saas.Domain.Products;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Auth;
@@ -30,10 +30,8 @@ public sealed class ProductConcurrencyTests(PostgresApiFactory factory)
         var ct = TestContext.Current.CancellationToken;
         var client = AuthedClient(factory);
 
-        var name = $"Conc-{Guid.NewGuid():N}";
-        (await client.PostAsJsonAsync("/api/v1/products", new { name, price = 1m }, ct)).EnsureSuccessStatusCode();
-        var page = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products?pageSize=100", ct);
-        var id = page!.Items.Single(p => string.Equals(p.Name, name, StringComparison.Ordinal)).Id;
+        var create = await client.PostAsJsonAsync("/api/v1/products", new { name = $"Conc-{Guid.NewGuid():N}", price = 1m }, ct);
+        var id = (await create.Content.ReadFromJsonAsync<CreateProductResponse>(ct))!.Id;
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -53,30 +51,49 @@ public sealed class ProductConcurrencyTests(PostgresApiFactory factory)
         await Should.ThrowAsync<DbUpdateConcurrencyException>(async () => await db.SaveChangesAsync(ct));
     }
 
+    // Une autre transaction modifie le produit entre la lecture et l'écriture de la requête. La
+    // requête attend la fin de cette transaction sur le verrou de la ligne, puis son UPDATE ne
+    // trouve plus la version lue (xmin) : 409. Le test attend que la requête soit bloquée avant de
+    // valider l'autre transaction, si bien que l'ordre des opérations est toujours le même.
     [Fact]
-    public async Task Concurrent_updates_through_the_endpoint_return_409()
+    public async Task A_concurrent_write_makes_the_update_return_409()
     {
         var ct = TestContext.Current.CancellationToken;
         var client = AuthedClient(factory);
+        var create = await client.PostAsJsonAsync("/api/v1/products", new { name = $"Conc409-{Guid.NewGuid():N}", price = 1m }, ct);
+        var id = (await create.Content.ReadFromJsonAsync<CreateProductResponse>(ct))!.Id;
 
-        var name = $"Conc409-{Guid.NewGuid():N}";
-        (await client.PostAsJsonAsync("/api/v1/products", new { name, price = 1m }, ct)).EnsureSuccessStatusCode();
-        var page = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products?pageSize=100", ct);
-        var id = page!.Items.Single(p => string.Equals(p.Name, name, StringComparison.Ordinal)).Id;
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await using var concurrentWrite = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlAsync($"""UPDATE "Products" SET "Name" = 'Changed elsewhere' WHERE "Id" = {id}""", ct);
+        var concurrentWriter = ((NpgsqlConnection)db.Database.GetDbConnection()).ProcessID;
 
-        // Deux PUT concurrents sur la même ligne : EF détecte le conflit de xmin sur le 2e save → 409.
-        // On rejoue la rafale quelques fois pour neutraliser l'aléa d'ordonnancement.
-        HttpStatusCode? conflict = null;
-        for (var attempt = 0; attempt < 5 && conflict is null; attempt++)
+        var update = client.PutAsJsonAsync($"/api/v1/products/{id}", new { name = "Renamed", price = 2m }, ct);
+        await WaitUntilAQueryIsBlockedByAsync(concurrentWriter, ct);
+        await concurrentWrite.CommitAsync(ct);
+
+        (await update).StatusCode.ShouldBe(HttpStatusCode.Conflict);
+    }
+
+    // Une requête attend un verrou que tient la connexion du processus serveur indiqué.
+    private async Task WaitUntilAQueryIsBlockedByAsync(int blockingPid, CancellationToken ct)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        for (var attempt = 0; attempt < 200; attempt++)
         {
-            var t1 = client.PutAsJsonAsync(
-                $"/api/v1/products/{id}", new { name = $"A-{attempt}", price = 2m }, ct);
-            var t2 = client.PutAsJsonAsync(
-                $"/api/v1/products/{id}", new { name = $"B-{attempt}", price = 3m }, ct);
-            var results = await Task.WhenAll(t1, t2);
-            conflict = Array.Find(results, r => r.StatusCode == HttpStatusCode.Conflict)?.StatusCode;
+            if (await db.Database.SqlQuery<bool>($"""
+                    SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE {blockingPid} = ANY(pg_blocking_pids(pid))) AS "Value"
+                    """)
+                .SingleAsync(ct))
+            {
+                return;
+            }
+
+            await Task.Delay(50, ct);
         }
 
-        conflict.ShouldBe(HttpStatusCode.Conflict);
+        throw new InvalidOperationException("La requête n'a jamais attendu le verrou de l'autre transaction.");
     }
 }
