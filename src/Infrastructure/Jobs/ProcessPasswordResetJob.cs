@@ -1,3 +1,4 @@
+using Hangfire;
 using Microsoft.Extensions.Logging;
 using Saas.Application.Common.Interfaces;
 
@@ -7,6 +8,11 @@ namespace Saas.Infrastructure.Jobs;
 /// Job Hangfire résolu par DI : effectue le vrai travail du reset de mot de passe
 /// (lookup, génération de token, envoi d'email) hors bande de la requête HTTP.
 /// Exécuté par Hangfire après que le handler a renvoyé 200 instantanément.
+///
+/// La demande n'écrit rien en base : il n'y a pas de transaction où accrocher l'outbox, d'où
+/// Hangfire. Un échec SMTP fait échouer le job, que Hangfire reprend jusqu'à trois fois. Le job passe
+/// ensuite à l'état Deleted, qui expire après 24 h comme un job réussi : l'adresse e-mail, argument
+/// du job, ne reste pas indéfiniment dans les tables Hangfire, comme elle le ferait en échec.
 /// </summary>
 internal sealed partial class ProcessPasswordResetJob(
     IIdentityService identity,
@@ -14,9 +20,13 @@ internal sealed partial class ProcessPasswordResetJob(
     IEmailLinkBuilder links,
     ILogger<ProcessPasswordResetJob> logger)
 {
+    internal const int MaxRetries = 3;
+
+    [AutomaticRetry(Attempts = MaxRetries, OnAttemptsExceeded = AttemptsExceededAction.Delete)]
     public async Task RunAsync(string email)
     {
-        // Anti-énumération préservée : on no-op silencieusement si l'email est inconnu.
+        // E-mail inconnu : rien à envoyer. La réponse HTTP est déjà partie, la même que pour un
+        // e-mail connu : c'est elle qui ne révèle rien.
         var generated = await identity.GeneratePasswordResetTokenAsync(email, CancellationToken.None)
             .ConfigureAwait(false);
 
@@ -39,11 +49,17 @@ internal sealed partial class ProcessPasswordResetJob(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // Ne jamais faire échouer le job (ni révéler l'existence de l'email) si l'envoi SMTP échoue.
-            LogSendFailed(logger, reset.UserId, ex);
+            // Le message d'une erreur SMTP peut citer l'adresse du destinataire. Ni ce log, ni
+            // l'exception que Hangfire journalise et conserve ne la reprennent : l'identifiant de
+            // l'utilisateur et le type de l'erreur suffisent à retrouver l'échec.
+            LogSendFailed(logger, reset.UserId, ex.GetType().Name);
+#pragma warning disable MA0054 // exception d'origine volontairement omise : elle peut citer l'adresse
+            throw new InvalidOperationException(
+                $"Échec de l'envoi de l'e-mail de réinitialisation pour l'utilisateur {reset.UserId} ({ex.GetType().Name}).");
+#pragma warning restore MA0054
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Échec de l'envoi de l'e-mail de réinitialisation du mot de passe pour {UserId}")]
-    private static partial void LogSendFailed(ILogger logger, Guid userId, Exception exception);
+    [LoggerMessage(Level = LogLevel.Error, Message = "Échec de l'envoi de l'e-mail de réinitialisation du mot de passe pour {UserId} ({ErrorType})")]
+    private static partial void LogSendFailed(ILogger logger, Guid userId, string errorType);
 }
