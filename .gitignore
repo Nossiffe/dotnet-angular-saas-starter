@@ -35,3 +35,5 @@ appsettings.Production.json
 .idea/
 .vscode/
 
+# Stryker
+StrykerOutput/

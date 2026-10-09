@@ -84,7 +84,7 @@ Deux gardes-fous distincts, cumulatifs — c'est leur combinaison qui protège :
   `TreatWarningsAsErrors=true`)** : plus strict — **toute** sévérité (y compris
   Low/Moderate) remonte en warning puis erreur dès `dotnet build`/`dotnet restore`,
   sans attendre le CI. Ce garde-fou local n'existe pas côté npm (pas d'équivalent
-  « audit à chaque build » configuré pour les fronts).
+  « audit à chaque build » configuré pour le front).
 
 | Sévérité | Action CI (`deps-audit.yml`, triage High/Critical) | Action build normal (NuGet uniquement) | Action humaine attendue |
 |---|---|---|---|

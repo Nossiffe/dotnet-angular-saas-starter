@@ -1,4 +1,4 @@
-import { test, expect } from './axe-fixture';
+import { test, expect } from './fixtures';
 
 test('page login sans violation a11y critique', async ({ page, makeAxeBuilder }) => {
   await page.goto('/login');

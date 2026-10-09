@@ -20,7 +20,7 @@
 - [ ] Un ADR a été créé si la PR implique une décision d'architecture significative
 - [ ] Aucun secret/credential n'est inclus dans les fichiers committés
 - [ ] La migration EF a été relue avant commit (si applicable)
-- [ ] Les clients API ont été régénérés (`npm run api:gen` / `npm run gen:api`) si l'OpenAPI a changé
+- [ ] `web-angular/openapi.json` et les types TypeScript ont été régénérés (`npm run api:gen`) si un endpoint a changé
 
 ## Notes de revue
 

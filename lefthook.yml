@@ -1,8 +1,15 @@
 pre-commit:
   parallel: true
   commands:
+    # Bloquant dès que gitleaks est installé. Sans gitleaks, le hook prévient et laisse
+    # passer : le job Secret Scanning de la CI reste le filet de sécurité.
     gitleaks:
-      run: command -v gitleaks >/dev/null 2>&1 && gitleaks protect --staged --redact --no-banner --config .gitleaks.toml || true
+      run: |
+        if command -v gitleaks >/dev/null 2>&1; then
+          gitleaks protect --staged --redact --no-banner --config .gitleaks.toml
+        else
+          echo "gitleaks absent : scan local des secrets ignoré (la CI le fait)."
+        fi
       fail_text: "Secret détecté par gitleaks — supprimer la valeur sensible avant de commiter"
     dotnet-format:
       glob: "**/*.cs"

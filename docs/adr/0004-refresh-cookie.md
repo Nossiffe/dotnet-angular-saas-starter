@@ -2,7 +2,7 @@
 
 - **Statut** : Accepté (2026-07-13)
 - **Contexte** : le refresh token circulait dans le body JSON (`AuthResponse.RefreshToken`)
-  et vivait en `localStorage` côté fronts — accessible à tout script exécuté dans la page
+  et vivait en `localStorage` côté front — accessible à tout script exécuté dans la page
   (XSS). Le chantier sécurité migre son transport vers un cookie posé par l'API, jamais lu
   par le JS applicatif.
 
@@ -29,7 +29,7 @@ Un token antiforgery (double-submit cookie, synchronizer token pattern) est l'ou
 quand un cookie est envoyé automatiquement **cross-site**. Ici, trois garanties cumulées
 rendent ce mécanisme redondant :
 
-1. **Même-origine** sur les deux fronts (§ ci-dessous) — le navigateur n'a jamais l'occasion
+1. **Même-origine** entre le front et l'API (§ ci-dessous) — le navigateur n'a jamais l'occasion
    d'envoyer le cookie vers un tiers, ni un tiers de le faire envoyer vers l'API via un autre
    domaine : il n'y a pas de frontière cross-site à protéger côté navigation normale.
 2. **`SameSite=Strict`** — même en cas d'erreur de config CORS, `Strict` empêche déjà l'envoi
@@ -43,23 +43,19 @@ rendent ce mécanisme redondant :
 
 Ajouter un token antiforgery par-dessus ces trois couches apporterait une redondance sans
 réduire de risque réel identifié, au prix d'un aller-retour supplémentaire (endpoint pour
-distribuer le token, header à propager côté fronts) — complexité non justifiée ici (YAGNI).
+distribuer le token, header à propager côté front) — complexité non justifiée ici (YAGNI).
 Si une des trois garanties venait à sauter (ex. un `SameSite=None` requis demain), cette
 décision serait à rouvrir.
 
-## Pourquoi les deux fronts passent même-origine
+## Comment le front reste même-origine
 
-- **Angular** est déjà servi via son proxy dev (`web-angular/src/proxy.conf.json`) et, en
-  prod, via le même reverse-proxy/domaine que l'API (`/api/*` réécrit vers le backend) —
-  aucun changement requis.
-- **React** utilisait `VITE_API_URL` pointant directement le backend sur un port distinct
-  (cross-origin en dev) — il bascule sur le proxy Vite (`vite.config.ts`, `proxy: { '/api':
-  ... }`), alignant son comportement sur Angular. `VITE_API_URL` disparaît : la variable
-  n'a plus de raison d'exister une fois les deux fronts même-origine.
+Le front Angular passe par son proxy en développement (`web-angular/src/proxy.conf.json`) et,
+en production, par le même reverse-proxy/domaine que l'API (`/api/*` réécrit vers le
+backend). Il n'appelle jamais l'API sur un autre port ou un autre domaine.
 
-Sans cet alignement, React aurait eu besoin de `SameSite=None` pour son propre trafic
-cross-origin — ce qui aurait cassé l'argument « pas d'antiforgery » ci-dessus pour LES DEUX
-fronts (le cookie SameSite est une politique par cookie, pas par client).
+Un client ajouté plus tard devra suivre la même règle : s'il appelait l'API en cross-origin,
+il faudrait `SameSite=None`, et l'argument « pas d'antiforgery » ci-dessus tomberait pour tous
+les clients (`SameSite` est une politique du cookie, pas du client).
 
 ## Exigence en production
 
@@ -98,17 +94,16 @@ aurait empêché reste couvert par `SameSite=Strict` (§ ci-dessus) — au pire 
 
 ## Alternatives écartées
 
-- **BFF (Backend-For-Frontend) complet** — un serveur intermédiaire par front qui détiendrait
+- **BFF (Backend-For-Frontend) complet** — un serveur intermédiaire devant le front, qui détiendrait
   la session et proxy-erait vers l'API. Résout le même problème (cookie jamais exposé au SPA)
-  mais ajoute un service déployable de plus par front, une source d'état de session
+  mais ajoute un service déployable de plus, une source d'état de session
   supplémentaire, et une latence réseau additionnelle — disproportionné : le problème (vol du
   refresh token par XSS) est déjà résolu par `HttpOnly` seul, sans introduire de nouveau
   composant d'infra.
-- **`SameSite=None` + antiforgery** — permettrait un déploiement cross-origin sans faire
-  converger les fronts, mais réintroduit exactement la surface CSRF que `Strict` élimine, et
+- **`SameSite=None` + antiforgery** — permettrait un déploiement cross-origin, mais réintroduit exactement la surface CSRF que `Strict` élimine, et
   nécessite alors un antiforgery token complet (endpoint de distribution + propagation header)
-  pour compenser — plus de complexité pour un besoin (cross-origin) que l'alignement des
-  fronts sur le proxy rend inutile ici.
+  pour compenser — plus de complexité pour un besoin (cross-origin) que le passage du front
+  par le proxy rend inutile ici.
 - **Refresh token toujours en body JSON, stocké en mémoire (pas `localStorage`)** — évite le
   `localStorage` mais oblige à re-authentifier à chaque rechargement d'onglet (pas de
   persistance) ou à réinventer un stockage côté client aussi exposé au XSS que

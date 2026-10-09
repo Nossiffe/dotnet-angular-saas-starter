@@ -8,8 +8,8 @@ using Xunit;
 namespace Saas.IntegrationTests.Platform;
 
 // Les timeouts ne sont pas testables via une requête HTTP réelle sans endpoint lent dédié
-// (et ils ne se déclenchent pas sous debugger, cf. dotnet.md) — on vérifie donc le câblage
-// par DI (policy résolue = config par défaut) plutôt que le comportement en bout en bout.
+// (et ils ne se déclenchent pas sous débogueur) — on vérifie donc le câblage
+// par DI (policy résolue = config par défaut) plutôt que le comportement de bout en bout.
 [Collection("api")]
 public sealed class MiddlewareWiringTests(PostgresApiFactory factory)
 {

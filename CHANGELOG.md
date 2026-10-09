@@ -7,18 +7,27 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 ## [Unreleased]
 
 ### Added
-- Timeouts de requête globaux (`RequestTimeouts:DefaultSeconds`, 30 s par défaut) et output cache câblé opt-in strict (aucune policy par défaut — activation explicite par endpoint via `.CacheOutput(...)`).
-- Cache déclaratif `[CachedQuery]` : le `CachingBehavior` du pipeline Mediator cache les queries opt-in dans HybridCache avec clé et tags scopés au tenant (invalidation logique par tag sur write) ; la slice Products l'adopte.
-- Tests a11y (Angular + React) : fixture `makeAxeBuilder` (pattern officiel Playwright) étendant les tags à WCAG 2.2 AA (`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`).
-- Doc backend : `.claude/rules/dotnet.md` complété (citation verbatim de l'invalidation logique HybridCache par tag, note sur la non-activation délibérée de `AddValidation` natif Minimal APIs) ; `CONTRIBUTING.md` documente `dotnet ef dbcontext optimize` (modèles EF compilés) et pourquoi il reste désactivé (incompatible avec les global query filters tenant/soft-delete).
+- Timeouts de requête globaux (`RequestTimeouts:DefaultSeconds`, 30 s par défaut) et output cache opt-in strict (aucune policy par défaut, activation par endpoint via `.CacheOutput(...)`).
+- Cache déclaratif `[CachedQuery]` : le `CachingBehavior` du pipeline Mediator met en cache les queries marquées dans HybridCache, avec clé et tags propres au tenant (invalidation logique par tag à l'écriture) ; adopté par la slice Products.
+- Tests Playwright de la page de connexion, API simulée, avec contrôle d'accessibilité axe (WCAG 2.2 AA).
+- Mutation testing Stryker 5 (runner MTP) : seuil bloquant sur le Domain, score mesuré sur l'Application.
+- Quickstart rejouable de bout en bout : API lancée par `dotnet run`, clé JWT en user-secrets, API conteneurisée derrière le profil Compose `full`.
 
 ### Changed
-- Stack de test basculée sur le runner natif **Microsoft Testing Platform** (MTP) : `global.json` §test + `UseMicrosoftTestingPlatformRunner` sur xunit.v3, retrait de VSTest (`Microsoft.NET.Test.Sdk`, `xunit.runner.visualstudio`) et de `coverlet.collector`. Couverture désormais produite par `Microsoft.Testing.Extensions.CodeCoverage` (`dotnet test --coverage --coverage-output-format cobertura`) ; step CI et résumé de couverture adaptés (fichiers `<guid>.cobertura.xml`).
-- Angular : retrait de `withFetch()` (fetch déjà par défaut en v22), `provideAnimationsAsync()` et du package `@angular/animations` — Material a abandonné sa dépendance au module animations depuis v19.2 (canari Playwright snack-bar validé sans le provider) ; verdicts sourcés Signal Forms (stable v22) et `@angular/aria` (stable v22, non installé — YAGNI) documentés dans `.claude/rules/angular.md`.
-- React : **React Compiler activé** (`@vitejs/plugin-react` `reactCompilerPreset` + `@rolldown/plugin-babel`, `babel-plugin-react-compiler`) — surcoût mesuré : build ~+20 % (meilleur de 2, 6,59 s → 7,90 s), démarrage `dev` ~+19 % (567 ms → 675 ms), sous le seuil de rollback (×1,5) ; preset ESLint `react-hooks` `recommended-latest`. `restoreSession` (store d'auth) et l'intercepteur 401 (`setup-client.ts`) partagent désormais un **unique** single-flight réseau (`refreshOnce()` dans `src/lib/refresh.ts`) sur `/api/v1/auth/refresh` — deux gardes indépendantes auraient pu double-dépenser le refresh token à usage unique et déclencher la révocation serveur de toutes les sessions.
+- Tests sur le runner natif Microsoft Testing Platform (xunit.v3) ; couverture produite par `Microsoft.Testing.Extensions.CodeCoverage` (format Cobertura).
+- Angular : retrait de `withFetch()`, de `provideAnimationsAsync()` et du package `@angular/animations`, inutiles en v22.
+- Actions GitHub mises à jour, épinglées par SHA avec leur version exacte en commentaire.
+- Dependabot : mises à jour groupées, délai de 7 jours avant de proposer une version, montées majeures d'Angular et de TypeScript écartées (TypeScript suit la version exigée par Angular).
+- Workflows déclenchés sur `main` uniquement.
 
 ### Fixed
+- gitleaks : la configuration du dépôt remplaçait les règles par défaut et ne détectait plus rien ; elle les étend maintenant. Le hook pre-commit bloque dès que gitleaks est installé.
+- Job gitleaks en échec sur les pull requests (permission `pull-requests: read` manquante).
+- `.env.example` : nom de variable SMTP corrigé (`Email__UseSslOnConnect`), variables inutilisées retirées.
 - `OutboxProcessor` utilise `IDateTimeProvider` (testabilité).
+
+### Removed
+- Package `Microsoft.Extensions.Http.Resilience`, référencé mais jamais utilisé.
 
 ### Migrations DB
 - (aucune)

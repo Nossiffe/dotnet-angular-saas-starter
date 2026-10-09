@@ -30,12 +30,25 @@ updates:
     open-pull-requests-limit: 5
     groups:
       angular:
-        patterns: ["@angular/*", "@angular-devkit/*", "@angular-eslint/*"]
+        patterns: ["@angular/*", "@angular-devkit/*", "@angular-eslint/*", "angular-eslint"]
         update-types: ["minor", "patch"]
+      # vitest and its plugins must move together, majors included.
+      vitest:
+        patterns: ["vitest", "@vitest/*"]
       npm-minor-patch:
         update-types: ["minor", "patch"]
         # Pre-1.0 package: minor releases may break, so it keeps its own PR.
         exclude-patterns: ["@hey-api/openapi-ts"]
+    ignore:
+      # Angular pins the TypeScript range it supports (>=6.0 <6.1 for Angular 22):
+      # TypeScript moves with `ng update`, not on its own.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # Angular majors need the `ng update` migrations.
+      - dependency-name: "@angular/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@angular-devkit/*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -44,6 +57,8 @@ updates:
       day: "monday"
       time: "05:00"
       timezone: "Europe/Zurich"
+    cooldown:
+      default-days: 7
     labels: ["dependencies"]
     groups:
       github-actions:
@@ -56,6 +71,8 @@ updates:
       day: "monday"
       time: "05:00"
       timezone: "Europe/Zurich"
+    cooldown:
+      default-days: 7
     labels: ["dependencies"]
     groups:
       docker:

@@ -31,8 +31,8 @@ pour chaque release :
 1. **Build & push** l'image sur GHCR (`ghcr.io/<repo>`), taguée par semver + SHA court.
 2. **SBOM** (Software Bill of Materials), généré avant l'attestation (voir note ci-dessous) :
    - Backend : `dotnet tool run dotnet-CycloneDX -- Saas.slnx -o sbom --filename sbom-backend.json --json`
-     (format CycloneDX ; ~151 composants sur ce template — le `--` sépare les arguments de
-     `dotnet tool run` de ceux passés à l'outil).
+     (format CycloneDX ; le `--` sépare les arguments de `dotnet tool run` de ceux passés à
+     l'outil).
    - Chaque front : `npm sbom --sbom-format cyclonedx --omit dev` (SBOM natif npm, dépendances
      de prod uniquement).
    - Tous les fichiers `sbom/*.json` sont publiés en artifact du run (`actions/upload-artifact`).
@@ -74,7 +74,6 @@ Les variables marquées **Required** sont validées au démarrage (`builder.Conf
 | `Cors__AllowedOrigins` | **Required** | Origines CORS autorisées (JSON array — ex. `["https://app.example.com"]`) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Optionnel | Endpoint OTLP (ex. `https://otel-collector:4317`) |
 | `OTEL_SERVICE_NAME` | Optionnel | Nom du service pour les traces/métriques (défaut : `saas-api`) |
-| `DATABASE_READONLY_URL` | Optionnel | DSN Postgres lecture seule pour le MCP dbhub — pointer un rôle sans droits d'écriture |
 | `RateLimiting__DisableAuthPolicy` | **Ne pas activer** | Désactive le rate-limiter `/auth` — **doit rester `false` en production** (honoré uniquement en Development) |
 | `DataProtection__KeysPath` | Recommandé en prod | Répertoire du volume persistant pour les clés Data Protection — voir § dédiée ci-dessous |
 | `ForwardedHeaders__Enabled` | Recommandé derrière un proxy | `true` si l'API est derrière un reverse-proxy/ingress qui termine TLS — voir § dédiée ci-dessous. ⚠️ Avec ce flag actif, l'API fait confiance à `X-Forwarded-*` : son port ne doit être joignable **que** depuis le réseau du proxy (jamais exposé publiquement), sinon un client forgerait son IP et fausserait le rate limiting |
@@ -188,7 +187,7 @@ l'API est exposée sans proxy devant). Le middleware ne traite que `X-Forwarded-
 L'API applique déjà un preset de headers de sécurité (`NetEscapades.AspNetCore.SecurityHeaders`,
 `AddDefaultApiSecurityHeaders()` dans `Program.cs`) — rien à faire côté backend.
 
-Le **SPA statique** (Angular/React buildé, servi par nginx ou équivalent) a besoin de ses
+Le **SPA statique** (Angular buildé, servi par nginx ou équivalent) a besoin de ses
 propres headers — notamment une CSP stricte, différente de celle de l'API (elle doit
 autoriser le runtime JS/CSS du bundle). Exemple nginx pour le hosting statique :
 
@@ -200,8 +199,7 @@ add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 ```
 
 - `style-src 'unsafe-inline'` : concession usuelle pour Angular (styles de composants
-  injectés inline) — à retirer et remplacer par des nonces/hashes si un audit ultérieur
-  l'exige pour React (qui en a généralement moins besoin selon la stack CSS utilisée).
+  injectés inline) — à remplacer par des nonces (`ngCspNonce`) si un audit l'exige.
 - `connect-src 'self'` fonctionne car le SPA et l'API sont même-origine (§ cookie ci-dessus)
   — pas besoin d'y lister un host d'API distinct.
 - `frame-ancestors 'none'` : équivalent CSP de `X-Frame-Options: DENY`, redondant
@@ -279,13 +277,13 @@ Le `OutboxProcessor` (background service) interroge la table `OutboxMessages` en
 
 **Options :**
 - Dédier un seul pod au worker Outbox (flag feature/env var).
-- Ajouter `SELECT ... FOR UPDATE SKIP LOCKED` dans la requête Outbox pour une déduplication côté base (voir Plan 9 / ADR futur).
+- Ajouter `SELECT ... FOR UPDATE SKIP LOCKED` dans la requête Outbox, pour que deux instances ne prennent jamais les mêmes messages.
 
 ### Hangfire Dashboard
 
-Le dashboard `/hangfire` est protégé par `HangfireDashboardAuthFilter`. En production :
-- Restreindre l'accès aux utilisateurs avec le rôle `PlatformAdmin` (ou équivalent).
-- Ou désactiver le dashboard en prod et utiliser un worker Hangfire séparé sans UI.
+Le dashboard `/hangfire` est protégé par `HangfireDashboardAuthFilter`. Hors Development, il
+exige le claim `platform_role=PlatformAdmin`, qu'aucun flux de connexion n'émet : il faut le
+provisionner pour un opérateur. Autre option : ne pas monter le dashboard en production.
 
 ### HybridCache — multi-instance
 

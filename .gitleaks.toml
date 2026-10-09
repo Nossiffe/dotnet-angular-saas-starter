@@ -1,12 +1,22 @@
-# gitleaks configuration — allowlist for known-safe files
-# See: https://github.com/gitleaks/gitleaks#configuration
+# Configuration gitleaks (hook pre-commit et job Secret Scanning de la CI).
+# Voir https://github.com/gitleaks/gitleaks#configuration
+
+# Garde toutes les règles par défaut : sans cette section, un fichier de configuration
+# remplace les règles par défaut et gitleaks ne détecte plus rien.
+[extend]
+useDefault = true
 
 [allowlist]
-description = "Allowlist pour les fichiers de placeholder et snapshots"
+description = "Fichiers d'exemple et faux positifs connus"
 paths = [
-  # Fichiers d'exemple — pas de vraies valeurs secrètes
-  '''.env\.example$''',
-  '''web-angular/\.env\.example$''',
-  # Snapshots OpenAPI (pas de secrets dans les schémas)
+  # Fichier d'exemple : valeurs factices de développement
+  '''\.env\.example$''',
+  # Contrat OpenAPI : aucun secret dans les schémas
   '''openapi\.json$''',
+]
+regexes = [
+  # Nom d'algorithme dans un commentaire (Infrastructure/DependencyInjection.cs)
+  '''^PBKDF2-SHA512$''',
+  # Clé de signature factice des tests d'intégration
+  '''^integration-tests-signing-key-[0-9a-f]+$''',
 ]
