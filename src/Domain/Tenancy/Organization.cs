@@ -69,6 +69,11 @@ public sealed class Organization : AggregateRoot<OrganizationId>, IAuditable
         }
 
         // Garde du dernier Owner : ne jamais rétrograder le seul Owner (laisserait 0 Owner).
+        // Le décompte porte sur les adhésions chargées, sans verrou : deux requêtes simultanées
+        // qui rétrogradent chacune un Owner différent passeraient toutes les deux. Aujourd'hui,
+        // l'API ne crée qu'un Owner par organisation : ChangeMemberRoleValidator n'accepte que
+        // Member et Admin, et une invitation ne peut pas porter le rôle Owner. Si une promotion en
+        // Owner est ajoutée, il faudra protéger ce décompte contre la concurrence.
         if (oldRole == OrganizationRole.Owner
             && _memberships.Count(m => m.Role == OrganizationRole.Owner) == 1)
         {
