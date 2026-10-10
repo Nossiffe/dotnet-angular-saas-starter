@@ -35,6 +35,12 @@ updates:
       # vitest and its plugins must move together, majors included.
       vitest:
         patterns: ["vitest", "@vitest/*"]
+      # Security updates of vitest and @vitest/mocker in a single attempt.
+      # @vitest/coverage-v8 has no advisory but requires the exact vitest
+      # version: if the update still fails, bump both by hand (security/README.md).
+      vitest-security:
+        applies-to: security-updates
+        patterns: ["vitest", "@vitest/*"]
       npm-minor-patch:
         update-types: ["minor", "patch"]
         # Pre-1.0 package: minor releases may break, so it keeps its own PR.

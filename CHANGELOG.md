@@ -22,7 +22,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Tests sur le runner natif Microsoft Testing Platform (xunit.v3) ; couverture produite par `Microsoft.Testing.Extensions.CodeCoverage` (format Cobertura).
 - Angular : retrait de `withFetch()`, de `provideAnimationsAsync()` et du package `@angular/animations`, inutiles en v22.
 - Actions GitHub mises à jour, épinglées par SHA avec leur version exacte en commentaire.
-- Dependabot : mises à jour groupées, délai de 7 jours avant de proposer une version, montées majeures d'Angular et de TypeScript écartées (TypeScript suit la version exigée par Angular).
+- Dependabot : mises à jour groupées, délai de 7 jours avant de proposer une version, montées majeures d'Angular et de TypeScript écartées (TypeScript suit la version exigée par Angular). Les mises à jour de sécurité de vitest et de ses plugins (`@vitest/*`) sont tentées dans une seule PR ; `@vitest/coverage-v8`, qui exige la version exacte de vitest, peut encore imposer une montée à la main (voir `security/README.md`).
 - Workflows déclenchés sur `main` uniquement.
 - Domain sans framework : `ApplicationUser` et `RefreshToken` passent dans l'Infrastructure, `IDomainEvent` ne dépend plus de Mediator. Les handlers de domain events implémentent `IDomainEventHandler<TEvent>`.
 - Outbox : une transaction par message, lu avec `FOR UPDATE SKIP LOCKED` ; chaque handler dans son propre scope ; handlers déjà passés non rappelés lors d'un nouvel essai (`OutboxMessageConsumers`) ; nouvel essai après 1, 4, 16 puis 64 minutes, puis abandon journalisé en erreur ; un arrêt de l'application ne compte pas de tentative et ne journalise pas d'erreur. L'e-mail de bienvenue n'avale plus les erreurs SMTP : il est retenté.
@@ -73,6 +73,8 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Routes `/organizations/{orgId}` : contrôle de portée centralisé dans `OrganizationScopeFilter` ; test d'architecture qui exige le filtre `"TenantId" = @TenantId` dans chaque requête SQL écrite en raw string literal (`"""`) qui nomme une table d'entité tenant.
 - Le jeton brut d'une invitation n'est plus stocké en clair dans les tables Hangfire, comme argument du job : seul son hash est en base. Le job de réinitialisation, passé à l'état Deleted après ses tentatives, n'y garde pas l'adresse e-mail plus de 24 h ; son log d'échec et l'exception que Hangfire conserve ne contiennent que l'identifiant de l'utilisateur.
 - Rôle Admin effectif (invitations, suppression de produits) ; changement de rôle réservé à l'Owner. Les tests appliquent les vraies policies au lieu d'une copie.
+- Front : vitest et `@vitest/coverage-v8` passent en 4.1.11, qui corrige GHSA-82fw-gwwq-j7x9 (sévérité modérée), une traversée de chemin dans les redirections de mocks de `@vitest/mocker`. Dépendances de développement : rien n'en part dans l'application livrée.
+- Front : un `overrides` npm impose js-yaml 4.3.2 à `@hey-api/json-schema-ref-parser` 1.4.4, utilisé par la génération des types de l'API, qui exige encore exactement 4.2.0. 4.3.2 corrige GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj et GHSA-2883-xcg3-v3hh (sévérité élevée, consommation CPU sur un YAML piégé). Dépendance de développement elle aussi ; raison et condition de retrait dans `security/README.md`.
 
 ### Migrations DB
 - `RemoveUserDisplayName` : supprime la colonne inutilisée `AspNetUsers.DisplayName`.
