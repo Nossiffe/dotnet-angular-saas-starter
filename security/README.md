@@ -52,6 +52,8 @@ Points clés :
   potentiellement breaking) reste **hors groupe**, une PR par mise à jour.
   vitest et ses plugins (`@vitest/*`) ont leur propre groupe, montées
   majeures comprises : `@vitest/coverage-v8` exige la version exacte de vitest.
+  Le groupe `npm-minor-patch` porte `patterns: ["*"]`, sans quoi il gardait les
+  paquets Angular et `@vitest/coverage-v8` (voir `CONTRIBUTING.md`).
 - Mises à jour de sécurité : sans délai de cooldown, et une PR par paquet
   vulnérable tant que le réglage « Grouped security updates » du dépôt reste
   désactivé. Exception : vitest et `@vitest/*` forment le groupe

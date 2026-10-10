@@ -209,6 +209,13 @@ arrivent en PR séparées, sauf celles de vitest, qui reste groupé avec ses plu
 d'Angular, et les montées majeures et mineures de TypeScript, sont écartées. Les mises à jour de
 sécurité, elles, partent sans délai (voir `security/README.md`).
 
+Le groupe `npm-minor-patch`, qui reçoit le reste, porte `patterns: ["*"]`. Quand un paquet relève
+de plusieurs groupes, un groupe à motifs le cède au groupe plus « spécifique » ; un groupe sans
+motif ne cède rien, et Dependabot le juge plus spécifique qu'un motif à joker comme `@angular/*` ou
+`@vitest/*`. Jusqu'à cette correction, les paquets Angular et `@vitest/coverage-v8` restaient donc
+dans `npm-minor-patch`, et vitest et `@vitest/coverage-v8` montaient de version majeure dans des PR
+séparées : #19, #26 et #30 pour vitest, #21 pour `@vitest/coverage-v8`.
+
 ### Procédure d'exception CVE
 
 Documentée intégralement dans `security/README.md` (§ Procédure d'exception) : ouvrir un ticket
