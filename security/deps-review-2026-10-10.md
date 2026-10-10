@@ -64,7 +64,10 @@ milliers d'accolades imbriquées épuise la pile des fonctions récursives qui
 parcourent l'arbre du motif ; l'exception `RangeError` non rattrapée arrête le
 processus Node. L'impact est un déni de service, sans atteinte à la
 confidentialité ni à l'intégrité (`C:N/I:N/A:H`). Avis publié le 2026-09-18,
-sans version corrigée.
+sans version corrigée
+([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) ;
+détail technique dans l'issue
+[micromatch/braces#70](https://github.com/micromatch/braces/issues/70)).
 
 **Pourquoi `npm audit` le signale.** Une seule copie de braces, en dépendance
 de développement de `web-angular`
@@ -84,10 +87,13 @@ chaîne n'entre dans l'application livrée. Le job `npm-audit` de
 `deps-audit.yml` (`npm audit --omit=dev`) ne la voit pas ; `npm audit` lancé
 sans `--omit=dev` la signale, avec les paquets qui en dépendent : micromatch,
 fast-glob, globby, stylelint, son extension `stylelint-scss` et ses
-configurations. GitHub a ouvert l'alerte Dependabot n° 22 sur cet avis, puis
-l'a fermée automatiquement en vertu de sa règle prédéfinie pour les
-dépendances de développement npm (« Dismiss low impact issues for
-development-scoped dependencies », qui couvre CWE-674).
+configurations. GitHub a ouvert
+[l'alerte Dependabot n° 22](https://github.com/Nossiffe/dotnet-angular-saas-starter/security/dependabot/22)
+(visible des administrateurs du dépôt) sur cet avis, puis l'a fermée
+automatiquement en vertu de sa règle prédéfinie pour les dépendances de
+développement npm, « Dismiss low impact issues for development-scoped
+dependencies », qui couvre CWE-674
+([critères des règles prédéfinies](https://docs.github.com/en/code-security/reference/supply-chain-security/criteria-for-preset-rules)).
 
 **Pourquoi l'avis n'est pas exploitable ici.** braces analyse des motifs de
 fichiers (globs), jamais le contenu des fichiers ni leurs noms : ceux-ci sont
@@ -110,14 +116,14 @@ qu'ils sont écrits : l'avis ne lui donne rien de plus. Au pire, une commande
 de lint s'arrête, en local ou en CI.
 
 **Côté amont.** Aucune version corrigée n'est publiée. Un mainteneur de
-braces conteste la portée de l'avis dans l'issue
-[micromatch/braces#70](https://github.com/micromatch/braces/issues/70) : selon
-lui, la longueur maximale des motifs, déjà réglable, suffit. Une PR de
-correction proposée par un contributeur
+braces conteste la portée de l'avis : selon lui, la longueur maximale des
+motifs, déjà réglable, suffit
+([commentaire du 2026-10-05 sur micromatch/braces#70](https://github.com/micromatch/braces/issues/70#issuecomment-5995348316)).
+Une PR de correction proposée par un contributeur
 ([micromatch/braces#72](https://github.com/micromatch/braces/pull/72)) a été
 fermée sans fusion. Un mainteneur de stylelint annonce que la version 18.0.0
 passera à tinyglobby et picomatch
-([stylelint/stylelint#9559](https://github.com/stylelint/stylelint/issues/9559)),
+([commentaire sur stylelint/stylelint#9559](https://github.com/stylelint/stylelint/issues/9559#issuecomment-6017628090)),
 ce qui devrait faire sortir braces de l'arbre.
 
 **Réexamen** au plus tard le 2026-11-09. À chaque revue, vérifier la dernière
@@ -127,7 +133,8 @@ l'avis. Réexaminer plus tôt si l'un de ces événements survient :
 - stylelint 18.0.0 est publié. Dependabot ne proposera la montée qu'au moins
   7 jours après la publication (`cooldown`), et seulement quand une version de
   `stylelint-config-standard-scss` l'acceptera : la version 17.0.0 exige
-  `stylelint ^17.0.0` ;
+  `stylelint ^17.0.0`
+  ([package.json de la v17.0.0](https://github.com/stylelint-scss/stylelint-config-standard-scss/blob/v17.0.0/package.json)) ;
 - une version de braces qui corrige l'avis est publiée ;
 - l'avis est retiré ou modifié dans la GitHub Advisory Database ;
 - un motif de fichier qui ne vient ni du dépôt ni de stylelint atteint
