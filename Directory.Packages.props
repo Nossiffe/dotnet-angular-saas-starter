@@ -59,7 +59,8 @@
     <!-- Aligné sur MTP v1 (xunit.v3 3.2.2 → xunit.v3.core.mtp-v1 pin MTP 1.9.1) :
          la dernière CodeCoverage restant sur la ligne MTP v1.x est 18.0.6 (→ MTP 1.8.4,
          unifié vers 1.9.1). 18.1.0+ sautent à MTP 2.x → TypeLoadException (IDataConsumer)
-         car l'extension MSBuild reste en 1.9.1. Remonter quand xunit.v3 passera à MTP v2. -->
+         car l'extension MSBuild reste en 1.9.1. Remonter quand xunit.v3 passera à MTP v2, et retirer
+         alors la règle ignore de .github/dependabot.yml. -->
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.0.6" />
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
