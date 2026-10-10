@@ -13,7 +13,7 @@ import type {
 } from '../../api/generated';
 import { SKIP_ERROR_TOAST } from '../error/http-error.interceptor';
 
-// Réponse jeton = DTO généré `AuthResponse` (Hey API). Pas d'interface à la main.
+// Réponse jeton = DTO généré `AuthResponse` (Hey API).
 export type TokenResponse = AuthResponse;
 // Identifiants de connexion = DTO généré `LoginRequest` (tenantId facultatif).
 export type Credentials = LoginRequest;
@@ -50,9 +50,9 @@ export class AuthService {
   }
 
   /**
-   * Refresh the access token. The refresh token itself never touches JS: it
-   * lives in the HttpOnly cookie `rt` (Path=/api/v1/auth) and is sent
-   * automatically by the browser (same-origin via the dev proxy).
+   * Renouvelle le jeton d'accès. Le refresh token n'est jamais lisible en JS : il vit dans le
+   * cookie HttpOnly `rt` (Path=/api/v1/auth), que le navigateur envoie seul (même origine, via le
+   * proxy de dev).
    */
   refresh(): Observable<TokenResponse> {
     return this.http
@@ -61,9 +61,8 @@ export class AuthService {
   }
 
   /**
-   * Silent session restoration attempted at boot (see `restoreSession`
-   * provider in `app.config.ts`). Tries the HttpOnly refresh cookie; a 401
-   * simply means "not logged in" and must not surface as an error.
+   * Restauration silencieuse de la session au démarrage (voir `app.config.ts`) par le cookie
+   * HttpOnly. Un 401 veut seulement dire « non connecté » et ne remonte pas comme une erreur.
    */
   restoreSession(): Observable<boolean> {
     return this.refresh().pipe(
@@ -73,10 +72,10 @@ export class AuthService {
   }
 
   /**
-   * Synchronously clears all local auth state (signals only — the refresh
-   * token cookie is invisible to JS and cleared server-side by /auth/logout).
-   * Makes no HTTP call. Call this when the server revocation is
-   * impossible or inappropriate (e.g. refresh failure in the interceptor).
+   * Efface l'état d'authentification local, sans appel HTTP : les signaux seulement, le cookie
+   * du refresh token étant invisible en JS et supprimé côté serveur par /auth/logout. À utiliser
+   * quand la révocation côté serveur est impossible ou inutile (échec du refresh dans
+   * l'intercepteur, par exemple).
    */
   clearLocalState(): void {
     this.accessToken.set(null);
@@ -84,11 +83,9 @@ export class AuthService {
   }
 
   /**
-   * Revoke the refresh token server-side, then clear local state.
-   * Local state is cleared even if the server call fails.
-   * `/auth/logout` is `AllowAnonymous` server-side (the real credential is the
-   * HttpOnly `rt` cookie, not the access token) — an expired/absent access
-   * token does not prevent the server-side revocation.
+   * Révoque le refresh token côté serveur, puis efface l'état local, même si l'appel échoue.
+   * `/auth/logout` est anonyme côté serveur : la preuve est le cookie HttpOnly `rt`, pas le jeton
+   * d'accès, donc un jeton d'accès expiré ou absent n'empêche pas la révocation.
    */
   logout(): Observable<void> {
     return this.http.post<void>('/api/v1/auth/logout', {}).pipe(

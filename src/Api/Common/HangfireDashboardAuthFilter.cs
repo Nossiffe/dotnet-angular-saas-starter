@@ -16,7 +16,6 @@ public sealed class HangfireDashboardAuthFilter(IWebHostEnvironment environment)
 {
     public bool Authorize(DashboardContext context)
     {
-        ArgumentNullException.ThrowIfNull(context);
         var httpContext = context.GetHttpContext();
 
         if (environment.IsDevelopment())

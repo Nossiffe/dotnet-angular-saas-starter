@@ -9,7 +9,6 @@ public sealed partial class ProductCreatedHandler(ILogger<ProductCreatedHandler>
 {
     public ValueTask HandleAsync(ProductCreatedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvent);
         LogProductCreated(logger, domainEvent.ProductId.Value);
         return ValueTask.CompletedTask;
     }

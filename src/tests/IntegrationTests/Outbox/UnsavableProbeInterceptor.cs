@@ -13,7 +13,6 @@ public sealed class UnsavableProbeInterceptor : SaveChangesInterceptor
     public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
         DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(eventData);
         var refused = eventData.Context?.ChangeTracker.Entries<OutboxMessage>()
             .Any(e => e.State == EntityState.Modified
                 && e.Entity.Content.Contains("\"failsToSave\":true", StringComparison.Ordinal)) ?? false;

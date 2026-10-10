@@ -7,7 +7,6 @@ public static class EndpointExtensions
 {
     public static IServiceCollection AddEndpoints(this IServiceCollection services)
     {
-        ArgumentNullException.ThrowIfNull(services);
         var endpoints = Assembly.GetExecutingAssembly().DefinedTypes
             .Where(t => t is { IsAbstract: false, IsInterface: false }
                 && typeof(IEndpoint).IsAssignableFrom(t))
@@ -25,8 +24,6 @@ public static class EndpointExtensions
 
     public static void MapEndpoints(this WebApplication app)
     {
-        ArgumentNullException.ThrowIfNull(app);
-
         // Groupe versionné racine : /api/v{version:apiVersion}
         var versionSet = app.NewApiVersionSet()
             .HasApiVersion(new ApiVersion(1, 0))

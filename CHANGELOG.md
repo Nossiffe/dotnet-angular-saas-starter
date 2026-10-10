@@ -37,6 +37,9 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Runners CI fixés sur `ubuntu-24.04` au lieu de `ubuntu-latest` : une nouvelle image ne change plus l'environnement de la CI sans commit.
 - E-mails d'invitation envoyés par l'outbox (`SendInvitationEmailHandler`, sur `MemberInvitedDomainEvent` et `InvitationResentDomainEvent`) au lieu d'un job Hangfire enfilé après le commit : le jeton du lien est créé à l'envoi et son hash enregistré avant que l'e-mail parte. Livraison au moins une fois : un doublon remplace le lien précédent. Un renvoi rend l'ancien lien caduc aussitôt (ADR 0005).
 - Acceptation d'une invitation : statut et expiration vérifiés avant de demander un mot de passe à un invité sans compte.
+- `Program.cs` découpé en méthodes d'extension nommées (`src/Api/Hosting/`) : observabilité, limitation de débit, base de données au démarrage, serveur Hangfire, pipeline HTTP. Les explications longues passent dans `ARCHITECTURE.md` et `DEPLOYMENT.md`.
+- Création d'un produit par `ToCreatedHttpResult`, comme celle d'une invitation. Le `Location` des deux réponses 201 est calculé depuis une route nommée au lieu d'une URL écrite à la main : `/api/v1/...` comme avant, et il reprend désormais la version écrite dans la requête (`/api/v1.0/...` pour une requête en `v1.0`).
+- Réponses d'erreur métier (ErrorOr) : l'extension `errors` liste toutes les erreurs du résultat, par code, comme le prévoit l'ADR 0003 ; le statut, `title` et `code` restent ceux de la première erreur. La page d'acceptation d'une invitation distingue ces erreurs, qui portent un `code`, des erreurs de saisie.
 
 ### Fixed
 - gitleaks : la configuration du dépôt remplaçait les règles par défaut et ne détectait plus rien ; elle les étend maintenant. Le hook pre-commit bloque dès que gitleaks est installé.
@@ -46,18 +49,23 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Une erreur de validation produisait trois logs d'erreur, dont un faux 500 ; elle est maintenant journalisée une fois, en 400.
 - Les logs n'atteignaient pas le provider OpenTelemetry : Serilog les transmet maintenant aux providers enregistrés.
 - Premier lancement sur une base vide : la migration automatique de développement ne journalise plus d'erreur EF (`Failed executing DbCommand`).
-- Sur un clone neuf, `npm start` échouait (`Cannot find module '../../api/generated'`) : `npm start` et `npm test` génèrent maintenant les types de l'API avant de démarrer.
+- Sur un clone neuf, `npm start` échouait (`Cannot find module '../../api/generated'`) : `npm start`, `npm test`, `npm run test:coverage` et `npm run watch` génèrent maintenant les types de l'API avant de démarrer.
 - Le build ne démarre plus de serveur Hangfire pendant la génération OpenAPI : une dizaine de lignes de log, dont deux avertissements, à chaque build.
 - Les erreurs SMTP des e-mails d'invitation et de réinitialisation étaient avalées, et l'e-mail perdu : l'invitation est maintenant retentée par l'outbox, la réinitialisation par Hangfire (trois nouvelles tentatives, puis l'état Deleted, qui expire après 24 h).
+- Liste des produits triée par nom puis par identifiant : des produits de même nom pouvaient être sautés ou répétés d'une page à l'autre.
+- La page produits refusait un prix de 0, que l'API accepte : un produit gratuit peut maintenant y être créé.
+- En Development, un corps de requête illisible (JSON mal formé, identifiant qui n'est pas un GUID) renvoyait 500 avec un log d'erreur : `GlobalExceptionHandler` reconnaît `BadHttpRequestException` et répond son statut (400 pour un corps illisible) en problem+json, sans log d'erreur. Hors Development, ASP.NET Core répondait déjà 400, sans corps.
 
 ### Removed
 - Package `Microsoft.Extensions.Http.Resilience`, référencé mais jamais utilisé.
 - `IInvitationEmailEnqueuer`, `HangfireInvitationEmailEnqueuer` et `ProcessInvitationEmailJob`, remplacés par l'outbox. **Au déploiement** : laisser la file Hangfire se vider avant de mettre à jour, ou supprimer depuis le dashboard les jobs `ProcessInvitationEmailJob` restants et renvoyer les invitations concernées. Sinon, ces jobs ne peuvent plus être chargés et restent en échec, avec le jeton brut et l'adresse en arguments.
+- Réglages `RateLimiting:DisableAuthPolicy` et `RateLimiting:DisableGlobalLimiter`, qui n'existaient que pour les tests : la factory des tests d'intégration remplace elle-même les limites de débit.
 
 ### Security
 - Connexion : un e-mail inconnu ou un compte verrouillé coûte le même calcul de hash qu'un mauvais mot de passe, qui fait l'essentiel de la durée de la réponse ; un échec sur un compte existant enregistre encore la tentative en base, un écart bien plus faible. L'inscription, elle, signale toujours un e-mail déjà pris (voir `ARCHITECTURE.md`).
 - Un jeton de confirmation ou de réinitialisation mal formé renvoie 400 au lieu de 500.
 - Un utilisateur retiré d'une organisation perd ses sessions sur celle-ci (le rafraîchissement lui accordait le rôle Member) ; ses sessions sur ses autres organisations continuent. Un refresh refusé supprime le cookie.
+- `SmtpEmailSender` signale ses échecs par une `EmailDeliveryException` sans le texte de l'erreur SMTP, qui peut citer l'adresse du destinataire : le type de l'erreur et ses codes (code et statut d'un refus du serveur, code d'une erreur réseau). L'adresse ne parvient plus à `OutboxMessages.Error`, au log d'échec de l'outbox ni au log d'échec de l'e-mail de confirmation à l'inscription. Le job de réinitialisation journalise cette raison au lieu du seul type de l'erreur.
 - Détection de réutilisation limitée aux refresh tokens déjà remplacés par une rotation : un token révoqué par un logout, une réinitialisation ou un retrait d'organisation est refusé sans fermer les autres sessions.
 - Une réinitialisation de mot de passe révoque toutes les sessions ouvertes.
 - Organisation par défaut à la connexion : la plus ancienne adhésion, au lieu d'un ordre SQL indéterminé.

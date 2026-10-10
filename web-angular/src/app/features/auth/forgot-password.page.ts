@@ -34,7 +34,7 @@ export class ForgotPasswordPage {
         this.sent.set(true);
       },
       error: () => {
-        // Anti-enumeration: always show neutral message, even on error
+        // Anti-énumération : toujours le même message neutre, même en cas d'erreur
         this.submitting.set(false);
         this.sent.set(true);
       },

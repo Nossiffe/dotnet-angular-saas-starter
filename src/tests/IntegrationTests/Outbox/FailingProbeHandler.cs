@@ -7,7 +7,6 @@ public sealed class FailingProbeHandler : IDomainEventHandler<OutboxProbeEvent>
 {
     public ValueTask HandleAsync(OutboxProbeEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvent);
         var calls = OutboxProbeCalls.Failing.AddOrUpdate(domainEvent.ProbeId, 1, (_, n) => n + 1);
         if (domainEvent.StopsApplication && OutboxProbeCalls.ApplicationStops.TryRemove(domainEvent.ProbeId, out var stop))
         {

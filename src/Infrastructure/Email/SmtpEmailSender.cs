@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.Extensions.Options;
@@ -12,6 +13,29 @@ public sealed class SmtpEmailSender(IOptions<EmailOptions> options) : IEmailSend
     private readonly EmailOptions _o = options.Value;
 
     public async Task SendAsync(string recipient, string subject, string htmlBody, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await DeliverAsync(recipient, subject, htmlBody, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Le message d'une erreur SMTP peut citer l'adresse : il finirait dans l'outbox et les logs.
+#pragma warning disable MA0054 // exception d'origine volontairement omise : son message peut citer l'adresse
+            throw new EmailDeliveryException(Describe(ex));
+#pragma warning restore MA0054
+        }
+    }
+
+    // Le type de l'erreur, avec ses codes quand il en a : jamais son texte.
+    private static string Describe(Exception ex) => ex switch
+    {
+        SmtpCommandException command => $"{nameof(SmtpCommandException)} {command.ErrorCode}, {(int)command.StatusCode} {command.StatusCode}",
+        SocketException socket => $"{nameof(SocketException)} {socket.SocketErrorCode}",
+        _ => ex.GetType().Name,
+    };
+
+    private async Task DeliverAsync(string recipient, string subject, string htmlBody, CancellationToken cancellationToken)
     {
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(_o.FromName, _o.FromAddress));

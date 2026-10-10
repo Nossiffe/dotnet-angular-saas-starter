@@ -3,7 +3,6 @@ using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
-using Saas.Api.Contracts;
 using Saas.Domain.Products;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Auth;
@@ -15,23 +14,11 @@ namespace Saas.IntegrationTests.Products;
 [Collection("api")]
 public sealed class ProductConcurrencyTests(PostgresApiFactory factory)
 {
-    private static readonly Guid _tenant = Guid.Parse("00000000-0000-0000-0000-000000000099");
-
-    private static HttpClient AuthedClient(PostgresApiFactory f)
-    {
-        var client = f.CreateClient();
-        client.DefaultRequestHeaders.Add(TestAuthHandler.TenantHeader, _tenant.ToString());
-        return client;
-    }
-
     [Fact]
     public async Task Concurrent_updates_of_a_product_raise_a_concurrency_exception()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = AuthedClient(factory);
-
-        var create = await client.PostAsJsonAsync("/api/v1/products", new { name = $"Conc-{Guid.NewGuid():N}", price = 1m }, ct);
-        var id = (await create.Content.ReadFromJsonAsync<CreateProductResponse>(ct))!.Id;
+        var id = await factory.CreateAuthenticatedClient().CreateProductAsync($"Conc-{Guid.NewGuid():N}", 1m, ct);
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -59,9 +46,8 @@ public sealed class ProductConcurrencyTests(PostgresApiFactory factory)
     public async Task A_concurrent_write_makes_the_update_return_409()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = AuthedClient(factory);
-        var create = await client.PostAsJsonAsync("/api/v1/products", new { name = $"Conc409-{Guid.NewGuid():N}", price = 1m }, ct);
-        var id = (await create.Content.ReadFromJsonAsync<CreateProductResponse>(ct))!.Id;
+        var client = factory.CreateAuthenticatedClient();
+        var id = await client.CreateProductAsync($"Conc409-{Guid.NewGuid():N}", 1m, ct);
 
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

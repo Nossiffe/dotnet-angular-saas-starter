@@ -1,7 +1,6 @@
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Saas.Application.Common;
 using Saas.Application.Products;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Auth;
@@ -13,26 +12,13 @@ namespace Saas.IntegrationTests.Products;
 [Collection("api")]
 public sealed class ProductCacheTests(PostgresApiFactory factory)
 {
-    private static HttpClient AuthedClient(PostgresApiFactory f)
-    {
-        var client = f.CreateClient();
-        client.DefaultRequestHeaders.Add(TestAuthHandler.TenantHeader,
-            Guid.Parse("00000000-0000-0000-0000-000000000001").ToString());
-        return client;
-    }
-
     [Fact]
     public async Task GetById_is_cached_and_invalidated_on_update()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = AuthedClient(factory);
-
+        var client = factory.CreateAuthenticatedClient();
         var name = $"Cache-{Guid.NewGuid():N}";
-        var create = await client.PostAsJsonAsync("/api/v1/products", new { name, price = 10m }, ct);
-        create.EnsureSuccessStatusCode();
-
-        var page = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products", ct);
-        var id = page!.Items.Single(p => string.Equals(p.Name, name, StringComparison.Ordinal)).Id;
+        var id = await client.CreateProductAsync(name, 10m, ct);
 
         // 1er GET → peuple le cache (GetProductByIdHandler).
         var first = await client.GetFromJsonAsync<ProductDto>($"/api/v1/products/{id}", ct);

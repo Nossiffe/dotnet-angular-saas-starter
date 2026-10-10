@@ -20,7 +20,6 @@ public sealed class DomainEventsInterceptor(IDateTimeProvider clock) : SaveChang
         DbContextEventData eventData,
         InterceptionResult<int> result)
     {
-        ArgumentNullException.ThrowIfNull(eventData);
         WriteOutboxMessages(eventData.Context);
         return base.SavingChanges(eventData, result);
     }
@@ -30,7 +29,6 @@ public sealed class DomainEventsInterceptor(IDateTimeProvider clock) : SaveChang
         InterceptionResult<int> result,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(eventData);
         WriteOutboxMessages(eventData.Context);
         return base.SavingChangesAsync(eventData, result, cancellationToken);
     }

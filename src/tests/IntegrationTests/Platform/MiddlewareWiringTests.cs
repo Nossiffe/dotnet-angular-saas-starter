@@ -33,7 +33,7 @@ public sealed class MiddlewareWiringTests(PostgresApiFactory factory)
         resp.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
-    // Program.cs n'ajoute le serveur Hangfire qu'en dehors de la génération OpenAPI au build.
+    // Le serveur Hangfire n'est absent que pendant la génération OpenAPI au build.
     [Fact]
     public void The_Hangfire_server_runs_with_the_application()
     {

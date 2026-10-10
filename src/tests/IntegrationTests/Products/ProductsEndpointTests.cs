@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Http;
 using Saas.Application.Common;
 using Saas.Application.Products;
 using Saas.IntegrationTests.Auth;
@@ -11,70 +12,90 @@ namespace Saas.IntegrationTests.Products;
 [Collection("api")]
 public sealed class ProductsEndpointTests(PostgresApiFactory factory)
 {
-    private static HttpClient AuthedClient(PostgresApiFactory f, Guid? tenant = null)
-    {
-        var client = f.CreateClient();
-        client.DefaultRequestHeaders.Add(TestAuthHandler.TenantHeader,
-            (tenant ?? Guid.Parse("00000000-0000-0000-0000-000000000001")).ToString());
-        return client;
-    }
-
     [Fact]
-    public async Task Create_then_get_list_update_delete()
+    public async Task A_created_product_is_readable_at_its_location_and_listed()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = AuthedClient(factory);
-
+        var client = factory.CreateAuthenticatedClient();
         var name = $"Stylo-{Guid.NewGuid():N}";
 
-        var create = await client.PostAsJsonAsync("/api/v1/products", new { name, price = 2.5m }, ct);
-        create.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var id = await client.CreateProductAsync(name, 2.5m, ct);
 
-        // List (Dapper) — paginated response
+        var product = await client.GetFromJsonAsync<ProductDto>($"/api/v1/products/{id}", ct);
+        product.ShouldBe(new ProductDto(id, name, 2.5m));
         var page = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products", ct);
-        page.ShouldNotBeNull();
-        page.Items.ShouldContain(p => string.Equals(p.Name, name, StringComparison.Ordinal));
-        var id = page.Items.Single(p => string.Equals(p.Name, name, StringComparison.Ordinal)).Id;
-
-        var got = await client.GetFromJsonAsync<ProductDto>($"/api/v1/products/{id}", ct);
-        got!.Price.ShouldBe(2.5m);
-
-        var update = await client.PutAsJsonAsync($"/api/v1/products/{id}", new { name = "Stylo bleu", price = 3m }, ct);
-        update.StatusCode.ShouldBe(HttpStatusCode.NoContent);
-
-        // Delete (soft) — admin claim in TestAuthHandler, so TenantAdmin policy passes
-        var delete = await client.DeleteAsync($"/api/v1/products/{id}", ct);
-        delete.StatusCode.ShouldBe(HttpStatusCode.NoContent);
-
-        // Après soft-delete : absent de la liste
-        var after = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products", ct);
-        after!.Items.ShouldNotContain(p => p.Id == id);
+        page.ShouldNotBeNull().Items.ShouldBe([new ProductDto(id, name, 2.5m)]);
     }
 
     [Fact]
-    public async Task An_invalid_product_returns_a_400_problem()
+    public async Task An_updated_product_is_read_back_then_deleted()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = AuthedClient(factory);
-        var resp = await client.PostAsJsonAsync("/api/v1/products", new { name = "", price = -1m }, ct);
-        resp.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        var body = await resp.Content.ReadAsStringAsync(ct);
-        body.ShouldContain("errors");
+        var client = factory.CreateAuthenticatedClient();
+        var id = await client.CreateProductAsync($"Stylo-{Guid.NewGuid():N}", 2.5m, ct);
+
+        var update = await client.PutAsJsonAsync($"/api/v1/products/{id}", new { name = "Stylo bleu", price = 3m }, ct);
+
+        update.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        var updated = await client.GetFromJsonAsync<ProductDto>($"/api/v1/products/{id}", ct);
+        updated.ShouldBe(new ProductDto(id, "Stylo bleu", 3m));
+
+        // Suppression logique, par l'Owner : la lecture qui précède a mis le produit en cache.
+        var delete = await client.DeleteAsync($"/api/v1/products/{id}", ct);
+
+        delete.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (await client.GetAsync($"/api/v1/products/{id}", ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        var page = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products", ct);
+        page.ShouldNotBeNull().Items.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task An_invalid_product_returns_a_400_naming_each_invalid_field()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var client = factory.CreateAuthenticatedClient();
+
+        var response = await client.PostAsJsonAsync("/api/v1/products", new { name = "", price = -1m }, ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(ct);
+        problem.ShouldNotBeNull().Errors.Keys.ShouldBe(["Name", "Price"], ignoreOrder: true);
+    }
+
+    // Des produits de même nom gardent un ordre stable d'une page à l'autre : aucun n'est sauté ni
+    // répété. Assez de lignes pour que le tri de PostgreSQL ne garde pas l'ordre d'insertion.
+    [Fact]
+    public async Task Products_with_the_same_name_are_paged_in_a_stable_order()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var client = factory.CreateAuthenticatedClient();
+        var name = $"Homonyme-{Guid.NewGuid():N}";
+        List<Guid> ids = [];
+        for (var i = 0; i < 25; i++)
+        {
+            ids.Add(await client.CreateProductAsync(name, 1m, ct));
+        }
+
+        List<Guid> paged = [];
+        for (var page = 1; page <= 3; page++)
+        {
+            var result = await client.GetFromJsonAsync<PagedResult<ProductDto>>($"/api/v1/products?page={page}&pageSize=10", ct);
+            paged.AddRange(result.ShouldNotBeNull().Items.Select(p => p.Id));
+        }
+
+        // Ordre de PostgreSQL sur un uuid : celui des octets, donc du texte hexadécimal. Deux identifiants
+        // créés dans la même milliseconde ne suivent pas forcément l'ordre de création.
+        paged.ShouldBe(ids.OrderBy(id => id.ToString(), StringComparer.Ordinal));
     }
 
     [Fact]
     public async Task Pagination_page1_pageSize2_returns_correct_items_and_total()
     {
         var ct = TestContext.Current.CancellationToken;
-        // Use a fresh tenant so we control exactly what products exist.
-        var tenant = Guid.CreateVersion7();
-        var client = AuthedClient(factory, tenant);
-
-        var names = Enumerable.Range(1, 4).Select(i => $"ProdPag-{i:D2}-{Guid.NewGuid():N}").ToList();
-        foreach (var n in names)
+        var client = factory.CreateAuthenticatedClient();
+        for (var i = 1; i <= 4; i++)
         {
-            (await client.PostAsJsonAsync("/api/v1/products", new { name = n, price = 1m }, ct))
-                .EnsureSuccessStatusCode();
+            await client.CreateProductAsync($"ProdPag-{i:D2}-{Guid.NewGuid():N}", 1m, ct);
         }
 
         var page1 = await client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products?page=1&pageSize=2", ct);

@@ -10,8 +10,6 @@ public sealed class MemberEndpoints : IEndpoint
 {
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
-
         var group = app.MapGroup("/organizations/{orgId:guid}/members")
             .WithTags("Members")
             .RequireAuthorization(AuthorizationPolicies.TenantOwner)
@@ -29,7 +27,6 @@ public sealed class MemberEndpoints : IEndpoint
         ISender sender,
         CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(req);
         var result = await EndpointHelpers.ParseRole(req.Role)
             .ThenAsync(role => sender.Send(new ChangeMemberRoleCommand(orgId, userId, role), ct).AsTask());
         return result.ToNoContentHttpResult();

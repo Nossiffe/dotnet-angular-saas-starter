@@ -7,7 +7,6 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
 {
     public void Configure(EntityTypeBuilder<OutboxMessage> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
         builder.ToTable("OutboxMessages");
         builder.HasKey(m => m.Id);
         builder.Property(m => m.Type).IsRequired();

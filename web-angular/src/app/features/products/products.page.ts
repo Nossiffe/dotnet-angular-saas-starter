@@ -18,23 +18,29 @@ export class ProductsPage {
   protected readonly svc = inject(ProductsService);
   protected readonly cols = ['name', 'price', 'actions'];
   protected readonly name = signal('');
-  protected readonly price = signal(0);
+  protected readonly price = signal<number | null>(null);
   protected readonly creating = signal(false);
 
   private readonly destroyRef = inject(DestroyRef);
 
+  // Champ vide : aucun prix, et non un prix de 0.
+  setPrice(value: string): void {
+    this.price.set(value === '' ? null : Number(value));
+  }
+
   add(): void {
-    if (!this.name() || this.price() <= 0 || this.creating()) return;
+    const price = this.price();
+    if (!this.name() || price === null || !(price >= 0) || this.creating()) return;
     this.creating.set(true);
     this.svc
-      .create({ name: this.name(), price: this.price() })
+      .create({ name: this.name(), price })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.creating.set(false)),
       )
       .subscribe(() => {
         this.name.set('');
-        this.price.set(0);
+        this.price.set(null);
         this.svc.products.reload();
       });
   }

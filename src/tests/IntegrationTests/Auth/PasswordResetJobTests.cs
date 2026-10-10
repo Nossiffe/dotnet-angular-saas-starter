@@ -2,6 +2,7 @@ using System.Reflection;
 using Hangfire;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Saas.Application.Common.Interfaces;
 using Saas.Infrastructure.Jobs;
 using Shouldly;
 using Xunit;
@@ -36,6 +37,29 @@ public sealed class PasswordResetJobTests(PostgresApiFactory factory)
             .ShouldHaveSingleItem();
         logged.Level.ShouldBe(LogLevel.Error);
         logged.Message.ShouldNotContain(email, Case.Insensitive);
+    }
+
+    // La raison d'une EmailDeliveryException ne cite pas l'adresse : le log et l'exception la gardent.
+    [Fact]
+    public async Task The_reason_of_a_delivery_failure_is_kept_in_the_log_and_the_exception()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var email = $"reset-reason-{Guid.NewGuid():N}@saas.local";
+        await AuthTestFlow.RegisterAndConfirmAsync(factory.CreateClient(), factory, email, "Reset!User42", ct);
+        var (userId, _) = factory.Emails.For(email).ShouldNotBeNull().ExtractLink();
+        const string reason = "SmtpCommandException RecipientNotAccepted, 550 MailboxUnavailable";
+        factory.Emails.FailNext(email, error: new EmailDeliveryException(reason));
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var job = scope.ServiceProvider.GetRequiredService<ProcessPasswordResetJob>();
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(() => job.RunAsync(email));
+
+        thrown.Message.ShouldContain(reason);
+        factory.Logs.Entries
+            .Where(e => e.Category.EndsWith(nameof(ProcessPasswordResetJob), StringComparison.Ordinal)
+                && e.Message.Contains(userId.ToString(), StringComparison.Ordinal))
+            .ShouldHaveSingleItem()
+            .Message.ShouldContain(reason);
     }
 
     // Trois nouvelles tentatives après la première, puis l'état Deleted, qui expire après 24 h :

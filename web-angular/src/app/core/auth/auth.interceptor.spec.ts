@@ -28,7 +28,7 @@ describe('authInterceptor', () => {
   afterEach(() => httpMock.verify());
 
   it('adds the Bearer token when authenticated', () => {
-    // Log in first to get a token
+    // Connexion d'abord, pour obtenir un jeton
     auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
     httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);
 
@@ -52,12 +52,12 @@ describe('authInterceptor', () => {
     const clearSpy = vi.spyOn(auth, 'clearLocalState');
     const logoutSpy = vi.spyOn(auth, 'logout');
 
-    // Make a request that returns 401
+    // Une requête qui reçoit 401
     http.get('/api/v1/products').subscribe({ error: () => undefined });
 
     httpMock.expectOne('/api/v1/products').flush(null, { status: 401, statusText: 'Unauthorized' });
 
-    // Interceptor should call refresh — return failure
+    // L'intercepteur appelle refresh, qui échoue
     httpMock
       .expectOne('/api/v1/auth/refresh')
       .flush(null, { status: 401, statusText: 'Unauthorized' });
@@ -73,20 +73,20 @@ describe('authInterceptor', () => {
     auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
     httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);
 
-    // Make a request that returns 401
+    // Une requête qui reçoit 401
     let responseReceived = false;
     http.get('/api/v1/products').subscribe(() => (responseReceived = true));
 
     const firstReq = httpMock.expectOne('/api/v1/products');
     firstReq.flush(null, { status: 401, statusText: 'Unauthorized' });
 
-    // Interceptor should call refresh, body vide (le cookie `rt` part seul)
+    // L'intercepteur appelle refresh, corps vide (le cookie `rt` part seul)
     const refreshReq = httpMock.expectOne('/api/v1/auth/refresh');
     expect(refreshReq.request.method).toBe('POST');
     expect(refreshReq.request.body).toEqual({});
     refreshReq.flush(NEW_TOKEN_RESP);
 
-    // Interceptor should retry with new token
+    // Puis rejoue la requête avec le nouveau jeton
     const retryReq = httpMock.expectOne('/api/v1/products');
     expect(retryReq.request.headers.get('Authorization')).toBe('Bearer AT2');
     retryReq.flush([]);

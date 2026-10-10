@@ -17,7 +17,6 @@ public sealed class AuditableEntityInterceptor(
         DbContextEventData eventData,
         InterceptionResult<int> result)
     {
-        ArgumentNullException.ThrowIfNull(eventData);
         if (eventData.Context is not null)
         {
             Apply(eventData.Context);
@@ -31,7 +30,6 @@ public sealed class AuditableEntityInterceptor(
         InterceptionResult<int> result,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(eventData);
         if (eventData.Context is not null)
         {
             Apply(eventData.Context);
@@ -59,8 +57,8 @@ public sealed class AuditableEntityInterceptor(
             }
         }
 
-        // ISoftDeletable must run before IAuditable so that soft-deleted entities
-        // are promoted to Modified before IAuditable sets UpdatedAt/UpdatedBy on them.
+        // ISoftDeletable avant IAuditable : une entité supprimée passe d'abord à Modified, puis
+        // IAuditable renseigne son UpdatedAt et son UpdatedBy.
         foreach (EntityEntry<ISoftDeletable> entry in context.ChangeTracker.Entries<ISoftDeletable>()
             .Where(e => e.State is EntityState.Deleted))
         {

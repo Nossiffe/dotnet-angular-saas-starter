@@ -13,8 +13,6 @@ public sealed class ValidationBehavior<TMessage, TResponse>(
         MessageHandlerDelegate<TMessage, TResponse> next,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(next);
-
         if (!validators.Any())
         {
             return await next(message, cancellationToken);

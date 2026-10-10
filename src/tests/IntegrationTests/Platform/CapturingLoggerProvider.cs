@@ -33,7 +33,6 @@ public sealed class CapturingLoggerProvider : ILoggerProvider
         public void Log<TState>(
             LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
-            ArgumentNullException.ThrowIfNull(formatter);
             entries.Enqueue(new LogEntry(category, logLevel, formatter(state, exception), Activity.Current?.TraceId));
         }
     }

@@ -15,7 +15,6 @@ public sealed class DeleteProductHandler(
 {
     public async ValueTask<ErrorOr<Deleted>> Handle(DeleteProductCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
         var product = await products.GetByIdAsync(ProductId.From(command.Id), cancellationToken);
         if (product is null)
         {

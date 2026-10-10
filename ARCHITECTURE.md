@@ -184,12 +184,32 @@ Request → LoggingBehavior → ValidationBehavior → Handler
 
 ### Résilience & observabilité
 
-- **OpenTelemetry** : traces ASP.NET Core + HTTP client + métriques runtime. Exporte via OTLP si `OTEL_EXPORTER_OTLP_ENDPOINT` configuré.
+Le démarrage de l'API est découpé en méthodes d'extension nommées (`src/Api/Hosting/`), appelées
+par `Program.cs` dans l'ordre.
+
+- **OpenTelemetry** : traces ASP.NET Core + HTTP client + Npgsql, métriques runtime. Exporte via
+  OTLP si `OTEL_EXPORTER_OTLP_ENDPOINT` est configuré ; le signal des logs n'est activé que dans ce
+  cas, puisque seul un signal activé est exporté. Sans OTLP, les logs restent sur la console.
 - **Serilog** : structuré, lit la config JSON, écrit sur la console et transmet aux providers
-  enregistrés, dont OpenTelemetry (export OTLP des logs). Un journal par requête, avec le statut
-  final : une erreur de validation est un 400 journalisé en Information, sans log d'erreur
-  (`ErrorLoggingTests`) ; une vraie erreur serveur garde son log d'erreur.
-- **Rate limiter** : sliding window 100 req/min par user ou IP, fixed window 10 req/30s sur `/auth`.
+  enregistrés (`writeToProviders`), dont OpenTelemetry (export OTLP des logs). Les providers par
+  défaut sont retirés pour ne pas doubler la console. Chaque événement porte le `TraceId` et le
+  `SpanId` de l'activité courante, pour relier logs et traces. Chaque hôte garde son propre logger
+  (`preserveStaticLogger`) plutôt que le `Log.Logger` statique, partagé par tous les hôtes du
+  processus : les tests d'intégration en lancent plusieurs.
+- **Journal des requêtes** : une ligne par requête, avec le statut final. Le middleware est placé
+  avant le gestionnaire d'exceptions : il voit le 400 ou le 409 produit, et non l'exception en
+  transit, qu'il journaliserait comme un 500. Une erreur de validation est donc un 400 journalisé
+  en Information, sans log d'erreur (`ErrorLoggingTests`) ; une vraie erreur serveur garde son log
+  d'erreur.
+- **Rate limiter** : sliding window de 100 requêtes par minute, par utilisateur connecté ou sinon
+  par IP, sans limite pour les appels en loopback ; fixed window de 10 requêtes par 30 secondes et
+  par IP sur `/auth` (`RateLimitingExtensions.AuthPolicy`). Les tests d'intégration remplacent ces
+  limites (`PostgresApiFactory`) : sous `TestServer`, tous les appels arrivent sans IP, donc dans
+  la même partition. `RateLimitingTests` vérifie la limite globale ; la politique `/auth` n'est
+  vérifiée que par le smoke test, contre l'application réelle.
+- **Délai des requêtes** : un filet global coupe une requête après 30 secondes
+  (`RequestTimeouts:DefaultSeconds`), sauf sous débogueur. Un endpoint long légitime s'en exempte
+  avec `[DisableRequestTimeout]` ou une politique nommée.
 
 ---
 
@@ -202,25 +222,39 @@ public sealed class ProductEndpoints : IEndpoint
 {
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/products").RequireAuthorization("HasTenant");
-        group.MapPost("/", CreateProduct).Produces<CreateProductResponse>(201);
+        var group = app.MapGroup("/products").RequireAuthorization(AuthorizationPolicies.HasTenant);
+        group.MapPost("/", CreateProduct).WithCreatedResponses<CreateProductResponse>();
+        group.MapGet("/{id:guid}", GetProduct).WithMetadata(new RouteNameMetadata(GetProductRoute));
         // ...
     }
-    private static async Task<Created<CreateProductResponse>> CreateProduct(
-        CreateProductCommand cmd, ISender sender, CancellationToken ct)
-        => /* map → Send au Mediator */;
+    private static async Task<IResult> CreateProduct(
+        CreateProductRequest request, ISender sender, HttpContext http, CancellationToken ct)
+    {
+        var result = await sender.Send(new CreateProductCommand(request.Name, request.Price), ct);
+        return result
+            .Then(id => new CreateProductResponse(id))
+            .ToCreatedHttpResult(created => http.PathTo(GetProductRoute, new { id = created.Id }));
+    }
 }
 ```
 
 Enregistrement auto via `AddEndpoints()` / `MapEndpoints()` (scan de l'assembly Api). Les
 endpoints reçoivent des contrats `Saas.Api.Contracts` (`XxxRequest`) et les traduisent en commandes :
-le contrat HTTP ne dépend pas des types de l'Application.
+le contrat HTTP ne dépend pas des types de l'Application. Le `Location` d'un 201 est le chemin
+d'une route nommée (`RouteNameMetadata`), calculé avec la version de la requête : aucune URL
+n'est écrite à la main, et le nom de route n'apparaît pas dans le contrat OpenAPI.
 
 ### Contrat OpenAPI
 
 Le build de l'API écrit le document OpenAPI dans `web-angular/openapi.json`, dont le front
 génère ses types TypeScript (Hey API). La CI reconstruit le document et échoue s'il diffère du
 fichier versionné. Le schéma Bearer n'est exigé que sur les opérations authentifiées.
+
+Le document est produit par l'outil `GetDocument.Insider`, qui exécute tout le démarrage de l'API
+avec un serveur factice, sans base ni configuration réelle. `BuildTimeOpenApi` détecte ce cas et
+fournit des valeurs factices qui passent la validation des options au démarrage (une DSN sans mot
+de passe : le `DbContext` est enregistré sans ouvrir de connexion). Ni le serveur Hangfire ni les
+jobs récurrents ne démarrent alors : il n'y a pas de base à interroger.
 
 ### Cycle de vie d'une requête
 
@@ -234,7 +268,7 @@ HTTP POST /products
       → IProductRepository.Add(Product.Create(...))
       → IUnitOfWork.SaveChangesAsync()
         → DomainEventsInterceptor → ProductCreatedDomainEvent écrit dans OutboxMessages (même transaction)
-  → TypedResults.Created(...)
+  → ToCreatedHttpResult (201, Location vers GET /products/{id})
 
 Plus tard, hors requête :
 OutboxPollingService (toutes les 5 s) → OutboxProcessor → IDomainEventHandler<ProductCreatedDomainEvent> (ProductCreatedHandler)
@@ -247,7 +281,10 @@ OutboxPollingService (toutes les 5 s) → OutboxProcessor → IDomainEventHandle
   `docs/error-codes.md`). Les endpoints convertissent via `result.ToHttpResult()` /
   `ToNoContentHttpResult()` / `ToCreatedHttpResult(...)` (`Saas.Api.Common.ErrorOrHttpExtensions`),
   qui mappe chaque `ErrorType` (`Validation`→400, `NotFound`→404, `Conflict`→409, `Forbidden`→403,
-  `Unauthorized`→401, autre→500) sur un `ProblemDetails`.
+  `Unauthorized`→401, autre→500) sur un `ProblemDetails`. Le statut, le `title` et l'extension
+  `code` viennent de la première erreur ; l'extension `errors` les liste toutes, par code
+  (`{ "Invitation.Expired": ["L'invitation a expiré."] }`), sur le modèle du dictionnaire par champ
+  d'une erreur de validation.
 - **Anti-énumération** : une ressource d'un autre tenant renvoie `NotFound`, jamais `Forbidden`
   (ne révèle pas son existence).
 - **`GlobalExceptionHandler` reste responsable des exceptions légitimes restantes** (frontière
@@ -255,8 +292,16 @@ OutboxPollingService (toutes les 5 s) → OutboxProcessor → IDomainEventHandle
   refus d'Identity liés à un champ, à l'inscription et à l'acceptation d'une invitation (→ 400
   `ProblemDetails` par champ), `DbUpdateException`/`DbUpdateConcurrencyException`
   côté infrastructure (→ 409, ex. contrainte d'unicité Postgres 23505 en défense en profondeur
-  derrière une vérification applicative `ErrorOr`), toute autre exception non prévue → 500 (Serilog
-  la logue).
+  derrière une vérification applicative `ErrorOr`), `BadHttpRequestException` pour une requête
+  illisible (→ le statut porté par l'exception : 400 pour un JSON mal formé ou un identifiant qui
+  n'est pas un GUID, 415 pour un mauvais `Content-Type`), toute autre exception non prévue → 500
+  (Serilog la logue). ASP.NET Core ne lève `BadHttpRequestException` qu'en Development ; ailleurs,
+  il répond lui-même le statut, sans corps problem+json.
+- Depuis .NET 10, une exception traitée par un `IExceptionHandler` ne produit plus de log d'erreur
+  ni de métrique d'erreur. L'API les garde pour les 500, et seulement pour eux
+  (`SuppressDiagnosticsCallback`) : un 400 de validation n'est pas une erreur serveur.
+- Tout `ProblemDetails` porte un `traceId`, y compris ceux qui ne passent pas par
+  `GlobalExceptionHandler`, pour relier la réponse à ses logs et à ses traces.
 - Vérifié par `ErrorOrConventionTests` (test d'archi) : tout `ICommand<T>`/`IQuery<T>` doit
   retourner `ErrorOr<>`, le `Domain` ne déclare aucune exception métier, et
   aucun handler ne lève de `ValidationException` hors des cas ci-dessus.

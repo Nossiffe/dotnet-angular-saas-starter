@@ -28,9 +28,6 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(configuration);
-
         services.AddHttpContextAccessor();
         services.AddScoped<ITenantProvider, TenantProvider>();
         services.AddScoped<ICurrentUser, CurrentUser>();
@@ -70,22 +67,20 @@ public static class DependencyInjection
             .UseRecommendedSerializerSettings()
             .UsePostgreSqlStorage(opt =>
                 opt.UseNpgsqlConnection(configuration.GetConnectionString("Default"))));
-        // Le serveur qui exécute les jobs est ajouté par l'hôte (Program.cs), qui sait s'il doit tourner.
+        // Le serveur qui exécute les jobs est ajouté par l'hôte (Api), qui sait s'il doit tourner.
 
         services.AddScoped<PurgeExpiredRefreshTokensJob>();
         services.AddScoped<PurgeProcessedOutboxMessagesJob>();
         services.AddScoped<ProcessPasswordResetJob>();
 
-        // Queue d'enfilement Hangfire (abstraction Application-pure). Les e-mails d'invitation
-        // passent par l'outbox (SendInvitationEmailHandler) : ils suivent une écriture en base.
+        // Queue d'enfilement Hangfire de la réinitialisation (abstraction Application-pure).
         services.AddScoped<IPasswordResetEnqueuer, PasswordResetRequestQueue>();
     }
 
     // Enregistre les recurring jobs (types internes à l'Infrastructure).
-    // Appelé depuis Program.cs après Build() — IRecurringJobManager n'existe qu'au runtime.
+    // Appelé par l'hôte après Build() — IRecurringJobManager n'existe qu'au runtime.
     public static void RegisterRecurringJobs(IServiceProvider services)
     {
-        ArgumentNullException.ThrowIfNull(services);
         var manager = services.GetRequiredService<IRecurringJobManager>();
         manager.AddOrUpdate<PurgeExpiredRefreshTokensJob>(
             "purge-expired-refresh-tokens",

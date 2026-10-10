@@ -8,12 +8,11 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
 {
     public void Configure(EntityTypeBuilder<RefreshToken> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
         builder.HasKey(t => t.Id);
         builder.Property(t => t.TokenHash).HasMaxLength(128).IsRequired();
         builder.HasIndex(t => t.TokenHash).IsUnique();
         builder.HasIndex(t => t.UserId);
-        // Postgres xmin column as optimistic concurrency token
+        // Concurrence optimiste via la colonne système Postgres xmin (aucune colonne ajoutée).
         builder.Property(t => t.Version)
             .HasColumnName("xmin")
             .HasColumnType("xid")

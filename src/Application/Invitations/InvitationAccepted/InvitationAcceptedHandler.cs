@@ -13,7 +13,6 @@ public sealed class InvitationAcceptedHandler(IEmailSender email)
 {
     public async ValueTask HandleAsync(InvitationAcceptedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvent);
         var body = $"""
             <p>Bienvenue ! Vous avez rejoint votre organisation en tant que {domainEvent.Role}.</p>
             <p>Vous pouvez désormais vous connecter et accéder à votre espace.</p>

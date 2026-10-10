@@ -14,7 +14,11 @@ export async function mockNewAccount(page: Page): Promise<unknown[]> {
       ? route.fulfill({
           status: 400,
           contentType: 'application/problem+json',
-          body: JSON.stringify({ status: 400, code: 'Invitation.PasswordRequired' }),
+          body: JSON.stringify({
+            status: 400,
+            code: 'Invitation.PasswordRequired',
+            errors: { 'Invitation.PasswordRequired': ['…'] },
+          }),
         })
       : route.fulfill({ status: 200, json: { isNewUser: true } }));
   });

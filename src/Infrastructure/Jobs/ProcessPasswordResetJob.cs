@@ -49,17 +49,16 @@ internal sealed partial class ProcessPasswordResetJob(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // Le message d'une erreur SMTP peut citer l'adresse du destinataire. Ni ce log, ni
-            // l'exception que Hangfire journalise et conserve ne la reprennent : l'identifiant de
-            // l'utilisateur et le type de l'erreur suffisent à retrouver l'échec.
-            LogSendFailed(logger, reset.UserId, ex.GetType().Name);
-#pragma warning disable MA0054 // exception d'origine volontairement omise : elle peut citer l'adresse
+            // Hangfire journalise et conserve l'exception : seule la raison d'une EmailDeliveryException est sûre.
+            var reason = ex is EmailDeliveryException delivery ? delivery.Reason : ex.GetType().Name;
+            LogSendFailed(logger, reset.UserId, reason);
+#pragma warning disable MA0054 // exception d'origine volontairement omise : son message peut citer l'adresse
             throw new InvalidOperationException(
-                $"Échec de l'envoi de l'e-mail de réinitialisation pour l'utilisateur {reset.UserId} ({ex.GetType().Name}).");
+                $"Échec de l'envoi de l'e-mail de réinitialisation pour l'utilisateur {reset.UserId} ({reason}).");
 #pragma warning restore MA0054
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Échec de l'envoi de l'e-mail de réinitialisation du mot de passe pour {UserId} ({ErrorType})")]
-    private static partial void LogSendFailed(ILogger logger, Guid userId, string errorType);
+    [LoggerMessage(Level = LogLevel.Error, Message = "Échec de l'envoi de l'e-mail de réinitialisation du mot de passe pour {UserId} ({Reason})")]
+    private static partial void LogSendFailed(ILogger logger, Guid userId, string reason);
 }

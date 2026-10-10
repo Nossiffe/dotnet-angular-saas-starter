@@ -19,8 +19,6 @@ public sealed partial class RegisterHandler(
 {
     public async ValueTask<ErrorOr<Guid>> Handle(RegisterCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
-
         Guid userId = Guid.Empty;
 
         // Choix délibéré : user Identity + Organization + membership Owner dans une seule transaction

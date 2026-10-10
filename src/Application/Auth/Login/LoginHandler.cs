@@ -13,8 +13,6 @@ public sealed class LoginHandler(
 {
     public async ValueTask<ErrorOr<AuthResult>> Handle(LoginCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
-
         var user = await identity.CheckCredentialsAsync(command.Email, command.Password, cancellationToken);
         if (user is null)
         {

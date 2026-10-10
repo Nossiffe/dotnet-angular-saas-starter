@@ -23,7 +23,11 @@ test('an invalid or expired invitation shows a neutral message', async ({ page }
     route.fulfill({
       status: 400,
       contentType: 'application/problem+json',
-      body: JSON.stringify({ status: 400, code: 'Invitation.Invalid' }),
+      body: JSON.stringify({
+        status: 400,
+        code: 'Invitation.Invalid',
+        errors: { 'Invitation.Invalid': ['…'] },
+      }),
     }),
   );
 

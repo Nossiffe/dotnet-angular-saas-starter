@@ -13,8 +13,6 @@ public sealed class ChangeMemberRoleHandler(
 {
     public async ValueTask<ErrorOr<Updated>> Handle(ChangeMemberRoleCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
-
         // Personne ne change son propre rôle : on ne se retire pas ses droits par erreur, et la garde
         // du dernier Owner ne se contourne pas par soi-même.
         if (Guid.TryParse(currentUser.UserId, out var currentUserId) && currentUserId == command.MemberUserId)

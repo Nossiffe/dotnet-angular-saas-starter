@@ -15,7 +15,6 @@ public static class OpenApiEndpointExtensions
     public static TBuilder WithAuthorizationResponses<TBuilder>(this TBuilder builder)
         where TBuilder : IEndpointConventionBuilder
     {
-        ArgumentNullException.ThrowIfNull(builder);
         return builder.WithMetadata(
             new ProducesResponseTypeMetadata(StatusCodes.Status401Unauthorized, typeof(void)),
             new ProducesResponseTypeMetadata(StatusCodes.Status403Forbidden, typeof(void)));
@@ -23,7 +22,6 @@ public static class OpenApiEndpointExtensions
 
     public static RouteHandlerBuilder WithStandardResponses<TSuccess>(this RouteHandlerBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
         return builder
             .Produces<TSuccess>(StatusCodes.Status200OK)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
@@ -32,7 +30,6 @@ public static class OpenApiEndpointExtensions
 
     public static RouteHandlerBuilder WithCreatedResponses<TSuccess>(this RouteHandlerBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
         return builder
             .Produces<TSuccess>(StatusCodes.Status201Created)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
@@ -41,7 +38,6 @@ public static class OpenApiEndpointExtensions
 
     public static RouteHandlerBuilder WithNoContentResponses(this RouteHandlerBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
         return builder
             .Produces(StatusCodes.Status204NoContent)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)

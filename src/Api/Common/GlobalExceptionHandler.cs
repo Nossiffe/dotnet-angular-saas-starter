@@ -12,9 +12,6 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
         Exception exception,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(httpContext);
-        ArgumentNullException.ThrowIfNull(exception);
-
         var (status, title, errors) = exception switch
         {
             ValidationException ve => (
@@ -23,6 +20,8 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
                 (object?)ve.Errors
                     .GroupBy(e => e.PropertyName, StringComparer.Ordinal)
                     .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray(), StringComparer.Ordinal)),
+            // Requête illisible : levée en Development seulement, ailleurs ASP.NET Core répond lui-même ce statut.
+            BadHttpRequestException bad => (bad.StatusCode, "Requête invalide", (object?)null),
             // Filet de course générique : le chemin normal (ex. invitation en double) est déjà
             // couvert en amont par une erreur ErrorOr précise et spécifique au domaine ; cette
             // branche ne s'atteint que si une contrainte d'unicité est violée après ce check

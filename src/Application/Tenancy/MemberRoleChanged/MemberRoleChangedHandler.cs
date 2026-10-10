@@ -9,7 +9,6 @@ public sealed partial class MemberRoleChangedHandler(ILogger<MemberRoleChangedHa
 {
     public ValueTask HandleAsync(MemberRoleChangedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvent);
         LogMemberRoleChanged(logger, domainEvent.UserId, domainEvent.OrganizationId.Value);
         return ValueTask.CompletedTask;
     }

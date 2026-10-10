@@ -7,8 +7,7 @@ export class GlobalErrorHandler implements ErrorHandler {
   private readonly snackBar = inject(MatSnackBar);
 
   handleError(error: unknown): void {
-    // HttpErrorResponse errors are already handled by httpErrorInterceptor — skip to avoid
-    // double-toasting.
+    // Les HttpErrorResponse sont déjà traitées par httpErrorInterceptor : pas de second toast.
     if (error instanceof HttpErrorResponse) {
       console.error(
         '[GlobalErrorHandler] HttpErrorResponse (already handled by interceptor)',
@@ -17,7 +16,7 @@ export class GlobalErrorHandler implements ErrorHandler {
       return;
     }
     console.error('[GlobalErrorHandler]', error);
-    // Zoneless application: the snack bar needs no NgZone.run.
+    // Application zoneless : la snack bar n'a pas besoin de NgZone.run.
     this.snackBar.open('Une erreur inattendue est survenue.', 'Fermer', { duration: 6000 });
   }
 }

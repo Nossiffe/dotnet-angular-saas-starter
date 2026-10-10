@@ -8,7 +8,6 @@ public sealed class OrganizationConfiguration : IEntityTypeConfiguration<Organiz
 {
     public void Configure(EntityTypeBuilder<Organization> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
         builder.HasKey(o => o.Id);
         builder.Property(o => o.Name).HasMaxLength(200).IsRequired();
         builder.Property(o => o.Slug).HasMaxLength(100).IsRequired();

@@ -11,7 +11,6 @@ public sealed class CreateProductHandler(IProductRepository products, IUnitOfWor
 {
     public async ValueTask<ErrorOr<Guid>> Handle(CreateProductCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
         var product = Product.Create(command.Name, Money.From(command.Price));
         products.Add(product);
         await uow.SaveChangesAsync(cancellationToken);

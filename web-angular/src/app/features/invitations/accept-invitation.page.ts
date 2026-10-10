@@ -21,11 +21,17 @@ function problemOf(err: HttpErrorResponse): Problem | null {
 }
 
 // Identifiant d'invitation au format GUID : un lien tronqué ou modifié est refusé sans appel à
-// l'API, qui répondrait 500 en Development (échec de lecture du corps JSON).
+// l'API.
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Erreurs de validation portant sur le mot de passe : la clé `Password` (FluentValidation) ou un
-// code d'Identity (`PasswordTooShort`, `PasswordRequiresDigit`…).
+// Erreurs de saisie (FluentValidation ou refus d'Identity) : un dictionnaire `errors` par champ, sans
+// `code`. Une erreur métier porte un `code`, et liste aussi ses erreurs dans `errors`.
+function isInputValidation(problem: Problem | null): boolean {
+  return problem?.errors !== undefined && problem.code === undefined;
+}
+
+// Erreurs de saisie portant sur le mot de passe : la clé `Password` (FluentValidation) ou un code
+// d'Identity (`PasswordTooShort`, `PasswordRequiresDigit`…).
 function refusesPassword(problem: Problem | null): boolean {
   return Object.keys(problem?.errors ?? {}).some((key) => key.startsWith('Password'));
 }
@@ -98,7 +104,7 @@ export class AcceptInvitationPage implements OnInit {
     const problem = problemOf(err);
     if (err.status === 400 && problem?.code === PASSWORD_REQUIRED) {
       this.step.set('password');
-    } else if (withPassword && err.status === 400 && problem?.errors) {
+    } else if (withPassword && err.status === 400 && isInputValidation(problem)) {
       // Refus des règles de mot de passe d'Identity : l'API les décrit en anglais, sous des codes
       // propres à Identity. La page rappelle les règles affichées au-dessus du champ. Une autre
       // erreur de validation (e-mail pris entre les deux appels, par exemple) reste générique.

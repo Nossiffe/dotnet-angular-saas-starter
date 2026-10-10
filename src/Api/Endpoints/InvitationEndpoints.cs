@@ -13,10 +13,10 @@ namespace Saas.Api.Endpoints;
 
 public sealed class InvitationEndpoints : IEndpoint
 {
+    private const string PendingInvitationsRoute = "ListPendingInvitations";
+
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
-
         // Routes d'une organisation : Owner ou Admin, sur sa propre organisation.
         var orgGroup = app.MapGroup("/organizations/{orgId:guid}/invitations")
             .WithTags("Invitations")
@@ -29,6 +29,7 @@ public sealed class InvitationEndpoints : IEndpoint
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         orgGroup.MapGet("/", ListPendingInvitations)
+            .WithMetadata(new RouteNameMetadata(PendingInvitationsRoute))
             .Produces<IReadOnlyList<InvitationDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
@@ -48,9 +49,9 @@ public sealed class InvitationEndpoints : IEndpoint
         Guid orgId,
         InviteMemberRequest req,
         ISender sender,
+        HttpContext http,
         CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(req);
         var result = await EndpointHelpers.ParseRole(req.Role)
             .ThenAsync(role => sender.Send(new InviteMemberCommand(orgId, req.Email, role), ct).AsTask());
 
@@ -58,7 +59,7 @@ public sealed class InvitationEndpoints : IEndpoint
         // en attente, qui la contient.
         return result
             .Then(id => new InviteResponse(id))
-            .ToCreatedHttpResult(_ => $"/api/v1/organizations/{orgId}/invitations");
+            .ToCreatedHttpResult(_ => http.PathTo(PendingInvitationsRoute, new { orgId }));
     }
 
     private static async Task<IResult> ListPendingInvitations(
@@ -95,7 +96,6 @@ public sealed class InvitationEndpoints : IEndpoint
         ISender sender,
         CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(req);
         var result = await sender.Send(new AcceptInvitationCommand(req.InvitationId, req.Token, req.Password), ct);
         return result
             .Then(r => new AcceptInvitationResponse(r.IsNewUser))
