@@ -12,7 +12,8 @@ using Xunit;
 
 namespace Saas.IntegrationTests.Members;
 
-// Liste des membres, avec les policies de l'application : lecture pour l'Owner et l'Admin.
+// Liste et retrait des membres, avec les policies de l'application : lecture pour l'Owner et
+// l'Admin, retrait pour l'Owner seul, et jamais celui d'un Owner.
 [Collection("api")]
 public sealed class MemberManagementTests(PostgresApiFactory factory)
 {
@@ -73,6 +74,71 @@ public sealed class MemberManagementTests(PostgresApiFactory factory)
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
+    [Theory]
+    [InlineData(OrganizationRole.Member)]
+    [InlineData(OrganizationRole.Admin)]
+    public async Task The_owner_removes_a_member_or_an_admin(OrganizationRole role)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var org = await OrganizationWithMembersAsync(ct);
+        var (removed, kept) = role == OrganizationRole.Admin ? (org.Admin, org.Member) : (org.Member, org.Admin);
+        var owner = factory.CreateAuthenticatedClient(org.Id, "Owner", org.Owner.Id);
+
+        var response = await owner.DeleteAsync($"/api/v1/organizations/{org.Id}/members/{removed.Id}", ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (await MemberIdsAsync(org.Id, ct)).ShouldBe([org.Owner.Id, kept.Id], ignoreOrder: true);
+    }
+
+    // Ni lui-même ni un autre Owner : un retrait ne fait jamais perdre un Owner à l'organisation.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_owner_cannot_remove_an_owner_not_even_themselves(bool themselves)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var org = await OrganizationWithMembersAsync(ct);
+        var secondOwnerId = await AddMemberAsync(org.Id, OrganizationRole.Owner, ct);
+        var target = themselves ? org.Owner.Id : secondOwnerId;
+        var membersBefore = await MemberIdsAsync(org.Id, ct);
+
+        var response = await factory.CreateAuthenticatedClient(org.Id, "Owner", org.Owner.Id)
+            .DeleteAsync($"/api/v1/organizations/{org.Id}/members/{target}", ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await ProblemCodeAsync(response, ct)).ShouldBe("Membership.CannotRemoveOwner");
+        (await MemberIdsAsync(org.Id, ct)).ShouldBe(membersBefore, ignoreOrder: true);
+    }
+
+    [Theory]
+    [InlineData(OrganizationRole.Admin)]
+    [InlineData(OrganizationRole.Member)]
+    public async Task Only_the_owner_removes_members(OrganizationRole callerRole)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var org = await OrganizationWithMembersAsync(ct);
+        var (caller, target) = callerRole == OrganizationRole.Admin ? (org.Admin, org.Member) : (org.Member, org.Admin);
+
+        var response = await factory.CreateAuthenticatedClient(org.Id, callerRole.ToString(), caller.Id)
+            .DeleteAsync($"/api/v1/organizations/{org.Id}/members/{target.Id}", ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await MemberIdsAsync(org.Id, ct)).Count.ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task Removing_someone_who_is_not_a_member_returns_404()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var org = await OrganizationWithMembersAsync(ct);
+
+        var response = await factory.CreateAuthenticatedClient(org.Id, "Owner", org.Owner.Id)
+            .DeleteAsync($"/api/v1/organizations/{org.Id}/members/{Guid.CreateVersion7()}", ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await ProblemCodeAsync(response, ct)).ShouldBe("Membership.NotFound");
+    }
+
     private sealed record Person(Guid Id, string Email);
 
     private sealed record Org(Guid Id, Person Owner, Person Admin, Person Member);
@@ -111,6 +177,17 @@ public sealed class MemberManagementTests(PostgresApiFactory factory)
             """).ToListAsync(ct);
     }
 
+    private async Task<Guid> AddMemberAsync(Guid orgId, OrganizationRole role, CancellationToken ct)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var user = await CreateUserAsync(scope.ServiceProvider, role.ToString().ToLowerInvariant(), ct);
+        var organization = await scope.ServiceProvider.GetRequiredService<IOrganizationRepository>()
+            .GetByIdAsync(OrganizationId.From(orgId), ct);
+        organization.ShouldNotBeNull().AddMember(user.Id, role, _createdAt.AddDays(3));
+        await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().SaveChangesAsync(ct);
+        return user.Id;
+    }
+
     private static async Task<Person> CreateUserAsync(IServiceProvider services, string prefix, CancellationToken ct)
     {
         var email = $"{prefix}-{Guid.NewGuid():N}@saas.local";
@@ -119,7 +196,17 @@ public sealed class MemberManagementTests(PostgresApiFactory factory)
         return new Person(created.UserId, email);
     }
 
+    private async Task<List<Guid>> MemberIdsAsync(Guid orgId, CancellationToken ct)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.SqlQuery<Guid>(
+            $"""SELECT "UserId" AS "Value" FROM "OrganizationMemberships" WHERE "OrganizationId" = {orgId}""").ToListAsync(ct);
+    }
+
     private static string Describe(JsonElement member) =>
         $"{member.GetProperty("userId").GetGuid()} {member.GetProperty("email").GetString()} "
         + $"{member.GetProperty("role").GetString()} {member.GetProperty("joinedAt").GetDateTimeOffset():O}";
+
+    private static async Task<string?> ProblemCodeAsync(HttpResponseMessage response, CancellationToken ct) =>
+        (await response.Content.ReadFromJsonAsync<JsonElement>(ct)).GetProperty("code").GetString();
 }

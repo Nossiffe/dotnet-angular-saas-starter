@@ -12,6 +12,6 @@ public static class AuthorizationPolicies
     /// <summary>Owner ou Admin de l'organisation : invitations, liste des membres, suppression de produits.</summary>
     public const string TenantAdmin = "TenantAdmin";
 
-    /// <summary>Owner de l'organisation : changement des rôles des membres.</summary>
+    /// <summary>Owner de l'organisation : changement des rôles et retrait des membres.</summary>
     public const string TenantOwner = "TenantOwner";
 }

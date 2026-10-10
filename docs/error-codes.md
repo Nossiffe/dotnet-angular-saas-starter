@@ -42,6 +42,7 @@ description.
 | `OrganizationErrors.LastOwner` | Validation | `Organization.LastOwner` | Impossible de rétrograder le dernier Owner de l'organisation. |
 | `OrganizationErrors.AlreadyMember` | Validation | `Membership.AlreadyMember` | Cette personne est déjà membre de l'organisation. |
 | `OrganizationErrors.CannotChangeOwnRole` | Validation | `Membership.CannotChangeOwnRole` | Vous ne pouvez pas modifier votre propre rôle. |
+| `OrganizationErrors.CannotRemoveOwner` | Validation | `Membership.CannotRemoveOwner` | Impossible de retirer un Owner de l'organisation. |
 | `OrganizationErrors.InvalidRole` | Validation | `Membership.InvalidRole` | Rôle invalide. Valeurs acceptées : Member, Admin. |
 | `InvitationErrors.NotFound` | NotFound | `Invitation.NotFound` | Invitation introuvable. |
 | `InvitationErrors.OwnerRole` | Validation | `Invitation.OwnerRole` | Impossible d'inviter un membre avec le rôle Owner. |

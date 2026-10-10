@@ -87,4 +87,62 @@ public sealed class OrganizationTests
         result.IsError.ShouldBeTrue();
         result.FirstError.ShouldBe(OrganizationErrors.MemberNotFound);
     }
+
+    [Theory]
+    [InlineData(OrganizationRole.Member)]
+    [InlineData(OrganizationRole.Admin)]
+    public void RemoveMember_removes_a_member_or_an_admin_and_raises_an_event(OrganizationRole role)
+    {
+        var organization = Organization.Create("Acme", Slug.From("acme"), Guid.CreateVersion7(), _createdAt);
+        var memberId = Guid.CreateVersion7();
+        organization.AddMember(memberId, role, _joinedAt);
+        organization.ClearDomainEvents();
+
+        var result = organization.RemoveMember(memberId);
+
+        result.IsError.ShouldBeFalse();
+        organization.Memberships.ShouldNotContain(m => m.UserId == memberId);
+        organization.DomainEvents.ShouldHaveSingleItem()
+            .ShouldBe(new MemberRemovedDomainEvent(organization.Id, memberId, role));
+    }
+
+    // Ni le seul Owner (qui se retirerait lui-même), ni un second Owner : l'organisation ne perd
+    // jamais un Owner par un retrait.
+    [Fact]
+    public void RemoveMember_refuses_to_remove_the_only_owner()
+    {
+        var ownerId = Guid.CreateVersion7();
+        var organization = Organization.Create("Acme", Slug.From("acme"), ownerId, _createdAt);
+        organization.ClearDomainEvents();
+
+        var result = organization.RemoveMember(ownerId);
+
+        result.FirstError.ShouldBe(OrganizationErrors.CannotRemoveOwner);
+        organization.Memberships.ShouldContain(m => m.UserId == ownerId);
+        organization.DomainEvents.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void RemoveMember_refuses_to_remove_another_owner()
+    {
+        var organization = Organization.Create("Acme", Slug.From("acme"), Guid.CreateVersion7(), _createdAt);
+        var secondOwnerId = Guid.CreateVersion7();
+        organization.AddMember(secondOwnerId, OrganizationRole.Owner, _joinedAt);
+
+        var result = organization.RemoveMember(secondOwnerId);
+
+        result.FirstError.ShouldBe(OrganizationErrors.CannotRemoveOwner);
+        organization.Memberships.ShouldContain(m => m.UserId == secondOwnerId);
+    }
+
+    [Fact]
+    public void Removing_an_unknown_user_returns_an_error()
+    {
+        var organization = Organization.Create("Acme", Slug.From("acme"), Guid.CreateVersion7(), _createdAt);
+
+        var result = organization.RemoveMember(Guid.CreateVersion7());
+
+        result.FirstError.ShouldBe(OrganizationErrors.MemberNotFound);
+        organization.Memberships.Count.ShouldBe(1);
+    }
 }

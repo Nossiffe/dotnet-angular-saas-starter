@@ -54,6 +54,29 @@ public sealed class Organization : AggregateRoot<OrganizationId>, IAuditable
         Raise(new MemberJoinedDomainEvent(Id, userId, role));
     }
 
+    // Un Owner ne se retire pas, et aucun autre membre ne le retire : un retrait ne fait jamais
+    // perdre un Owner à l'organisation. Pour en retirer un, il faudrait d'abord changer son rôle.
+    // Comme la garde du dernier Owner (ChangeMemberRole), le contrôle porte sur les adhésions
+    // chargées, sans verrou : il ne résisterait pas à une promotion en Owner simultanée, que l'API
+    // ne permet pas aujourd'hui.
+    public ErrorOr<Success> RemoveMember(Guid userId)
+    {
+        var membership = _memberships.Find(m => m.UserId == userId);
+        if (membership is null)
+        {
+            return OrganizationErrors.MemberNotFound;
+        }
+
+        if (membership.Role == OrganizationRole.Owner)
+        {
+            return OrganizationErrors.CannotRemoveOwner;
+        }
+
+        _memberships.Remove(membership);
+        Raise(new MemberRemovedDomainEvent(Id, userId, membership.Role));
+        return Result.Success;
+    }
+
     public ErrorOr<Success> ChangeMemberRole(Guid userId, OrganizationRole newRole)
     {
         var membership = _memberships.Find(m => m.UserId == userId);

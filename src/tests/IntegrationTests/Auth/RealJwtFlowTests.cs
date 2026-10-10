@@ -41,6 +41,7 @@ public sealed class RealJwtFlowTests(RealJwtApiFactory factory)
     [Theory]
     [InlineData("GET", "/api/v1/products", "/products")]
     [InlineData("GET", "/api/v1/organizations/{org}/members", "/organizations/{orgId:guid}/members")]
+    [InlineData("DELETE", "/api/v1/organizations/{org}/members/{user}", "/organizations/{orgId:guid}/members/{userId:guid}")]
     public async Task Organization_routes_without_a_token_return_401(string method, string route, string pattern)
     {
         var ct = TestContext.Current.CancellationToken;
