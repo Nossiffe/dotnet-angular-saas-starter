@@ -3,6 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { AuthService } from './auth.service';
+import { fakeAccessToken, ORG_ID, OWNER_ID } from '../../testing/fake-session';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -66,6 +67,30 @@ describe('AuthService', () => {
     expect(service.isAuthenticated()).toBe(false);
   });
 
+  // Une page distingue « Déconnexion » d'une session expirée (refresh refusé dans l'intercepteur).
+  it('tells a logout from a session cleared after a refused refresh', () => {
+    const signIn = () => {
+      service.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
+      httpMock
+        .expectOne('/api/v1/auth/login')
+        .flush({ accessToken: 'AT', expiresAt: '2030-01-01T00:00:00Z' });
+    };
+    signIn();
+    expect(service.loggedOut()).toBe(false);
+
+    service.logout().subscribe();
+    httpMock
+      .expectOne('/api/v1/auth/logout')
+      .flush(null, { status: 204, statusText: 'No Content' });
+    expect(service.loggedOut()).toBe(true);
+
+    signIn();
+    expect(service.loggedOut()).toBe(false);
+    service.clearLocalState();
+    expect(service.isAuthenticated()).toBe(false);
+    expect(service.loggedOut()).toBe(false);
+  });
+
   it('restoreSession() signs in silently with a valid refresh cookie', () => {
     let restored: boolean | undefined;
     service.restoreSession().subscribe((ok) => (restored = ok));
@@ -89,5 +114,52 @@ describe('AuthService', () => {
 
     expect(restored).toBe(false);
     expect(service.isAuthenticated()).toBe(false);
+  });
+
+  // Le rôle affiché suit le jeton courant : un refresh après un changement de rôle met l'écran à jour.
+  it('reads the user, organization and role from the access token, and follows a refresh', () => {
+    service.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
+    httpMock.expectOne('/api/v1/auth/login').flush({
+      accessToken: fakeAccessToken(OWNER_ID, 'Admin'),
+      expiresAt: '2030-01-01T00:00:00Z',
+    });
+
+    expect(service.session()).toEqual({ userId: OWNER_ID, tenantId: ORG_ID, tenantRole: 'Admin' });
+    expect(service.canManageOrganization()).toBe(true);
+
+    service.refresh().subscribe();
+    httpMock.expectOne('/api/v1/auth/refresh').flush({
+      accessToken: fakeAccessToken(OWNER_ID, 'Member'),
+      expiresAt: '2030-01-01T00:00:00Z',
+    });
+
+    expect(service.session()?.tenantRole).toBe('Member');
+    expect(service.canManageOrganization()).toBe(false);
+  });
+
+  it('has no session claims for a token it cannot read', () => {
+    service.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
+    httpMock
+      .expectOne('/api/v1/auth/login')
+      .flush({ accessToken: 'not-a-jwt', expiresAt: '2030-01-01T00:00:00Z' });
+
+    expect(service.isAuthenticated()).toBe(true);
+    expect(service.session()).toBeNull();
+    expect(service.canManageOrganization()).toBe(false);
+  });
+
+  // Le payload d'un JWT est en base64url : « - » et « _ » remplacent « + » et « / ».
+  it('reads a token payload encoded in base64url', () => {
+    const payload = btoa(
+      JSON.stringify({ sub: OWNER_ID, tenant: ORG_ID, tenant_role: 'Owner', email: 'a>>>?@b' }),
+    );
+    expect(payload).toMatch(/[+/]/);
+    const token = `h.${payload.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}.s`;
+    service.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
+    httpMock
+      .expectOne('/api/v1/auth/login')
+      .flush({ accessToken: token, expiresAt: '2030-01-01T00:00:00Z' });
+
+    expect(service.session()?.tenantRole).toBe('Owner');
   });
 });
