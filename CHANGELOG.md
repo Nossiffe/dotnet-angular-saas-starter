@@ -22,7 +22,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Tests sur le runner natif Microsoft Testing Platform (xunit.v3) ; couverture produite par `Microsoft.Testing.Extensions.CodeCoverage` (format Cobertura).
 - Angular : retrait de `withFetch()`, de `provideAnimationsAsync()` et du package `@angular/animations`, inutiles en v22.
 - Actions GitHub mises à jour, épinglées par SHA avec leur version exacte en commentaire.
-- Dependabot : mises à jour groupées, délai de 7 jours avant de proposer une version, montées majeures d'Angular et de TypeScript écartées (TypeScript suit la version exigée par Angular).
+- Dependabot : mises à jour groupées, délai de 7 jours avant de proposer une version, montées majeures d'Angular et de TypeScript écartées (TypeScript suit la version exigée par Angular). Les mises à jour de sécurité de vitest et de ses plugins (`@vitest/*`) sont tentées dans une seule PR ; `@vitest/coverage-v8`, qui exige la version exacte de vitest, peut encore imposer une montée à la main (voir `security/README.md`).
 - Workflows déclenchés sur `main` uniquement.
 - Domain sans framework : `ApplicationUser` et `RefreshToken` passent dans l'Infrastructure, `IDomainEvent` ne dépend plus de Mediator. Les handlers de domain events implémentent `IDomainEventHandler<TEvent>`.
 - Outbox : une transaction par message, lu avec `FOR UPDATE SKIP LOCKED` ; chaque handler dans son propre scope ; handlers déjà passés non rappelés lors d'un nouvel essai (`OutboxMessageConsumers`) ; nouvel essai après 1, 4, 16 puis 64 minutes, puis abandon journalisé en erreur ; un arrêt de l'application ne compte pas de tentative et ne journalise pas d'erreur. L'e-mail de bienvenue n'avale plus les erreurs SMTP : il est retenté.

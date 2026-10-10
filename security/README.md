@@ -50,6 +50,19 @@ Points clés :
   (`nuget-minor-patch`, `angular`, `npm-minor-patch`, `github-actions`, `docker`)
   pour limiter le bruit de PR ; `@hey-api/openapi-ts` (pré-1.0, minors
   potentiellement breaking) reste **hors groupe**, une PR par mise à jour.
+  vitest et ses plugins (`@vitest/*`) ont leur propre groupe, montées
+  majeures comprises : `@vitest/coverage-v8` exige la version exacte de vitest.
+- Mises à jour de sécurité : sans délai de cooldown, et une PR par paquet
+  vulnérable tant que le réglage « Grouped security updates » du dépôt reste
+  désactivé. Exception : vitest et `@vitest/*` forment le groupe
+  `vitest-security` (`applies-to: security-updates`), pour que vitest et
+  `@vitest/mocker`, que vitest fixe à sa propre version, soient tentés
+  ensemble. Ce groupe ne lève pas le blocage principal : `@vitest/coverage-v8`
+  n'est visé par aucun avis mais exige la version exacte de vitest, et la
+  documentation de GitHub ne dit pas si une mise à jour de sécurité groupée
+  monte aussi un paquet sans avis. Si la mise à jour échoue
+  (`security_update_not_possible`), monter à la main vitest et
+  `@vitest/coverage-v8` ensemble, à la même version.
 - Les actions GitHub restent épinglées par SHA : Dependabot met à jour le SHA et
   le commentaire de version ensemble.
 

@@ -201,9 +201,12 @@ dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulemen
 ### Dependabot — mises à jour de dépendances
 
 `.github/dependabot.yml` ouvre chaque lundi des PR groupées par écosystème : NuGet (mineures et
-correctifs), npm (Angular d'un côté, le reste de l'autre ; `@hey-api/openapi-ts`, pré-1.0, garde
-sa propre PR), GitHub Actions et images Docker. Un délai de 7 jours (`cooldown`) écarte les
-versions publiées trop récemment. Les montées majeures arrivent en PR séparées.
+correctifs), npm (trois groupes : Angular, vitest et `@vitest/*`, puis les autres mineures et
+correctifs ; `@hey-api/openapi-ts`, pré-1.0, garde sa propre PR), GitHub Actions et images Docker.
+Un délai de 7 jours (`cooldown`) écarte les versions publiées trop récemment. Les montées majeures
+arrivent en PR séparées, sauf celles de vitest, qui reste groupé avec ses plugins ; celles
+d'Angular, et les montées majeures et mineures de TypeScript, sont écartées. Les mises à jour de
+sécurité, elles, partent sans délai (voir `security/README.md`).
 
 ### Procédure d'exception CVE
 
