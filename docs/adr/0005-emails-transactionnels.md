@@ -32,9 +32,13 @@ au plus, puis le passe à l'état Deleted (`AttemptsExceededAction.Delete`), qui
 comme un job réussi : l'adresse, argument du job, ne reste pas indéfiniment dans ses tables, comme
 elle le ferait dans un job en échec. Le message d'une erreur SMTP pouvant citer l'adresse, ni
 notre log ni l'exception que Hangfire journalise et conserve ne le reprennent : ils portent
-l'identifiant de l'utilisateur et le type de l'erreur.
+l'identifiant de l'utilisateur et la raison de l'échec, celle d'une `EmailDeliveryException`.
 
-Dans les deux cas, **aucune erreur d'envoi n'est avalée**.
+Dans les deux cas, **aucune erreur d'envoi n'est avalée**. `SmtpEmailSender` signale un échec par
+une `EmailDeliveryException`, dont la raison donne le type de l'erreur et ses codes (code et
+statut d'un refus du serveur, code d'une erreur réseau), jamais son texte, qui peut citer
+l'adresse. La colonne `OutboxMessages.Error` et les logs, qui reprennent cette exception, ne
+contiennent donc pas l'adresse non plus.
 
 ## Conséquences
 

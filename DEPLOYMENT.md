@@ -304,6 +304,7 @@ Une fois la cause corrigée (SMTP indisponible, par exemple), on le relance :
 -- Messages abandonnés et leur dernière erreur
 SELECT "Id", "Type", "OccurredOn", "Error" FROM "OutboxMessages"
 WHERE "ProcessedOn" IS NULL AND "Attempts" >= 5;
+-- Pour un e-mail, "Error" donne le type de l'erreur SMTP et ses codes, jamais l'adresse.
 
 -- Relance : repris au lot suivant ; les handlers déjà passés ne sont pas rappelés
 UPDATE "OutboxMessages" SET "Attempts" = 0, "NextAttemptOn" = NULL
