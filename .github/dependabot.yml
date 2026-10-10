@@ -16,11 +16,6 @@ updates:
     groups:
       nuget-minor-patch:
         update-types: ["minor", "patch"]
-    ignore:
-      # CodeCoverage 18.1.0 and later run on Microsoft Testing Platform 2.x, while xunit.v3 3
-      # stays on 1.x: the tests crash with a TypeLoadException. Remove with the move to xunit.v3 4.
-      - dependency-name: "Microsoft.Testing.Extensions.CodeCoverage"
-        versions: [">= 18.1.0"]
 
   - package-ecosystem: "npm"
     directory: "/web-angular"
