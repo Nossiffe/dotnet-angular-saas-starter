@@ -7,6 +7,7 @@ using Saas.Api.Contracts;
 using Saas.Application.Common.Interfaces;
 using Saas.Domain.Tenancy;
 using Saas.Infrastructure.Persistence;
+using Saas.IntegrationTests.Auth;
 using Saas.IntegrationTests.Outbox;
 using Shouldly;
 using Xunit;
@@ -173,7 +174,7 @@ public sealed class InvitationEmailTests(PostgresApiFactory factory)
 
     private static string UniqueEmail(string prefix) => $"{prefix}-{Guid.NewGuid():N}@saas.local";
 
-    private HttpClient Owner(Guid orgId) => InvitationTestFlow.ClientFor(factory, orgId, _ownerId);
+    private HttpClient Owner(Guid orgId) => factory.CreateAuthenticatedClient(orgId, userId: _ownerId);
 
     // Une organisation, et une invitation vers un e-mail sans compte. L'e-mail ne part qu'avec un lot.
     private async Task<(Guid OrgId, string Email, Guid InvitationId)> InviteAsync(string email, CancellationToken ct)

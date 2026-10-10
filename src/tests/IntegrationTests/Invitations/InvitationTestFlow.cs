@@ -7,8 +7,8 @@ namespace Saas.IntegrationTests.Invitations;
 
 /// <summary>
 /// Helpers pour les flux d'invitation : provisionne une vraie Organization (avec un Owner membre)
-/// directement en base via un scope DI, et construit un client HTTP piloté par TestAuthHandler dont
-/// les claims (tenant + tenant_role + sub) correspondent à cette organisation.
+/// directement en base via un scope DI. Le client de son Owner vient de
+/// <see cref="TestClients.CreateAuthenticatedClient"/>, avec l'organisation et l'utilisateur créés ici.
 ///
 /// Pourquoi une vraie Organization : les endpoints TenantAdmin (invite/accept/change-role) chargent
 /// l'organisation par id (`IOrganizationRepository.GetByIdAsync`) — TestAuthHandler ne fait que
@@ -36,15 +36,5 @@ internal static class InvitationTestFlow
         await uow.SaveChangesAsync(cancellationToken);
 
         return org.Id.Value;
-    }
-
-    /// <summary>Client HTTP avec les claims TestAuthHandler pour un tenant/user/role donnés.</summary>
-    public static HttpClient ClientFor(PostgresApiFactory factory, Guid tenant, Guid userId, string tenantRole = "Owner")
-    {
-        var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Add(TestAuthHandler.TenantHeader, tenant.ToString());
-        client.DefaultRequestHeaders.Add(TestAuthHandler.UserHeader, userId.ToString());
-        client.DefaultRequestHeaders.Add(TestAuthHandler.TenantRoleHeader, tenantRole);
-        return client;
     }
 }

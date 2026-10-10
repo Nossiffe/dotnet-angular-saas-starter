@@ -14,23 +14,14 @@ public sealed class TenantIsolationTests(PostgresApiFactory factory)
     public async Task A_tenant_does_not_see_the_products_of_another()
     {
         var ct = TestContext.Current.CancellationToken;
-        var tenantA = Guid.CreateVersion7();
-        var tenantB = Guid.CreateVersion7();
+        var clientA = factory.CreateAuthenticatedClient();
+        var clientB = factory.CreateAuthenticatedClient();
 
-        var clientA = factory.CreateClient();
-        clientA.DefaultRequestHeaders.Add(TestAuthHandler.TenantHeader, tenantA.ToString());
-        var clientB = factory.CreateClient();
-        clientB.DefaultRequestHeaders.Add(TestAuthHandler.TenantHeader, tenantB.ToString());
-
-        var name = $"Secret-{Guid.NewGuid():N}";
-        (await clientA.PostAsJsonAsync("/api/v1/products", new { name, price = 1m }, ct)).EnsureSuccessStatusCode();
+        var id = await clientA.CreateProductAsync($"Secret-{Guid.NewGuid():N}", 1m, ct);
 
         var listB = await clientB.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products", ct);
-        listB.ShouldNotBeNull();
-        listB.Items.ShouldNotContain(p => p.Name == name);
-
+        listB.ShouldNotBeNull().Items.ShouldBeEmpty();
         var listA = await clientA.GetFromJsonAsync<PagedResult<ProductDto>>("/api/v1/products", ct);
-        listA.ShouldNotBeNull();
-        listA.Items.ShouldContain(p => p.Name == name);
+        listA.ShouldNotBeNull().Items.ShouldHaveSingleItem().Id.ShouldBe(id);
     }
 }

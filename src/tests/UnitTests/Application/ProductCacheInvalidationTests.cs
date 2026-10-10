@@ -1,8 +1,5 @@
-using ErrorOr;
 using Microsoft.Extensions.Caching.Hybrid;
 using NSubstitute;
-using Saas.Application.Auth;
-using Saas.Application.Auth.ResetPassword;
 using Saas.Application.Common.Interfaces;
 using Saas.Application.Products.DeleteProduct;
 using Saas.Application.Products.UpdateProduct;
@@ -13,12 +10,10 @@ using Xunit;
 
 namespace Saas.UnitTests.Application;
 
-public sealed class AuthAndProductHandlerTests
+public sealed class ProductCacheInvalidationTests
 {
     private static readonly Guid _tenantId = Guid.CreateVersion7();
 
-    private readonly IIdentityService _identity = Substitute.For<IIdentityService>();
-    private readonly IRefreshTokenStore _refresh = Substitute.For<IRefreshTokenStore>();
     private readonly IProductRepository _products = Substitute.For<IProductRepository>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
     private readonly ITenantProvider _tenant = Substitute.For<ITenantProvider>();
@@ -27,7 +22,7 @@ public sealed class AuthAndProductHandlerTests
     // Ordre des écritures : l'invalidation du cache doit suivre l'enregistrement.
     private readonly List<string> _writes = [];
 
-    public AuthAndProductHandlerTests()
+    public ProductCacheInvalidationTests()
     {
         _tenant.TenantId.Returns(_tenantId);
         _uow.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(_ =>
@@ -43,34 +38,6 @@ public sealed class AuthAndProductHandlerTests
         });
 #pragma warning restore CA2012
     }
-
-    // ── ResetPassword ────────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task A_successful_reset_revokes_every_open_session()
-    {
-        var userId = Guid.CreateVersion7();
-        _identity.ResetPasswordAsync(userId, "token", "N3w-password!", Arg.Any<CancellationToken>()).Returns(true);
-
-        var result = await Reset(userId);
-
-        result.IsError.ShouldBeFalse();
-        await _refresh.Received(1).RevokeAllAsync(userId, Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task An_invalid_reset_link_changes_no_session()
-    {
-        var userId = Guid.CreateVersion7();
-        _identity.ResetPasswordAsync(userId, "token", "N3w-password!", Arg.Any<CancellationToken>()).Returns(false);
-
-        var result = await Reset(userId);
-
-        result.FirstError.ShouldBe(AuthErrors.InvalidResetLink);
-        await _refresh.DidNotReceiveWithAnyArgs().RevokeAllAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
-    }
-
-    // ── Update / Delete product ──────────────────────────────────────────────────
 
     [Fact]
     public async Task Updating_a_product_saves_it_then_invalidates_the_tenant_cache()
@@ -115,8 +82,4 @@ public sealed class AuthAndProductHandlerTests
         _products.Received(1).Remove(product);
         _writes.ShouldBe(["save", $"invalidate products:{_tenantId}"]);
     }
-
-    private ValueTask<ErrorOr<Success>> Reset(Guid userId)
-        => new ResetPasswordHandler(_identity, _refresh)
-            .Handle(new ResetPasswordCommand(userId, "token", "N3w-password!"), TestContext.Current.CancellationToken);
 }

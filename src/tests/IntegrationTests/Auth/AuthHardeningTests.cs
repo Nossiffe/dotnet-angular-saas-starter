@@ -184,7 +184,7 @@ public sealed class AuthHardeningTests(PostgresApiFactory factory)
 
         var ownerId = Guid.CreateVersion7();
         var otherOrgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
-        var invite = await InvitationTestFlow.ClientFor(factory, otherOrgId, ownerId).PostAsJsonAsync(
+        var invite = await factory.CreateAuthenticatedClient(otherOrgId, userId: ownerId).PostAsJsonAsync(
             $"/api/v1/organizations/{otherOrgId}/invitations", new { email, role = "Member" }, ct);
         invite.StatusCode.ShouldBe(HttpStatusCode.Created);
         await OutboxRunner.RunUntilIdleAsync(factory, ct); // l'e-mail d'invitation part avec un lot

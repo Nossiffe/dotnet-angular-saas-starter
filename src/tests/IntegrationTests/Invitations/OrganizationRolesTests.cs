@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Saas.Application.Common.Interfaces;
 using Saas.Domain.Tenancy;
 using Saas.Infrastructure.Persistence;
+using Saas.IntegrationTests.Auth;
 using Saas.IntegrationTests.Outbox;
 using Shouldly;
 using Xunit;
@@ -20,7 +21,7 @@ public sealed class OrganizationRolesTests(PostgresApiFactory factory)
     {
         var ct = TestContext.Current.CancellationToken;
         var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, Guid.CreateVersion7(), ct);
-        var admin = InvitationTestFlow.ClientFor(factory, orgId, Guid.CreateVersion7(), tenantRole: "Admin");
+        var admin = factory.CreateAuthenticatedClient(orgId, "Admin", Guid.CreateVersion7());
 
         var invite = await admin.PostAsJsonAsync(
             $"/api/v1/organizations/{orgId}/invitations", new { email = UniqueEmail("by-admin"), role = "Member" }, ct);
@@ -35,7 +36,7 @@ public sealed class OrganizationRolesTests(PostgresApiFactory factory)
     {
         var ct = TestContext.Current.CancellationToken;
         var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, Guid.CreateVersion7(), ct);
-        var admin = InvitationTestFlow.ClientFor(factory, orgId, Guid.CreateVersion7(), tenantRole: "Admin");
+        var admin = factory.CreateAuthenticatedClient(orgId, "Admin", Guid.CreateVersion7());
 
         var change = await admin.PutAsJsonAsync(
             $"/api/v1/organizations/{orgId}/members/{Guid.CreateVersion7()}/role", new { role = "Admin" }, ct);
@@ -48,7 +49,7 @@ public sealed class OrganizationRolesTests(PostgresApiFactory factory)
     {
         var ct = TestContext.Current.CancellationToken;
         var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, Guid.CreateVersion7(), ct);
-        var member = InvitationTestFlow.ClientFor(factory, orgId, Guid.CreateVersion7(), tenantRole: "Member");
+        var member = factory.CreateAuthenticatedClient(orgId, "Member", Guid.CreateVersion7());
 
         var list = await member.GetAsync($"/api/v1/organizations/{orgId}/invitations", ct);
 
@@ -79,7 +80,7 @@ public sealed class OrganizationRolesTests(PostgresApiFactory factory)
             request.Content = JsonContent.Create(new { email = UniqueEmail("cross-org"), role = "Admin" });
         }
 
-        var response = await InvitationTestFlow.ClientFor(factory, orgId, ownerId).SendAsync(request, ct);
+        var response = await factory.CreateAuthenticatedClient(orgId, userId: ownerId).SendAsync(request, ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         (await RowsOfAsync(otherOrgId, ct)).ShouldBe(rowsBefore);
@@ -100,7 +101,7 @@ public sealed class OrganizationRolesTests(PostgresApiFactory factory)
 
         var orgId = organization.Id.Value;
         var email = UniqueEmail("invitee");
-        var invite = await InvitationTestFlow.ClientFor(factory, orgId, ownerId)
+        var invite = await factory.CreateAuthenticatedClient(orgId, userId: ownerId)
             .PostAsJsonAsync($"/api/v1/organizations/{orgId}/invitations", new { email, role = "Member" }, ct);
         invite.StatusCode.ShouldBe(HttpStatusCode.Created);
         await OutboxRunner.RunUntilIdleAsync(factory, ct);

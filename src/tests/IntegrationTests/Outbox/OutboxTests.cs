@@ -1,15 +1,13 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Saas.Api.Contracts;
 using Saas.Domain.Products;
 using Saas.Infrastructure.Jobs;
 using Saas.Infrastructure.Persistence;
 using Saas.Infrastructure.Persistence.Outbox;
 using Saas.IntegrationTests.Auth;
+using Saas.IntegrationTests.Products;
 using Shouldly;
 using Xunit;
 
@@ -25,12 +23,8 @@ public sealed class OutboxTests(PostgresApiFactory factory)
     public async Task A_created_product_event_is_written_to_the_outbox_then_dispatched()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Add(TestAuthHandler.TenantHeader, Guid.CreateVersion7().ToString());
-        var create = await client.PostAsJsonAsync(
-            "/api/v1/products", new { name = $"Outbox-{Guid.NewGuid():N}", price = 4.2m }, ct);
-        create.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var productId = (await create.Content.ReadFromJsonAsync<CreateProductResponse>(ct))!.Id.ToString();
+        var productId = (await factory.CreateAuthenticatedClient()
+            .CreateProductAsync($"Outbox-{Guid.NewGuid():N}", 4.2m, ct)).ToString();
 
         var written = await ProductCreatedMessageAsync(productId, ct);
         written.ProcessedOn.ShouldBeNull();

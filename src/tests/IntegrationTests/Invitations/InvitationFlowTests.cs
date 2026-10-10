@@ -30,7 +30,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var ct = TestContext.Current.CancellationToken;
         var ownerId = Guid.CreateVersion7();
         var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
-        var owner = InvitationTestFlow.ClientFor(factory, orgId, ownerId);
+        var owner = factory.CreateAuthenticatedClient(orgId, userId: ownerId);
         var anon = factory.CreateClient();
 
         var email = UniqueEmail("invitee-new");
@@ -67,7 +67,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var ct = TestContext.Current.CancellationToken;
         var ownerId = Guid.CreateVersion7();
         var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
-        var owner = InvitationTestFlow.ClientFor(factory, orgId, ownerId);
+        var owner = factory.CreateAuthenticatedClient(orgId, userId: ownerId);
         var anon = factory.CreateClient();
 
         var email = UniqueEmail("invitee-existing");
@@ -95,7 +95,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var ct = TestContext.Current.CancellationToken;
         var ownerId = Guid.CreateVersion7();
         var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
-        var owner = InvitationTestFlow.ClientFor(factory, orgId, ownerId);
+        var owner = factory.CreateAuthenticatedClient(orgId, userId: ownerId);
 
         var email = UniqueEmail("dup");
         var first = await owner.PostAsJsonAsync(
@@ -113,7 +113,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var ct = TestContext.Current.CancellationToken;
         var ownerId = Guid.CreateVersion7();
         var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
-        var owner = InvitationTestFlow.ClientFor(factory, orgId, ownerId);
+        var owner = factory.CreateAuthenticatedClient(orgId, userId: ownerId);
         var anon = factory.CreateClient();
 
         var email = UniqueEmail("already");
@@ -138,7 +138,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var ct = TestContext.Current.CancellationToken;
         var ownerId = Guid.CreateVersion7();
         var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
-        var owner = InvitationTestFlow.ClientFor(factory, orgId, ownerId);
+        var owner = factory.CreateAuthenticatedClient(orgId, userId: ownerId);
         var anon = factory.CreateClient();
 
         var email = UniqueEmail("revoke");
@@ -163,7 +163,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var ct = TestContext.Current.CancellationToken;
         var ownerId = Guid.CreateVersion7();
         var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
-        var owner = InvitationTestFlow.ClientFor(factory, orgId, ownerId);
+        var owner = factory.CreateAuthenticatedClient(orgId, userId: ownerId);
         var anon = factory.CreateClient();
 
         var email = UniqueEmail("resend");
@@ -196,7 +196,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var ct = TestContext.Current.CancellationToken;
         var ownerId = Guid.CreateVersion7();
         var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
-        var owner = InvitationTestFlow.ClientFor(factory, orgId, ownerId);
+        var owner = factory.CreateAuthenticatedClient(orgId, userId: ownerId);
 
         var emails = new[] { UniqueEmail("list-a"), UniqueEmail("list-b"), UniqueEmail("list-c") };
         Guid toRevoke = Guid.Empty;
@@ -225,7 +225,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var ct = TestContext.Current.CancellationToken;
         var ownerId = Guid.CreateVersion7();
         var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
-        var owner = InvitationTestFlow.ClientFor(factory, orgId, ownerId);
+        var owner = factory.CreateAuthenticatedClient(orgId, userId: ownerId);
         var anon = factory.CreateClient();
 
         var email = UniqueEmail("promote");
@@ -265,7 +265,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var ct = TestContext.Current.CancellationToken;
         var ownerId = Guid.CreateVersion7();
         var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
-        var member = InvitationTestFlow.ClientFor(factory, orgId, Guid.CreateVersion7(), tenantRole: "Member");
+        var member = factory.CreateAuthenticatedClient(orgId, "Member", Guid.CreateVersion7());
 
         var invite = await member.PostAsJsonAsync(
             $"/api/v1/organizations/{orgId}/invitations", new { email = UniqueEmail("forbidden"), role = "Member" }, ct);
@@ -280,7 +280,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var ct = TestContext.Current.CancellationToken;
         var ownerId = Guid.CreateVersion7();
         var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
-        var owner = InvitationTestFlow.ClientFor(factory, orgId, ownerId);
+        var owner = factory.CreateAuthenticatedClient(orgId, userId: ownerId);
         var otherOrgId = Guid.CreateVersion7();
 
         var invite = await owner.PostAsJsonAsync(
@@ -294,7 +294,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var ct = TestContext.Current.CancellationToken;
         var ownerId = Guid.CreateVersion7();
         var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
-        var owner = InvitationTestFlow.ClientFor(factory, orgId, ownerId);
+        var owner = factory.CreateAuthenticatedClient(orgId, userId: ownerId);
         var anon = factory.CreateClient();
 
         var email = UniqueEmail("expired");
@@ -329,7 +329,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var ct = TestContext.Current.CancellationToken;
         var ownerId = Guid.CreateVersion7();
         var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
-        var owner = InvitationTestFlow.ClientFor(factory, orgId, ownerId);
+        var owner = factory.CreateAuthenticatedClient(orgId, userId: ownerId);
         var anon = factory.CreateClient();
 
         var email = UniqueEmail("orphan");

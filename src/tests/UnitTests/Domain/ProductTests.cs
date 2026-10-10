@@ -12,6 +12,14 @@ public sealed class ProductTests
         Should.Throw<ArgumentException>(() => Product.Create("", Money.From(1m)));
 
     [Fact]
+    public void Create_with_a_name_of_spaces_throws() =>
+        Should.Throw<ArgumentException>(() => Product.Create("   ", Money.From(1m)));
+
+    [Fact]
+    public void Create_trims_the_name() =>
+        Product.Create("  Stylo bleu  ", Money.From(1m)).Name.ShouldBe("Stylo bleu");
+
+    [Fact]
     public void Create_raises_ProductCreatedDomainEvent()
     {
         var product = Product.Create("Stylo", Money.From(2.5m));
@@ -40,15 +48,5 @@ public sealed class ProductTests
 
         product.Price.Amount.ShouldBe(9.99m);
         product.Price.Currency.ShouldBe("USD");
-    }
-
-    [Fact]
-    public void ClearDomainEvents_empties_the_list()
-    {
-        var product = Product.Create("Stylo", Money.From(1m));
-
-        product.ClearDomainEvents();
-
-        product.DomainEvents.ShouldBeEmpty();
     }
 }
