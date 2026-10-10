@@ -1,8 +1,10 @@
 using System.Collections.Concurrent;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,11 +52,13 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         // pour éviter un double-migrate et un conflit avec le Testcontainer déjà prêt.
         builder.UseSetting("Database:MigrateOnStartup", "false");
 
-        // Neutralise le rate-limiter "auth" (clé par IP "unknown" partagée par tous les appels
-        // TestServer → 429 parasites sur les flux auth multi-appels). Flag lu par Program.cs.
-        builder.UseSetting("RateLimiting:DisableAuthPolicy", "true");
-        // Neutralise le limiteur global (IP nulle sur TestServer → même partition → 429 parasites).
-        builder.UseSetting("RateLimiting:DisableGlobalLimiter", "true");
+        // Sans limite de débit : tous les appels de TestServer arrivent sans IP, donc dans la même partition.
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IConfigureOptions<RateLimiterOptions>>();
+            services.Configure<RateLimiterOptions>(options =>
+                options.AddPolicy("auth", _ => RateLimitPartition.GetNoLimiter("tests")));
+        });
 
         // Remplace l'envoi SMTP réel par un fake capturant (recipient + corps/lien).
         // Remplace aussi IPasswordResetEnqueuer par un exécutant synchrone : le job

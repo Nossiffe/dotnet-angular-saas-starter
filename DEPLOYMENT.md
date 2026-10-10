@@ -79,7 +79,6 @@ Vault, AWS Secrets Manager, Kubernetes Secrets, etc.) — **ne jamais committer 
 | `Cors__AllowedOrigins__0`, `__1`… | Optionnel | Origines autorisées à appeler l'API depuis un autre domaine. Vide par défaut : le front est servi depuis la même origine que l'API (`docs/adr/0004`) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Optionnel | Endpoint OTLP (ex. `https://otel-collector:4317`) |
 | `OTEL_SERVICE_NAME` | Optionnel | Nom du service pour les traces/métriques (défaut : `saas-api`) |
-| `RateLimiting__DisableAuthPolicy` | **Ne pas activer** | Désactive le rate-limiter `/auth` — **doit rester `false` en production** (honoré uniquement en Development) |
 | `DataProtection__KeysPath` | Recommandé en prod | Répertoire du volume persistant pour les clés Data Protection — voir § dédiée ci-dessous |
 | `ForwardedHeaders__Enabled` | Recommandé derrière un proxy | `true` si l'API est derrière un reverse-proxy/ingress qui termine TLS — voir § dédiée ci-dessous. ⚠️ Avec ce flag actif, l'API fait confiance à `X-Forwarded-*` : son port ne doit être joignable **que** depuis le réseau du proxy (jamais exposé publiquement), sinon un client forgerait son IP et fausserait le rate limiting |
 

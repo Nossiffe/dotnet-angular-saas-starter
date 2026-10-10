@@ -53,6 +53,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 ### Removed
 - Package `Microsoft.Extensions.Http.Resilience`, référencé mais jamais utilisé.
 - `IInvitationEmailEnqueuer`, `HangfireInvitationEmailEnqueuer` et `ProcessInvitationEmailJob`, remplacés par l'outbox. **Au déploiement** : laisser la file Hangfire se vider avant de mettre à jour, ou supprimer depuis le dashboard les jobs `ProcessInvitationEmailJob` restants et renvoyer les invitations concernées. Sinon, ces jobs ne peuvent plus être chargés et restent en échec, avec le jeton brut et l'adresse en arguments.
+- Réglages `RateLimiting:DisableAuthPolicy` et `RateLimiting:DisableGlobalLimiter`, qui n'existaient que pour les tests : la factory des tests d'intégration remplace elle-même les limites de débit.
 
 ### Security
 - Connexion : un e-mail inconnu ou un compte verrouillé coûte le même calcul de hash qu'un mauvais mot de passe, qui fait l'essentiel de la durée de la réponse ; un échec sur un compte existant enregistre encore la tentative en base, un écart bien plus faible. L'inscription, elle, signale toujours un e-mail déjà pris (voir `ARCHITECTURE.md`).

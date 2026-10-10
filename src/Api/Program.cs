@@ -284,16 +284,9 @@ static void AddRateLimiter(WebApplicationBuilder b)
             context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
             return ValueTask.CompletedTask;
         };
-        // En tests d'intégration, tous les appels passent par TestServer avec une IP nulle (non loopback)
-        // → ils tombent tous dans la même partition globale et la fenêtre de 100/min finit par déclencher
-        // des 429 parasites quand la suite grossit. RateLimiting:DisableGlobalLimiter (posé uniquement par
-        // la factory de test) neutralise le limiteur global.
-        var disableGlobalLimit = b.Environment.IsDevelopment()
-            && b.Configuration.GetValue<bool>("RateLimiting:DisableGlobalLimiter");
         options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
         {
-            if (disableGlobalLimit
-                || (http.Connection.RemoteIpAddress is { } ip && System.Net.IPAddress.IsLoopback(ip)))
+            if (http.Connection.RemoteIpAddress is { } ip && System.Net.IPAddress.IsLoopback(ip))
             {
                 return RateLimitPartition.GetNoLimiter("loopback");
             }
@@ -309,17 +302,10 @@ static void AddRateLimiter(WebApplicationBuilder b)
                 QueueLimit = 0,
             });
         });
-        // En tests d'intégration, tous les appels partagent la même IP ("unknown") → la fenêtre fixe
-        // de 10/30s déclenche des 429 parasites sur les flux auth multi-appels. RateLimiting:DisableAuthPolicy
-        // (posé uniquement par la factory de test) neutralise la politique "auth" uniquement.
-        var disableAuthLimit = b.Environment.IsDevelopment()
-            && b.Configuration.GetValue<bool>("RateLimiting:DisableAuthPolicy");
         options.AddPolicy("auth", http =>
-            disableAuthLimit
-                ? RateLimitPartition.GetNoLimiter("auth-disabled")
-                : RateLimitPartition.GetFixedWindowLimiter(
-                    http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                    _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromSeconds(30), QueueLimit = 0 }));
+            RateLimitPartition.GetFixedWindowLimiter(
+                http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromSeconds(30), QueueLimit = 0 }));
     });
 }
 
