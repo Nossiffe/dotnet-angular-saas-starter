@@ -1,6 +1,9 @@
 namespace Saas.Infrastructure.Identity;
 
-/// <summary>Noms des politiques d'autorisation, définies dans <c>DependencyInjection.AddAuthorization</c>.</summary>
+/// <summary>
+/// Noms des politiques d'autorisation, définies dans <c>DependencyInjection.AddAuthorization</c>. Les
+/// trois exigent en plus une adhésion actuelle (<see cref="CurrentMembershipRequirement"/>).
+/// </summary>
 public static class AuthorizationPolicies
 {
     /// <summary>Claim <c>tenant</c> présent : toute route qui lit ou écrit des données d'un tenant.</summary>

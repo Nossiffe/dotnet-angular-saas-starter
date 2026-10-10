@@ -168,8 +168,9 @@ Request → LoggingBehavior → ValidationBehavior → Handler
   révoquées. Un token révoqué autrement (logout, réinitialisation, retrait d'une organisation)
   est seulement refusé, et un refresh refusé supprime le cookie. L'adhésion est vérifiée avant
   la rotation : un utilisateur retiré d'une organisation perd ses sessions sur celle-ci, sur
-  chaque appareil, et garde celles de ses autres organisations. Une réinitialisation de mot de
-  passe révoque toutes les sessions ouvertes.
+  chaque appareil, et garde celles de ses autres organisations. Le refresh lit aussi le rôle en
+  base : le nouveau token porte le rôle actuel, jamais celui de l'ancien token. Une
+  réinitialisation de mot de passe révoque toutes les sessions ouvertes.
 - **Rôles d'organisation et policies** (`AuthorizationPolicies`) :
 
   | Policy | Claim exigé | Routes |
@@ -180,6 +181,20 @@ Request → LoggingBehavior → ValidationBehavior → Handler
 
   Les tests d'intégration appliquent ces policies telles quelles : la factory de test remplace
   seulement le schéma d'authentification.
+- **Adhésion relue à chaque requête** : les trois policies exigent aussi
+  `CurrentMembershipRequirement`. `CurrentMembershipHandler` relit en base le rôle de
+  l'utilisateur du token dans l'organisation du token : une requête par appel, sur l'index unique
+  (`UserId`, `OrganizationId`), sur toutes les routes rattachées à une organisation (produits,
+  invitations, membres). Adhésion absente ou rôle différent de celui du token : 401
+  `Auth.SessionExpired` (`StaleTokenAuthorizationResultHandler`), et non 403. Le front rafraîchit
+  alors la session, une seule fois par requête, et rejoue la requête avec un token au rôle
+  actuel ; si l'utilisateur n'est plus membre, le refresh est refusé et la session effacée. Un
+  membre à jour dont le rôle ne suffit pas reçoit 403. Sans cette relecture, un access token
+  gardait jusqu'à son expiration (`Jwt:AccessTokenMinutes`, 15 minutes par défaut) le rôle de son
+  émission : un Admin rétrogradé en Member pouvait encore inviter une autre de ses adresses comme
+  Admin, ou supprimer des produits. `StaleRoleTests` et `CurrentMembershipTests` fixent ce
+  comportement ; `CurrentMembershipTests` vérifie aussi que toute route authentifiée passe par
+  l'une de ces trois policies.
 - Fallback policy : `RequireAuthenticatedUser` (toutes les routes sont auth par défaut).
 
 ### Résilience & observabilité

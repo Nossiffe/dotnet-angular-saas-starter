@@ -184,14 +184,23 @@ public static class DependencyInjection
 
     private static void AddAuthorization(IServiceCollection services)
     {
+        // Les trois politiques des routes rattachées à une organisation relisent aussi l'adhésion en
+        // base (CurrentMembershipRequirement) : le rôle du token doit être le rôle actuel.
+        services.AddScoped<IAuthorizationHandler, CurrentMembershipHandler>();
         services.AddAuthorizationBuilder()
             .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
-            .AddPolicy(AuthorizationPolicies.HasTenant, p => p.RequireAssertion(ctx =>
-            {
-                var v = ctx.User.FindFirst("tenant")?.Value;
-                return Guid.TryParse(v, out var id) && id != Guid.Empty;
-            }))
-            .AddPolicy(AuthorizationPolicies.TenantAdmin, p => p.RequireClaim("tenant_role", "Owner", "Admin"))
-            .AddPolicy(AuthorizationPolicies.TenantOwner, p => p.RequireClaim("tenant_role", "Owner"));
+            .AddPolicy(AuthorizationPolicies.HasTenant, p => p
+                .RequireAssertion(ctx =>
+                {
+                    var v = ctx.User.FindFirst("tenant")?.Value;
+                    return Guid.TryParse(v, out var id) && id != Guid.Empty;
+                })
+                .AddRequirements(CurrentMembershipRequirement.Instance))
+            .AddPolicy(AuthorizationPolicies.TenantAdmin, p => p
+                .RequireClaim("tenant_role", "Owner", "Admin")
+                .AddRequirements(CurrentMembershipRequirement.Instance))
+            .AddPolicy(AuthorizationPolicies.TenantOwner, p => p
+                .RequireClaim("tenant_role", "Owner")
+                .AddRequirements(CurrentMembershipRequirement.Instance));
     }
 }

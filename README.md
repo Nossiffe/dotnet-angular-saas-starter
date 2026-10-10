@@ -9,7 +9,7 @@ A SaaS starter with Clean Architecture, DDD and CQRS: **.NET 10**, **Angular 22*
 ## What it demonstrates
 
 - **Architecture**: Clean Architecture layers with a framework-free Domain, rich DDD aggregates with strongly-typed IDs (Vogen), CQRS with Mediator and FluentValidation, EF Core for writes and Dapper for reads, ErrorOr results instead of business exceptions.
-- **Multi-tenancy**: EF Core global query filters driven by a `tenant` claim. A resource owned by another tenant returns 404, never 403, so its existence is not disclosed.
+- **Multi-tenancy**: EF Core global query filters driven by a `tenant` claim. A resource owned by another tenant returns 404, never 403, so its existence is not disclosed. Every route of an organization also reads the caller's membership and role from the database: a token issued before a role change gets a 401, and the front end refreshes the session to get the current role.
 - **Robustness**: transactional outbox for domain events with at-least-once delivery: one transaction per message, several API instances sharing the work through row locks, delayed retries that skip the handlers that already succeeded. Invitation e-mails go through it: the link's token is created when the e-mail is sent and only its hash is stored, and a duplicate e-mail replaces the previous link. Hangfire background jobs (the password reset e-mail, retried three times), HybridCache, database retry on transient failures.
 - **Observability**: Serilog and OpenTelemetry (OTLP), with the Aspire dashboard locally.
 - **API and front end**: minimal APIs with versioning and OpenAPI, TypeScript API types generated from the OpenAPI contract with Hey API, Angular 22 signal-first and zoneless with Angular Material.

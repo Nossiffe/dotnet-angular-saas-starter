@@ -11,9 +11,9 @@ namespace Saas.IntegrationTests.Invitations;
 /// <see cref="TestClients.CreateAuthenticatedClient"/>, avec l'organisation et l'utilisateur créés ici.
 ///
 /// Pourquoi une vraie Organization : les endpoints TenantAdmin (invite/accept/change-role) chargent
-/// l'organisation par id (`IOrganizationRepository.GetByIdAsync`) — TestAuthHandler ne fait que
-/// fabriquer des claims JWT, il ne crée aucune ligne. Les tests Products n'en ont pas besoin (ils
-/// s'appuient sur le global query filter), mais les invitations, si.
+/// l'organisation par id (`IOrganizationRepository.GetByIdAsync`), avec son nom et son Owner.
+/// TestAuthHandler ne fait que fabriquer des claims JWT ; <see cref="TestClients.CreateAuthenticatedClient"/>
+/// crée seulement l'adhésion que l'API relit, avec une organisation minimale si le tenant n'en a pas.
 /// </summary>
 internal static class InvitationTestFlow
 {

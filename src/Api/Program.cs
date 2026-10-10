@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Saas.Api.Common;
 using Saas.Api.Common.OpenApi;
@@ -46,6 +47,8 @@ builder.Services.AddApiVersioning(options =>
 });
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+// Token périmé (adhésion ou rôle changé) : 401 au lieu de 403, pour que le client rafraîchisse sa session.
+builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, StaleTokenAuthorizationResultHandler>();
 builder.Services.Configure<ExceptionHandlerOptions>(
     // Log d'erreur et métriques d'une exception gérée : pour les 500 seulement (ARCHITECTURE.md § Gestion des erreurs).
     options => options.SuppressDiagnosticsCallback = context =>

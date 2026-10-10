@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using Microsoft.Extensions.Logging;
+using Saas.IntegrationTests.Auth;
 using Shouldly;
 using Xunit;
 
@@ -26,7 +27,7 @@ public sealed class ErrorLoggingTests(PostgresApiFactory factory)
         };
         request.Headers.Add("traceparent", $"00-{traceId.ToHexString()}-{ActivitySpanId.CreateRandom().ToHexString()}-01");
 
-        var response = await factory.CreateClient().SendAsync(request, ct);
+        var response = await factory.CreateAuthenticatedClient().SendAsync(request, ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         var entries = await WaitForRequestLogAsync(traceId, ct);
@@ -51,7 +52,7 @@ public sealed class ErrorLoggingTests(PostgresApiFactory factory)
         };
         request.Headers.Add("traceparent", $"00-{traceId.ToHexString()}-{ActivitySpanId.CreateRandom().ToHexString()}-01");
 
-        var response = await factory.CreateClient().SendAsync(request, ct);
+        var response = await factory.CreateAuthenticatedClient().SendAsync(request, ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/problem+json");
