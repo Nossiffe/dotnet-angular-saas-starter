@@ -4,9 +4,9 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { throwError, catchError } from 'rxjs';
 
 /**
- * When set to `true` on an HTTP request's context, the httpErrorInterceptor will
- * not show a snackbar for that request's errors. Use this on calls that handle
- * errors inline (e.g. register, forgot-password, reset-password, products mutations).
+ * À `true` dans le contexte d'une requête, httpErrorInterceptor n'affiche pas de snack bar pour ses
+ * erreurs. Pour les appels dont la page affiche elle-même l'erreur (inscription, mot de passe
+ * oublié, réinitialisation, acceptation d'une invitation…).
  */
 export const SKIP_ERROR_TOAST = new HttpContextToken<boolean>(() => false);
 
@@ -18,11 +18,11 @@ interface ProblemDetails {
 }
 
 /**
- * Parses an HttpErrorResponse body as ProblemDetails and returns a user-friendly message.
- * Returns null if the error should not be toasted (e.g. 401 handled by authInterceptor).
+ * Lit le corps d'une HttpErrorResponse comme un ProblemDetails et en tire un message lisible.
+ * Renvoie null quand l'erreur ne doit pas être affichée (un 401, traité par authInterceptor).
  */
 function extractMessage(err: HttpErrorResponse): string | null {
-  // 401 is handled by authInterceptor (token refresh) — do not toast
+  // 401 : authInterceptor renouvelle le jeton, rien à afficher
   if (err.status === 401) return null;
 
   if (err.status === 409) {

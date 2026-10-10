@@ -19,7 +19,7 @@ export class ResetPasswordPage {
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
 
-  // Query params bound via withComponentInputBinding
+  // Paramètres du lien de l'e-mail, liés par withComponentInputBinding
   readonly userId = input<string>('');
   readonly token = input<string>('');
 

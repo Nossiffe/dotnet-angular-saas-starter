@@ -38,7 +38,7 @@ public sealed class ListProductsHandler(IDbConnectionFactory factory, ITenantPro
 
         if (rows.Count == 0)
         {
-            // An empty page has no row to carry COUNT(*) OVER(): the total is counted separately.
+            // Une page vide n'a aucune ligne pour porter COUNT(*) OVER() : le total est compté à part.
             var countCommand = new CommandDefinition(
                 """
                 SELECT COUNT(*) FROM "Products"
@@ -46,7 +46,7 @@ public sealed class ListProductsHandler(IDbConnectionFactory factory, ITenantPro
                 """,
                 new { tenant.TenantId },
                 cancellationToken: cancellationToken);
-            // Postgres COUNT(*) returns bigint (long); safely cast to int.
+            // COUNT(*) renvoie un bigint PostgreSQL (long).
             totalCount = (int)(await connection.ExecuteScalarAsync<long>(countCommand));
             items = [];
         }
@@ -59,7 +59,6 @@ public sealed class ListProductsHandler(IDbConnectionFactory factory, ITenantPro
         return new PagedResult<ProductDto>(items, page, pageSize, totalCount);
     }
 
-    // Internal projection type for Dapper (includes TotalCount from window function).
-    // TotalCount is long because Postgres COUNT(*) OVER() returns bigint.
+    // Ligne lue par Dapper. TotalCount vient de COUNT(*) OVER(), un bigint PostgreSQL (long).
     internal sealed record ProductRow(Guid Id, string Name, decimal Price, long TotalCount);
 }

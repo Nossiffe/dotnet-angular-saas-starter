@@ -18,8 +18,8 @@ public sealed class TestAuthHandler(
     public const string UserHeader = "X-Test-User";
 
     /// <summary>
-    /// Override the tenant_role claim. Defaults to "Owner" when not set.
-    /// Set to any other value (e.g. "Member") to simulate a non-Owner identity.
+    /// Remplace le claim tenant_role, "Owner" par défaut. Une autre valeur (ex. "Member") simule
+    /// une identité qui n'est pas Owner.
     /// </summary>
     public const string TenantRoleHeader = "X-Test-TenantRole";
 

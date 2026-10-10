@@ -112,8 +112,8 @@ print(m.group(1) if m else '')
 "
 }
 
-# ---- 4a. Email-confirmed enforcement: register sans confirmer → login 400 ----
-echo "▶ Email-confirmed enforcement"
+# ---- 4a. E-mail non confirmé : inscription sans confirmation → login 400 ----
+echo "▶ Login refusé tant que l'email n'est pas confirmé"
 EMAIL2="smoke-enforce-$(date +%s)@saas.local"
 mailpit_purge
 
@@ -218,7 +218,7 @@ has_bearer = any(
   for s in schemes.values()
 )
 if not has_bearer:
-    # Check using bearerFormat or name containing 'bearer'
+    # Repli : un schéma dont la description mentionne 'bearer' (bearerFormat, nom)
     has_bearer = any('bearer' in str(s).lower() for s in schemes.values())
 exit(0 if has_bearer else 1)
 " || fail "OpenAPI /openapi/v1.json: aucun security scheme 'bearer' trouvé"

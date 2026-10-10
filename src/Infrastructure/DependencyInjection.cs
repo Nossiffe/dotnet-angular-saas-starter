@@ -73,8 +73,7 @@ public static class DependencyInjection
         services.AddScoped<PurgeProcessedOutboxMessagesJob>();
         services.AddScoped<ProcessPasswordResetJob>();
 
-        // Queue d'enfilement Hangfire (abstraction Application-pure). Les e-mails d'invitation
-        // passent par l'outbox (SendInvitationEmailHandler) : ils suivent une écriture en base.
+        // Queue d'enfilement Hangfire de la réinitialisation (abstraction Application-pure).
         services.AddScoped<IPasswordResetEnqueuer, PasswordResetRequestQueue>();
     }
 

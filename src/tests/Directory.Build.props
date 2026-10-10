@@ -4,7 +4,7 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <!-- Runner natif Microsoft Testing Platform (MTP) pour xunit.v3 — remplace VSTest.
+    <!-- Runner natif Microsoft Testing Platform (MTP) pour xunit.v3.
          Requiert global.json §test { "runner": "Microsoft.Testing.Platform" }. -->
     <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
   </PropertyGroup>

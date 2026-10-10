@@ -12,7 +12,7 @@ import { AuthService } from '../../core/auth/auth.service';
 export class ConfirmEmailPage implements OnInit {
   private readonly auth = inject(AuthService);
 
-  // Query params bound via withComponentInputBinding
+  // Paramètres du lien de l'e-mail, liés par withComponentInputBinding
   readonly userId = input<string>('');
   readonly token = input<string>('');
 
