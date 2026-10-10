@@ -62,12 +62,20 @@ jobs:
           # https://docs.zizmor.sh/audits/#cache-poisoning).
           package-manager-cache: false
       - name: SBOM backend (CycloneDX)
+        # Les dépendances NuGet du projet de l'API, celui que l'image publie, et des projets qu'il
+        # référence : la solution entière ajouterait les projets de test. --exclude-dev écarte les
+        # paquets marqués comme dépendances de développement (analyseurs Sonar, Roslynator et
+        # Meziantou, générateur de Mediator, DotNet.ReproducibleBuilds). L'image de base et le
+        # runtime .NET n'y figurent pas.
         run: |
           dotnet tool restore
-          dotnet tool run dotnet-CycloneDX -- Saas.slnx -o sbom --filename sbom-backend.json --json
+          dotnet tool run dotnet-CycloneDX -- src/Api/Saas.Api.csproj -o sbom --filename sbom-backend.json --json --exclude-dev
       - name: SBOM front (npm sbom natif)
+        # Sans --omit dev : npm écarterait aussi tout paquet de production qu'une dépendance de
+        # développement utilise, dont @angular/core, rxjs et tslib. L'arbre complet marque les
+        # paquets qui ne servent qu'au développement de la propriété cdx:npm:package:development.
         run: |
-          (cd web-angular && npm ci --ignore-scripts && npm sbom --sbom-format cyclonedx --omit dev > ../sbom/sbom-web-angular.json)
+          (cd web-angular && npm ci --ignore-scripts && npm sbom --sbom-format cyclonedx > ../sbom/sbom-web-angular.json)
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sbom

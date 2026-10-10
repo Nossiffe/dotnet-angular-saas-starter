@@ -16,6 +16,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Contrat OpenAPI écrit au build dans `web-angular/openapi.json` et comparé par la CI au fichier versionné.
 - Tests unitaires des validateurs et des handlers qui portent une logique ; `ErrorRegistryTests` compare `docs/error-codes.md` au code.
 - `SECURITY.md` : signalement privé des vulnérabilités.
+- Release (`release.yml`, tag `v*`) : deux SBOM CycloneDX. Celui de l'API décrit les dépendances NuGet du projet que l'image publie, sans les projets de test ni les paquets marqués comme dépendances de développement (80 composants au lieu des 150 de la solution entière). Celui du front contient tout l'arbre npm, les paquets de développement marqués `cdx:npm:package:development` : avec `--omit dev`, npm écartait aussi `@angular/core`, `rxjs`, `tslib` et 6 autres paquets de production, que des dépendances de développement utilisent.
 - Page d'acceptation d'une invitation (`/accept-invitation`), où mène le lien de l'e-mail : premier appel sans mot de passe, puis demande d'un mot de passe si aucun compte n'existe pour l'adresse invitée. Message neutre pour une invitation invalide, expirée, déjà acceptée ou révoquée. Testée par Vitest, et par Playwright avec l'API simulée et un contrôle axe.
 
 ### Changed

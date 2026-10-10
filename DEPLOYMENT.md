@@ -29,13 +29,24 @@ Le workflow `.github/workflows/release.yml` se déclenche sur un tag `v*` (ou ma
 pour chaque release :
 
 1. **Build & push** l'image sur GHCR (`ghcr.io/<repo>`), taguée par semver + SHA court.
-2. **SBOM** (Software Bill of Materials), généré avant l'attestation (voir note ci-dessous) :
-   - Backend : `dotnet tool run dotnet-CycloneDX -- Saas.slnx -o sbom --filename sbom-backend.json --json`
-     (format CycloneDX ; le `--` sépare les arguments de `dotnet tool run` de ceux passés à
-     l'outil).
-   - Front Angular : `npm sbom --sbom-format cyclonedx --omit dev` (SBOM natif npm, dépendances
-     de prod uniquement).
-   - Tous les fichiers `sbom/*.json` sont publiés en artifact du run (`actions/upload-artifact`).
+2. **SBOM** (Software Bill of Materials, format CycloneDX), générés avant l'attestation (voir
+   note ci-dessous) :
+   - `sbom-backend.json`, l'API :
+     `dotnet tool run dotnet-CycloneDX -- src/Api/Saas.Api.csproj -o sbom --filename sbom-backend.json --json --exclude-dev`.
+     Il décrit les dépendances NuGet du projet de l'API, celui que l'image publie, et des
+     projets qu'il référence (Application, Infrastructure, Domain) : ni les projets de test, ni
+     les paquets marqués comme dépendances de développement (analyseurs Sonar, Roslynator et
+     Meziantou, générateur de source de Mediator, DotNet.ReproducibleBuilds). L'image de base et
+     le runtime .NET n'y figurent pas. Le `--` sépare les arguments de `dotnet tool run` de ceux passés à l'outil.
+   - `sbom-web-angular.json`, le front : `npm sbom --sbom-format cyclonedx` (SBOM natif npm). Le
+     front n'est pas dans l'image : ce SBOM décrit les dépendances de `web-angular` à cette
+     version. Il contient tout l'arbre installé ; les paquets qui ne servent qu'au développement
+     portent la propriété `cdx:npm:package:development` à `true`. Pas de `--omit dev` : npm
+     écarterait aussi les paquets de production qu'une dépendance de développement utilise, dont
+     `@angular/core`, `rxjs` et `tslib` (sélecteur
+     [`.dev`](https://docs.npmjs.com/cli/v11/using-npm/dependency-selectors#dependency-type-selectors)).
+   - Les deux fichiers sont publiés en artifact du run (`actions/upload-artifact`), conservé
+     90 jours par défaut.
 3. **Attestation de provenance** (SLSA build L2, `actions/attest-build-provenance`) sur le
    digest de l'image poussée — preuve vérifiable que l'image provient bien de ce repo/run/commit,
    publiée sur le registre GHCR. Placée **après** les SBOM dans le workflow : sur un dépôt
