@@ -10,6 +10,9 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Un access token gardait jusqu'à son expiration (15 minutes par défaut) le rôle qu'il avait à son émission. Un Admin rétrogradé en Member pouvait ainsi encore inviter une autre de ses adresses comme Admin, et garder un accès Admin, ou supprimer des produits. Les routes rattachées à une organisation (produits, invitations, membres) relisent désormais l'adhésion et le rôle en base à chaque requête : adhésion absente ou rôle différent de celui du token, 401 `Auth.SessionExpired`. Le front rafraîchit alors la session, qui reprend le rôle actuel, et rejoue la requête une fois. Un membre promu obtient ses nouveaux droits de la même façon, sans se reconnecter.
 - Front : une erreur sur la requête rejouée après un refresh réussi (un 403, par exemple) effaçait la session locale ; seul l'échec du refresh l'efface désormais. Un refresh dont toutes les requêtes avaient été annulées restait aussi en mémoire : le 401 suivant rejouait son ancien jeton sans rafraîchir la session.
 
+### Migrations DB
+- `MembershipJoinedAt` : ajoute la colonne obligatoire `OrganizationMemberships.JoinedAt`, la date d'arrivée dans l'organisation. Les adhésions existantes reçoivent l'instant de création de leur Id, un UUID v7, à la milliseconde près ; un Id d'une autre version reçoit la date de création de l'organisation. La colonne a pour défaut `now()` : la version précédente de l'API, encore en service entre la migration et le déploiement de la nouvelle image, continue d'enregistrer des adhésions.
+
 ## [0.1.0] - 2026-10-10
 
 ### Added

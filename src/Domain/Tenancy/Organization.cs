@@ -26,7 +26,7 @@ public sealed class Organization : AggregateRoot<OrganizationId>, IAuditable
     public string? UpdatedBy { get; private set; }
 #pragma warning restore S1144
 
-    public static Organization Create(string name, Slug slug, Guid ownerUserId)
+    public static Organization Create(string name, Slug slug, Guid ownerUserId, DateTimeOffset createdAt)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -39,18 +39,18 @@ public sealed class Organization : AggregateRoot<OrganizationId>, IAuditable
             Name = name.Trim(),
             Slug = slug,
         };
-        organization.AddMember(ownerUserId, OrganizationRole.Owner); // intentionnel : émet MemberJoinedDomainEvent pour le Owner à la création
+        organization.AddMember(ownerUserId, OrganizationRole.Owner, createdAt); // intentionnel : émet MemberJoinedDomainEvent pour le Owner à la création
         return organization;
     }
 
-    public void AddMember(Guid userId, OrganizationRole role)
+    public void AddMember(Guid userId, OrganizationRole role, DateTimeOffset joinedAt)
     {
         if (_memberships.Exists(m => m.UserId == userId))
         {
             return;
         }
 
-        _memberships.Add(OrganizationMembership.Create(Id, userId, role));
+        _memberships.Add(OrganizationMembership.Create(Id, userId, role, joinedAt));
         Raise(new MemberJoinedDomainEvent(Id, userId, role));
     }
 

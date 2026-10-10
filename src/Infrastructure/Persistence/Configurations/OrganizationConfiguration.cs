@@ -33,6 +33,10 @@ public sealed class OrganizationConfiguration : IEntityTypeConfiguration<Organiz
             // d'où une UPDATE sur une ligne inexistante → DbUpdateConcurrencyException (0 ligne affectée).
             m.Property(x => x.Id).ValueGeneratedNever();
             m.Property(x => x.Role).HasConversion<string>().HasMaxLength(50).IsRequired();
+            // Le domaine fixe toujours JoinedAt. Le défaut now() sert à la version précédente de
+            // l'API, qui insère des adhésions sans cette colonne entre la migration et le
+            // déploiement de la nouvelle image (DEPLOYMENT.md, migration bundle).
+            m.Property(x => x.JoinedAt).IsRequired().HasDefaultValueSql("now()");
             m.HasIndex(x => new { x.UserId, x.OrganizationId }).IsUnique();
             m.HasIndex(x => x.UserId);
         });

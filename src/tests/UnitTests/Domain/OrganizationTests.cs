@@ -6,27 +6,42 @@ namespace Saas.UnitTests.Domain;
 
 public sealed class OrganizationTests
 {
+    private static readonly DateTimeOffset _createdAt = new(2026, 10, 1, 9, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset _joinedAt = _createdAt.AddDays(3);
+
     [Fact]
     public void Create_adds_the_owner_as_member()
     {
         var ownerId = Guid.CreateVersion7();
 
-        var organization = Organization.Create("Acme", Slug.From("Acme Corp"), ownerId);
+        var organization = Organization.Create("Acme", Slug.From("Acme Corp"), ownerId, _createdAt);
 
         organization.Name.ShouldBe("Acme");
         organization.Slug.Value.ShouldBe("acme-corp");
         organization.Memberships.Count.ShouldBe(1);
         organization.Memberships[0].UserId.ShouldBe(ownerId);
         organization.Memberships[0].Role.ShouldBe(OrganizationRole.Owner);
+        organization.Memberships[0].JoinedAt.ShouldBe(_createdAt);
+    }
+
+    [Fact]
+    public void AddMember_records_the_arrival_date()
+    {
+        var organization = Organization.Create("Acme", Slug.From("acme"), Guid.CreateVersion7(), _createdAt);
+        var memberId = Guid.CreateVersion7();
+
+        organization.AddMember(memberId, OrganizationRole.Member, _joinedAt);
+
+        organization.Memberships.Single(m => m.UserId == memberId).JoinedAt.ShouldBe(_joinedAt);
     }
 
     [Fact]
     public void AddMember_is_idempotent_per_user()
     {
         var ownerId = Guid.CreateVersion7();
-        var organization = Organization.Create("Acme", Slug.From("acme"), ownerId);
+        var organization = Organization.Create("Acme", Slug.From("acme"), ownerId, _createdAt);
 
-        organization.AddMember(ownerId, OrganizationRole.Member);
+        organization.AddMember(ownerId, OrganizationRole.Member, _joinedAt);
 
         organization.Memberships.Count.ShouldBe(1);
     }
@@ -40,8 +55,8 @@ public sealed class OrganizationTests
     {
         var ownerId = Guid.CreateVersion7();
         var memberId = Guid.CreateVersion7();
-        var organization = Organization.Create("Acme", Slug.From("acme"), ownerId);
-        organization.AddMember(memberId, OrganizationRole.Member);
+        var organization = Organization.Create("Acme", Slug.From("acme"), ownerId, _createdAt);
+        organization.AddMember(memberId, OrganizationRole.Member, _joinedAt);
 
         var result = organization.ChangeMemberRole(memberId, OrganizationRole.Admin);
 
@@ -53,7 +68,7 @@ public sealed class OrganizationTests
     public void Demoting_the_last_owner_returns_an_error()
     {
         var ownerId = Guid.CreateVersion7();
-        var organization = Organization.Create("Acme", Slug.From("acme"), ownerId);
+        var organization = Organization.Create("Acme", Slug.From("acme"), ownerId, _createdAt);
 
         var result = organization.ChangeMemberRole(ownerId, OrganizationRole.Member);
 
@@ -65,7 +80,7 @@ public sealed class OrganizationTests
     public void Changing_the_role_of_an_unknown_user_returns_an_error()
     {
         var ownerId = Guid.CreateVersion7();
-        var organization = Organization.Create("Acme", Slug.From("acme"), ownerId);
+        var organization = Organization.Create("Acme", Slug.From("acme"), ownerId, _createdAt);
 
         var result = organization.ChangeMemberRole(Guid.CreateVersion7(), OrganizationRole.Admin);
 

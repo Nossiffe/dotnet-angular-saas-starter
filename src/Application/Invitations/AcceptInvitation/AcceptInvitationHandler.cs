@@ -78,7 +78,7 @@ public sealed class AcceptInvitationHandler(
         // Effets de bord seulement après validation : création du user (throw → rollback OK),
         // puis ajout idempotent (déjà membre → no-op, cf. Organization.AddMember).
         var userId = existingUserId ?? await CreateUserAsync(invitation.InviteeEmail, password!, ct);
-        organization.AddMember(userId, invitation.Role);
+        organization.AddMember(userId, invitation.Role, clock.UtcNow);
         await uow.SaveChangesAsync(ct);
 
         return Result.Success;

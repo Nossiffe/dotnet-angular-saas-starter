@@ -91,8 +91,9 @@ public sealed class OrganizationRolesTests(PostgresApiFactory factory)
     {
         var ownerId = Guid.CreateVersion7();
         var memberId = Guid.CreateVersion7();
-        var organization = Organization.Create($"Org-{Guid.NewGuid():N}", Slug.From($"org-{Guid.NewGuid():N}"), ownerId);
-        organization.AddMember(memberId, OrganizationRole.Member);
+        var organization = Organization.Create(
+            $"Org-{Guid.NewGuid():N}", Slug.From($"org-{Guid.NewGuid():N}"), ownerId, DateTimeOffset.UtcNow);
+        organization.AddMember(memberId, OrganizationRole.Member, DateTimeOffset.UtcNow);
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             scope.ServiceProvider.GetRequiredService<IOrganizationRepository>().Add(organization);

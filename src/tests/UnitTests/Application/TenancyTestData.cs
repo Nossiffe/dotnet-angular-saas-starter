@@ -11,7 +11,7 @@ internal static class TenancyTestData
     public static (Organization Organization, Guid OwnerId) OrganizationWithOwner()
     {
         var ownerId = Guid.CreateVersion7();
-        return (Organization.Create("Acme", Slug.From("acme"), ownerId), ownerId);
+        return (Organization.Create("Acme", Slug.From("acme"), ownerId, Now), ownerId);
     }
 
     // Invitation en attente dont le lien est parti (hash posé par SendInvitationEmailHandler).

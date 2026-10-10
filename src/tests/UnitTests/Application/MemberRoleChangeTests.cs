@@ -33,7 +33,7 @@ public sealed class MemberRoleChangeTests
     {
         var (organization, _) = OrganizationWithOwner();
         var memberId = Guid.CreateVersion7();
-        organization.AddMember(memberId, OrganizationRole.Member);
+        organization.AddMember(memberId, OrganizationRole.Member, Now);
         _organizations.GetByIdAsync(organization.Id, Arg.Any<CancellationToken>()).Returns(organization);
 
         var result = await ChangeRole(organization.Id.Value, memberId, OrganizationRole.Admin);
