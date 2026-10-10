@@ -198,6 +198,47 @@ dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulemen
 > jamais posté. Le job `changes` ne tourne que sur `pull_request` : dans un run de merge
 > queue, les jobs qu'il commande tourneraient toujours.
 
+### Vérifications exigées sur `main`
+
+La règle de protection de `main` exige ces vérifications, désignées par le nom de leur job :
+
+| Workflow | Vérifications exigées | Sur une PR |
+|---|---|---|
+| `ci.yml` | `doc-lint`, `dotnet`, `web-angular`, `e2e-angular` | Toujours |
+| `security.yml` | `gitleaks` | Toujours |
+| `codeql.yml` | `Analyze (csharp)`, `Analyze (javascript-typescript)` | Toujours (ignorées sur un dépôt privé, cf. ci-dessus) |
+| `deps-audit.yml` | `dotnet-audit`, `npm-audit` | Si un manifeste de dépendances change |
+| `smoke.yml` | `smoke` | Si le backend change |
+| `stryker.yml` | `stryker-domain` | Si le Domain, ses tests, les dépendances ou la configuration de Stryker changent |
+| `zizmor.yml` | `zizmor` | Si un workflow change |
+
+Les quatre derniers workflows se déclenchent pourtant sur les PR sans filtre `paths` : un
+workflow filtré ne poste aucun statut, et une PR qui ne touche pas ses chemins attendrait
+indéfiniment la vérification exigée (« Expected »), comme l'explique la
+[documentation de GitHub](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#handling-skipped-but-required-checks). Leur job `changes` lance
+`scripts/pr-changes.sh`, qui compare le commit de fusion de la PR à sa base (son premier
+parent) avec les motifs du workflow, ceux de l'ancien filtre `paths`.
+
+- **Aucun fichier ne correspond** : le job `changes` répond `false`, et le job vérifié est
+  ignoré par son `if`. GitHub compte un job ignoré ainsi comme réussi, et la PR peut être
+  fusionnée.
+- **Un fichier correspond** : le job tourne, et son échec bloque la PR.
+- **La détection échoue** (le job `changes` est en échec, ou ne répond ni `true` ni `false`) :
+  le job vérifié tourne quand même. Une détection en panne ne laisse donc rien passer sans
+  contrôle.
+- **Hors PR** : le job `changes` est ignoré, et les jobs vérifiés tournent à chaque
+  déclenchement du workflow (cron, push sur `main` ou lancement manuel, selon le workflow ; le
+  push de `zizmor.yml` garde son filtre sur `.github/workflows/**`).
+
+Un run annulé avant que le job vérifié démarre ne le lance pas (`!cancelled()`). La
+[documentation de GitHub](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-cancellation)
+ne dit pas quelle conclusion reçoit alors un job qui n'a pas démarré : s'il est marqué ignoré,
+il compte comme réussi. Relancer un run annulé avant de fusionner la PR.
+
+Pour ajouter un verrou de ce type, reprendre le job `changes` d'un de ces workflows et la
+condition `if` de ses jobs. Renommer un job exigé change le nom de la vérification : mettre à
+jour la règle de protection en même temps, sinon toutes les PR attendent l'ancien nom.
+
 ### Dependabot — mises à jour de dépendances
 
 `.github/dependabot.yml` ouvre chaque lundi des PR groupées par écosystème : NuGet (mineures et
@@ -263,7 +304,8 @@ survivent sans que la logique soit pour autant non testée. Le score est publié
 évolution, sans seuil.
 
 `stryker.yml` lance les deux mesures chaque lundi et à la demande, et la mesure du Domain sur
-chaque PR qui touche le Domain ou ses tests ; le job Domain échoue sous le seuil. Stryker 5
+chaque PR qui touche le Domain ou ses tests ; le job `stryker-domain` échoue sous le seuil, et
+c'est une vérification exigée sur `main` (cf. § Vérifications exigées sur `main`). Stryker 5
 utilise le runner Microsoft Testing Platform (`"test-runner": "mtp"`), celui des projets xunit.v3.
 
 ### Lancer une analyse

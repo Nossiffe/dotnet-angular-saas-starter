@@ -11,7 +11,7 @@ laissé en l'état (et pourquoi), et à quelle échéance c'est réexaminé. Il 
 
 | Cadence | Mécanisme | Rôle |
 |---|---|---|
-| À chaque PR touchant les manifests de dépendances | `.github/workflows/deps-audit.yml` | Bloque le merge si CVE High/Critical (direct ou transitif ; côté npm, dépendances de production seulement) |
+| À chaque PR touchant les manifests de dépendances | `.github/workflows/deps-audit.yml` | Bloque le merge si CVE High/Critical (direct ou transitif ; côté npm, dépendances de production seulement) : `dotnet-audit` et `npm-audit` sont des vérifications exigées sur `main` |
 | Hebdomadaire (lundi 05h UTC) | `deps-audit.yml` (cron) | Attrape les CVE publiées sans changement de code |
 | Hebdomadaire (lundi 05h Europe/Zurich) | Dependabot (`.github/dependabot.yml`) | PR automatiques de mise à jour, groupées par écosystème |
 | Continu, à chaque build | `NuGetAuditLevel=low` (`Directory.Build.props`) | Filet local : toute sévérité NuGet remonte en warning dès `dotnet build`, sans attendre le CI et sans faire échouer le build |
@@ -35,8 +35,24 @@ High/Critical) :
   `npm audit --omit=dev --audit-level=high` (dépendances de dev exclues — un
   CVE dans ESLint/Vitest ne part pas en prod).
 
-Déclencheurs : PR (si les manifests changent), cron hebdomadaire, et
-`workflow_dispatch` (relance manuelle).
+Déclencheurs : toutes les PR vers `main`, cron hebdomadaire, et `workflow_dispatch`
+(relance manuelle).
+
+`dotnet-audit` et `npm-audit` sont des vérifications exigées par la règle de protection de
+`main`. Sur une PR, un job `changes` (`scripts/pr-changes.sh`) regarde si un manifeste change :
+`Directory.Packages.props`, un `packages.lock.json`, un `package.json` ou un
+`package-lock.json`.
+
+- Si oui, les deux audits tournent, et un avis High/Critical bloque la PR.
+- Si non, ils sont ignorés par leur condition `if`, et GitHub
+  [compte un job ignoré ainsi comme réussi](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#handling-skipped-but-required-checks) : une PR sans changement de dépendances
+  n'attend pas l'audit.
+- Si la détection échoue ou ne répond pas, les deux audits tournent quand même : une panne de
+  la détection ne laisse passer aucune PR sans audit.
+
+Le cron et `workflow_dispatch` lancent toujours les deux audits, sans détection. Le workflow
+n'a pas de filtre `paths` : un workflow filtré ne poste aucun statut, et une PR qui ne
+toucherait pas les manifests attendrait indéfiniment les vérifications exigées.
 
 ### 2. Dependabot — `.github/dependabot.yml`
 
@@ -188,7 +204,8 @@ d'office l'alerte Dependabot d'une dépendance de développement npm.
 
 - **Politique** : ce fichier.
 - **Configuration des contrôles** : `.github/workflows/deps-audit.yml`,
-  `.github/dependabot.yml`, `Directory.Build.props` (`NuGetAuditLevel`).
+  `.github/dependabot.yml`, `Directory.Build.props` (`NuGetAuditLevel`). Les vérifications
+  exigées sur `main` sont listées dans `CONTRIBUTING.md` (§ Vérifications exigées sur `main`).
 - **Preuve d'exécution** : historique des runs GitHub Actions du workflow
   *Dependencies audit (CVE)*.
 - **Décisions historiques et exceptions actives** : fichiers
