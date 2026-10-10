@@ -9,8 +9,6 @@ public sealed class ForgotPasswordHandler(
 {
     public ValueTask<ErrorOr<Success>> Handle(ForgotPasswordCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
-
         // Anti-énumération : réponse toujours identique (succès) quel que soit l'email.
         // Le vrai travail (lookup + token + envoi) est délégué à un job Hangfire qui s'exécute
         // hors bande → la réponse HTTP est instantanée et uniforme (ferme le timing oracle).

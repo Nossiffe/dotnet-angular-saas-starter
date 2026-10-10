@@ -26,7 +26,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
 
     public async Task ExecuteInTransactionAsync(Func<CancellationToken, Task> operation, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(operation);
         var strategy = Database.CreateExecutionStrategy();
         await strategy.ExecuteAsync(async () =>
         {
@@ -38,7 +37,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
-        ArgumentNullException.ThrowIfNull(configurationBuilder);
         configurationBuilder.Properties<ProductId>().HaveConversion<ProductIdConverter>();
         configurationBuilder.Properties<OrganizationId>().HaveConversion<OrganizationIdConverter>();
         configurationBuilder.Properties<InvitationId>().HaveConversion<InvitationIdConverter>();
@@ -47,7 +45,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
         base.OnModelCreating(builder); // requis en premier : mappe les tables Identity
         builder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 

@@ -13,8 +13,6 @@ public sealed partial class LoggingBehavior<TMessage, TResponse>(
         MessageHandlerDelegate<TMessage, TResponse> next,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(next);
-
         // Pas de journalisation des exceptions ici : une erreur de validation devient un 400, et une
         // vraie erreur est journalisée une seule fois par le gestionnaire d'exceptions de l'API.
         var name = typeof(TMessage).Name;

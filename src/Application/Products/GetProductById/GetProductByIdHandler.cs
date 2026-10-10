@@ -15,8 +15,6 @@ public sealed class GetProductByIdHandler(IDbConnectionFactory factory, ITenantP
 {
     public async ValueTask<ErrorOr<ProductDto>> Handle(GetProductByIdQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
-
         // Le tenant est lu ici, sur la requête HTTP : la fabrique du cache peut s'exécuter ailleurs.
         var tenantId = tenant.TenantId;
 #pragma warning disable EXTEXP0018 // surcharge avec tags : stable en .NET 10, attribut Experimental résiduel

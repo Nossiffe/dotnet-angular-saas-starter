@@ -18,8 +18,6 @@ public sealed class AcceptInvitationHandler(
 {
     public async ValueTask<ErrorOr<AcceptInvitationResult>> Handle(AcceptInvitationCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
-
         // Message neutre (anti-énumération) : ne révèle pas si l'invitation existe, si le token est
         // faux ou si aucun lien n'est valable (avant le premier envoi, ou après un renvoi en attente
         // de l'outbox). L'endpoint est anonyme : pas d'oracle d'énumération.

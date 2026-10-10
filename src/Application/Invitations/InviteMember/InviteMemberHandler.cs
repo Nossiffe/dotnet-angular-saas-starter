@@ -17,8 +17,6 @@ public sealed class InviteMemberHandler(
 {
     public async ValueTask<ErrorOr<Guid>> Handle(InviteMemberCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
-
         var orgId = OrganizationId.From(command.OrganizationId);
         var organization = await organizations.GetByIdAsync(orgId, cancellationToken);
         if (organization is null)

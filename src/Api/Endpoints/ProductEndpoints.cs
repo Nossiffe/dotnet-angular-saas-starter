@@ -16,7 +16,6 @@ public sealed class ProductEndpoints : IEndpoint
 {
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
         var group = app.MapGroup("/products").WithTags("Products")
             .RequireAuthorization(AuthorizationPolicies.HasTenant)
             .WithAuthorizationResponses();
@@ -43,7 +42,6 @@ public sealed class ProductEndpoints : IEndpoint
     private static async Task<IResult> CreateProduct(
         CreateProductRequest request, ISender sender, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(request);
         var result = await sender.Send(new CreateProductCommand(request.Name, request.Price), ct);
         return result.Match(
             id => Results.Created($"/api/v1/products/{id}", new CreateProductResponse(id)),
@@ -60,7 +58,6 @@ public sealed class ProductEndpoints : IEndpoint
     private static async Task<IResult> UpdateProduct(
         Guid id, UpdateProductRequest request, ISender sender, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(request);
         return (await sender.Send(new UpdateProductCommand(id, request.Name, request.Price), ct))
             .ToNoContentHttpResult();
     }

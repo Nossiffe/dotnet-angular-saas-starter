@@ -15,8 +15,6 @@ public sealed class InvitationEndpoints : IEndpoint
 {
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
-
         // Routes d'une organisation : Owner ou Admin, sur sa propre organisation.
         var orgGroup = app.MapGroup("/organizations/{orgId:guid}/invitations")
             .WithTags("Invitations")
@@ -50,7 +48,6 @@ public sealed class InvitationEndpoints : IEndpoint
         ISender sender,
         CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(req);
         var result = await EndpointHelpers.ParseRole(req.Role)
             .ThenAsync(role => sender.Send(new InviteMemberCommand(orgId, req.Email, role), ct).AsTask());
 
@@ -95,7 +92,6 @@ public sealed class InvitationEndpoints : IEndpoint
         ISender sender,
         CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(req);
         var result = await sender.Send(new AcceptInvitationCommand(req.InvitationId, req.Token, req.Password), ct);
         return result
             .Then(r => new AcceptInvitationResponse(r.IsNewUser))

@@ -9,7 +9,6 @@ public sealed partial class MemberJoinedHandler(ILogger<MemberJoinedHandler> log
 {
     public ValueTask HandleAsync(MemberJoinedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvent);
         LogMemberJoined(logger, domainEvent.UserId, domainEvent.OrganizationId.Value);
         return ValueTask.CompletedTask;
     }

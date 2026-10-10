@@ -20,7 +20,6 @@ internal sealed class BearerSecuritySchemeTransformer(IAuthenticationSchemeProvi
         OpenApiDocumentTransformerContext context,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(document);
         if (!await HasBearerSchemeAsync())
         {
             return;
@@ -44,8 +43,6 @@ internal sealed class BearerSecuritySchemeTransformer(IAuthenticationSchemeProvi
         OpenApiOperationTransformerContext context,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(operation);
-        ArgumentNullException.ThrowIfNull(context);
         var anonymous = context.Description.ActionDescriptor.EndpointMetadata.OfType<IAllowAnonymous>().Any();
         if (anonymous || !await HasBearerSchemeAsync())
         {

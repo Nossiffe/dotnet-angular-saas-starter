@@ -12,8 +12,6 @@ public sealed class ListPendingInvitationsHandler(IDbConnectionFactory connectio
         ListPendingInvitationsQuery query,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
-
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);
         // Npgsql matérialise les colonnes `timestamptz` en DateTime (Kind=Utc) via le data reader de
         // Dapper : on lit donc un row intermédiaire en DateTime puis on projette en DateTimeOffset

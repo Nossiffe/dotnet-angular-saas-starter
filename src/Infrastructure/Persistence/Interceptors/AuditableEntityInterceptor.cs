@@ -17,7 +17,6 @@ public sealed class AuditableEntityInterceptor(
         DbContextEventData eventData,
         InterceptionResult<int> result)
     {
-        ArgumentNullException.ThrowIfNull(eventData);
         if (eventData.Context is not null)
         {
             Apply(eventData.Context);
@@ -31,7 +30,6 @@ public sealed class AuditableEntityInterceptor(
         InterceptionResult<int> result,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(eventData);
         if (eventData.Context is not null)
         {
             Apply(eventData.Context);

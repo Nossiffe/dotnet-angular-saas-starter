@@ -13,8 +13,6 @@ public sealed class ResendInvitationHandler(
 {
     public async ValueTask<ErrorOr<Success>> Handle(ResendInvitationCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
-
         var invitation = await invitations.GetByIdAsync(InvitationId.From(command.InvitationId), cancellationToken);
         if (invitation is null || invitation.OrganizationId.Value != command.OrganizationId)
         {

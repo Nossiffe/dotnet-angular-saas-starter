@@ -15,7 +15,6 @@ public sealed class AuthEndpoints : IEndpoint
 {
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
         // Groupe de base : rate-limiting auth partagé. Chaque route gère son propre niveau d'accès.
         var group = app.MapGroup("/auth").WithTags("Auth").RequireRateLimiting("auth");
 
@@ -63,7 +62,6 @@ public sealed class AuthEndpoints : IEndpoint
     // 201 sans Location : l'API n'expose pas de ressource « utilisateur » à lire.
     private static async Task<IResult> Register(RegisterRequest request, ISender sender, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(request);
         var result = await sender.Send(new RegisterCommand(request.Email, request.Password), ct);
         return result.Match(
             id => Results.Created((string?)null, new RegisterResponse(id)),
@@ -72,7 +70,6 @@ public sealed class AuthEndpoints : IEndpoint
 
     private static async Task<IResult> Login(LoginRequest request, ISender sender, HttpResponse response, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(request);
         var result = await sender.Send(new LoginCommand(request.Email, request.Password, request.TenantId), ct);
         return result.Match(
             auth =>
@@ -117,7 +114,6 @@ public sealed class AuthEndpoints : IEndpoint
 
     private static async Task<IResult> ConfirmEmail(ConfirmEmailRequest request, ISender sender, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(request);
         var result = await sender.Send(new ConfirmEmailCommand(request.UserId, request.Token), ct);
         return result.Match(_ => Results.Ok(), _ => result.ToHttpResult());
     }
@@ -125,7 +121,6 @@ public sealed class AuthEndpoints : IEndpoint
     private static async Task<IResult> ForgotPassword(
         ForgotPasswordRequest request, ISender sender, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(request);
         // Toujours 200 (anti-énumération) — le handler n'expose jamais si l'email existe.
         var result = await sender.Send(new ForgotPasswordCommand(request.Email), ct);
         return result.Match(_ => Results.Ok(), _ => result.ToHttpResult());
@@ -134,7 +129,6 @@ public sealed class AuthEndpoints : IEndpoint
     private static async Task<IResult> ResetPassword(
         ResetPasswordRequest request, ISender sender, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(request);
         var result = await sender.Send(
             new ResetPasswordCommand(request.UserId, request.Token, request.NewPassword), ct);
         return result.Match(_ => Results.Ok(), _ => result.ToHttpResult());

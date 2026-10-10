@@ -9,7 +9,6 @@ public sealed partial class MemberInvitedHandler(ILogger<MemberInvitedHandler> l
 {
     public ValueTask HandleAsync(MemberInvitedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvent);
         LogMemberInvited(logger, domainEvent.InvitationId.Value, domainEvent.OrganizationId.Value);
         return ValueTask.CompletedTask;
     }

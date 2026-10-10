@@ -40,7 +40,8 @@ dotnet_style_qualification_for_method = false:warning
 dotnet_diagnostic.IDE0005.severity = warning
 dotnet_diagnostic.IDE0040.severity = warning
 dotnet_diagnostic.CA2007.severity  = none
-dotnet_diagnostic.CA1062.severity  = warning
+# CA1062 : les types de référence nullables couvrent déjà les arguments null.
+dotnet_diagnostic.CA1062.severity  = none
 # Meziantou : ConfigureAwait inutile pour une app ASP.NET (pas de SynchronizationContext)
 dotnet_diagnostic.MA0004.severity = none
 
@@ -80,7 +81,6 @@ dotnet_naming_style.underscore_camel.capitalization  = camel_case
 # ── Tests : assouplir quelques règles ─────────────────────
 [src/tests/**.cs]
 dotnet_diagnostic.CA1707.severity = none
-dotnet_diagnostic.CA1062.severity = none
 dotnet_diagnostic.CA1711.severity = none
 
 # ── Migrations EF générées : désactiver les règles de style ─
@@ -88,6 +88,5 @@ dotnet_diagnostic.CA1711.severity = none
 dotnet_diagnostic.MA0048.severity = none
 dotnet_diagnostic.IDE0161.severity = none
 dotnet_diagnostic.IDE0005.severity = none
-dotnet_diagnostic.CA1062.severity = none
 dotnet_diagnostic.MA0051.severity = none
 dotnet_diagnostic.CA1861.severity = none

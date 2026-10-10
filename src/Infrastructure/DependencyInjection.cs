@@ -28,9 +28,6 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(configuration);
-
         services.AddHttpContextAccessor();
         services.AddScoped<ITenantProvider, TenantProvider>();
         services.AddScoped<ICurrentUser, CurrentUser>();
@@ -85,7 +82,6 @@ public static class DependencyInjection
     // Appelé depuis Program.cs après Build() — IRecurringJobManager n'existe qu'au runtime.
     public static void RegisterRecurringJobs(IServiceProvider services)
     {
-        ArgumentNullException.ThrowIfNull(services);
         var manager = services.GetRequiredService<IRecurringJobManager>();
         manager.AddOrUpdate<PurgeExpiredRefreshTokensJob>(
             "purge-expired-refresh-tokens",

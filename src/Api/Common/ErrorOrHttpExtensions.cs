@@ -12,7 +12,6 @@ public static class ErrorOrHttpExtensions
 
     public static IResult ToCreatedHttpResult<T>(this ErrorOr<T> result, Func<T, string> uri)
     {
-        ArgumentNullException.ThrowIfNull(uri);
         return result.Match(value => Results.Created(uri(value), value), Problem);
     }
 

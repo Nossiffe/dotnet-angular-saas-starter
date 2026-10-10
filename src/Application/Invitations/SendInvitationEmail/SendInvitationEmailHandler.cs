@@ -26,13 +26,11 @@ public sealed partial class SendInvitationEmailHandler(
 {
     public ValueTask HandleAsync(MemberInvitedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvent);
         return SendAsync(domainEvent.InvitationId, cancellationToken);
     }
 
     public ValueTask HandleAsync(InvitationResentDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvent);
         return SendAsync(domainEvent.InvitationId, cancellationToken);
     }
 

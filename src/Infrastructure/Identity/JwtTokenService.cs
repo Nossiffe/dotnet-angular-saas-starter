@@ -17,8 +17,6 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options, IDateTimeProvi
         var now = clock.UtcNow;
         var expires = now.AddMinutes(_o.AccessTokenMinutes);
 
-        ArgumentNullException.ThrowIfNull(roles);
-
         var identity = new ClaimsIdentity();
         identity.AddClaim(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
         identity.AddClaim(new Claim(JwtRegisteredClaimNames.Email, email));

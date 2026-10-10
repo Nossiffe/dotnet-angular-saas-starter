@@ -47,7 +47,6 @@ internal static class AuthTestFlow
     /// </summary>
     public static HttpClient HttpsClient(PostgresApiFactory factory)
     {
-        ArgumentNullException.ThrowIfNull(factory);
         return factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
     }
 
@@ -58,7 +57,6 @@ internal static class AuthTestFlow
     /// </summary>
     public static HttpClient RawCookieClient(PostgresApiFactory factory, string rawRefreshToken)
     {
-        ArgumentNullException.ThrowIfNull(factory);
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             BaseAddress = new Uri("https://localhost"),
@@ -71,7 +69,6 @@ internal static class AuthTestFlow
     /// <summary>Extrait la valeur brute du cookie `rt=...` posé par un `Set-Cookie` de réponse.</summary>
     public static string ExtractRefreshCookieValue(HttpResponseMessage response)
     {
-        ArgumentNullException.ThrowIfNull(response);
         var setCookie = response.Headers.GetValues("Set-Cookie")
             .Single(v => v.StartsWith($"{RefreshCookieName}=", StringComparison.Ordinal));
         var withoutName = setCookie[(RefreshCookieName.Length + 1)..];

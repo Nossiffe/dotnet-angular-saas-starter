@@ -93,7 +93,7 @@ Une factory d'agrégat peut échouer pour deux raisons de nature différente :
 - **Garde technique** (contrat de programmation violé, ne devrait jamais arriver en usage
   normal — bug appelant) : `Product.Rename(name)` lève `ArgumentException` si `name` est
   vide. Ce n'est pas une règle métier à faire remonter à l'utilisateur final ; c'est un
-  invariant de contrat, au même titre qu'un `ArgumentNullException.ThrowIfNull`. Le
+  invariant de contrat, comme un argument null que le type non nullable interdit déjà. Le
   `GlobalExceptionHandler` le convertit en 500 (bug à corriger côté appelant, pas une
   réponse attendue de l'API).
 

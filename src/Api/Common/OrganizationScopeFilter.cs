@@ -12,9 +12,6 @@ internal sealed class OrganizationScopeFilter(ITenantProvider tenant) : IEndpoin
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(next);
-
         var routeValue = context.HttpContext.GetRouteValue("orgId")?.ToString();
         if (!Guid.TryParse(routeValue, out var orgId) || orgId != tenant.TenantId)
         {

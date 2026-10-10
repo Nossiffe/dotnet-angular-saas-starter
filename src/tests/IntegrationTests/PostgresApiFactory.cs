@@ -44,7 +44,6 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
         builder.UseSetting("ConnectionStrings:Default", _db.GetConnectionString());
         builder.UseSetting("Jwt:SigningKey", "integration-tests-signing-key-0123456789abcdef");
         // La factory migre elle-même via InitializeAsync — désactiver l'auto-migration au démarrage

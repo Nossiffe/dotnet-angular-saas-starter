@@ -13,8 +13,6 @@ public sealed class RefreshTokenHandler(
 {
     public async ValueTask<ErrorOr<AuthResult>> Handle(RefreshTokenCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
-
         // L'adhésion est vérifiée avant la rotation : un utilisateur retiré de l'organisation perd ses
         // sessions sur celle-ci, et seulement celles-ci. Sans session active (token inconnu, expiré ou
         // déjà révoqué), la rotation décide, y compris la détection de réutilisation.

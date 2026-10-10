@@ -8,7 +8,6 @@ public sealed class InvitationConfiguration : IEntityTypeConfiguration<Invitatio
 {
     public void Configure(EntityTypeBuilder<Invitation> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
         builder.HasKey(i => i.Id);
         builder.Property(i => i.InviteeEmail).HasMaxLength(256).IsRequired();
         // Null tant qu'aucun lien n'est valable : l'index unique accepte plusieurs NULL (PostgreSQL).

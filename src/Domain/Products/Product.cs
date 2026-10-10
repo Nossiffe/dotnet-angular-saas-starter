@@ -31,7 +31,6 @@ public sealed class Product : AggregateRoot<ProductId>, IAuditable, ISoftDeletab
 
     public static Product Create(string name, Money price)
     {
-        ArgumentNullException.ThrowIfNull(price);
         if (string.IsNullOrWhiteSpace(name))
         {
             throw new ArgumentException("Le nom est requis.", nameof(name));
@@ -59,7 +58,6 @@ public sealed class Product : AggregateRoot<ProductId>, IAuditable, ISoftDeletab
 
     public void ChangePrice(Money price)
     {
-        ArgumentNullException.ThrowIfNull(price);
         Price = price;
     }
 }

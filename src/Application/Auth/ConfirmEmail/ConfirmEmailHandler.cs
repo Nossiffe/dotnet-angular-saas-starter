@@ -9,7 +9,6 @@ public sealed class ConfirmEmailHandler(IIdentityService identity)
 {
     public async ValueTask<ErrorOr<Success>> Handle(ConfirmEmailCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
         var confirmed = await identity.ConfirmEmailAsync(command.UserId, command.Token, cancellationToken);
         return confirmed ? Result.Success : AuthErrors.InvalidConfirmationLink;
     }

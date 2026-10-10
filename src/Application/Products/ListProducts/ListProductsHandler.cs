@@ -14,7 +14,6 @@ public sealed class ListProductsHandler(IDbConnectionFactory factory, ITenantPro
 
     public async ValueTask<ErrorOr<PagedResult<ProductDto>>> Handle(ListProductsQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
         var page = Math.Max(1, query.Page);
         var pageSize = Math.Clamp(query.PageSize, MinPageSize, MaxPageSize);
         var offset = (page - 1) * pageSize;

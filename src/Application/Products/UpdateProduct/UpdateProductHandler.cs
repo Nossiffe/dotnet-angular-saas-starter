@@ -16,7 +16,6 @@ public sealed class UpdateProductHandler(
 {
     public async ValueTask<ErrorOr<Updated>> Handle(UpdateProductCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
         var product = await products.GetByIdAsync(ProductId.From(command.Id), cancellationToken);
         if (product is null)
         {

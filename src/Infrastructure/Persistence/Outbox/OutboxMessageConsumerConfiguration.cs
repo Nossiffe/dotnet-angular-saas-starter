@@ -7,7 +7,6 @@ internal sealed class OutboxMessageConsumerConfiguration : IEntityTypeConfigurat
 {
     public void Configure(EntityTypeBuilder<OutboxMessageConsumer> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
         builder.ToTable("OutboxMessageConsumers");
         builder.HasKey(c => new { c.MessageId, c.Handler });
         builder.HasOne<OutboxMessage>().WithMany().HasForeignKey(c => c.MessageId).OnDelete(DeleteBehavior.Cascade);
