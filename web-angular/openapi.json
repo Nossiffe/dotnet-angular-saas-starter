@@ -1288,6 +1288,7 @@
           "id",
           "email",
           "role",
+          "invitedByUserId",
           "expiresAt",
           "createdAt"
         ],
@@ -1302,6 +1303,10 @@
           },
           "role": {
             "type": "string"
+          },
+          "invitedByUserId": {
+            "type": "string",
+            "format": "uuid"
           },
           "expiresAt": {
             "type": "string",
