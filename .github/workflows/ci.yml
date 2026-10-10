@@ -35,6 +35,18 @@ jobs:
           dotnet-version: '10.x'
           cache: true
           cache-dependency-path: '**/packages.lock.json'
+      # Directory.Build.props verrouille le restore en CI : un packages.lock.json périmé fait échouer
+      # le build (NU1004) au lieu d'être réécrit en silence. Ce contrôle échoue si un projet perd ce
+      # verrouillage, par exemple si l'ordre des propriétés change.
+      - name: Restore verrouillé en CI
+        run: |
+          for project in $(git ls-files '*.csproj'); do
+            locked=$(dotnet msbuild "$project" -getProperty:RestoreLockedMode)
+            if [ "$locked" != "true" ]; then
+              echo "::error file=$project::RestoreLockedMode vaut '$locked' : le restore de la CI n'est pas verrouillé (Directory.Build.props)."
+              exit 1
+            fi
+          done
       - run: dotnet build
       # Le build régénère web-angular/openapi.json : un écart avec le fichier versionné veut dire
       # qu'un endpoint a changé sans que le contrat (et les types du front) suivent.

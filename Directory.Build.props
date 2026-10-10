@@ -28,12 +28,18 @@
   </PropertyGroup>
 
   <!-- Builds déterministes / reproductibles -->
-  <PropertyGroup>
-    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-    <RestoreLockedMode Condition="'$(ContinuousIntegrationBuild)' == 'true'">true</RestoreLockedMode>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true' or '$(TF_BUILD)' == 'true'">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+  <!-- En CI, un lock file périmé fait échouer le restore (NU1004) au lieu d'être réécrit.
+       Ce groupe doit rester après celui qui définit ContinuousIntegrationBuild : MSBuild évalue
+       les propriétés dans l'ordre, et la condition verrait sinon une valeur vide.
+       L'updater Dependabot (DEPENDABOT_JOB_ID) tourne lui aussi avec GITHUB_ACTIONS=true ; c'est
+       lui qui régénère les lock files, il n'est donc pas verrouillé. Ses PR le sont, par la CI.
+       ci.yml (job dotnet) vérifie que RestoreLockedMode vaut true pour chaque projet. -->
+  <PropertyGroup>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(ContinuousIntegrationBuild)' == 'true' and '$(DEPENDABOT_JOB_ID)' == ''">true</RestoreLockedMode>
   </PropertyGroup>
 
 </Project>
