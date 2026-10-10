@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Mvc;
+
 namespace Saas.Api.Common;
 
 /// <summary>
@@ -9,14 +11,17 @@ namespace Saas.Api.Common;
 public static class OpenApiEndpointExtensions
 {
     /// <summary>
-    /// 401 sans access token valide, 403 quand la policy refuse : réponses sans corps, renvoyées
-    /// avant l'endpoint par l'authentification et l'autorisation.
+    /// Réponses renvoyées avant l'endpoint par l'authentification et l'autorisation. 401 : sans
+    /// access token valide, sans corps ; avec un token dont l'adhésion ou le rôle ne correspond plus
+    /// à la base, ProblemDetails <c>Auth.SessionExpired</c> (<see cref="StaleTokenAuthorizationResultHandler"/>).
+    /// 403 quand la policy refuse, sans corps.
     /// </summary>
     public static TBuilder WithAuthorizationResponses<TBuilder>(this TBuilder builder)
         where TBuilder : IEndpointConventionBuilder
     {
         return builder.WithMetadata(
-            new ProducesResponseTypeMetadata(StatusCodes.Status401Unauthorized, typeof(void)),
+            new ProducesResponseTypeMetadata(
+                StatusCodes.Status401Unauthorized, typeof(ProblemDetails), ["application/problem+json"]),
             new ProducesResponseTypeMetadata(StatusCodes.Status403Forbidden, typeof(void)));
     }
 
