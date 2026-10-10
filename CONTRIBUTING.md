@@ -245,8 +245,8 @@ qu'aucun test ne vérifie vraiment.
 
 | Périmètre | Config | Score | Seuil `break` |
 |---|---|---|---|
-| Domain | `stryker-config-domain.json` | ~84 % | 60 % (**bloquant**) |
-| Application | `stryker-config-application.json` | ~35 % | 0 (mesuré seulement) |
+| Domain | `stryker-config-domain.json` | ~88 % | 60 % (**bloquant**) |
+| Application | `stryker-config-application.json` | ~43 % | 0 (mesuré seulement) |
 
 **Pourquoi le score de l'Application est plus bas.** Stryker ne lance que les tests unitaires.
 Les validateurs et les handlers sans accès direct à la base ont des tests unitaires
