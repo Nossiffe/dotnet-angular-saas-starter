@@ -26,16 +26,24 @@ npm start   # http://localhost:4200
 | `src/app/api/generated`         | TypeScript types generated from `openapi.json` (not versioned)                                                                                                                                                                                                          |
 | `src/app/testing`               | Test helpers: a signed-in session with a given role                                                                                                                                                                                                                     |
 
+## Screens
+
+The Organization page as the Owner sees it, and the confirmation of a member's removal. The screenshots come from the Playwright tests' mocked API.
+
+![Organization page: members with their role and arrival date, pending invitations with their sender, invitation form](../docs/screenshots/organization-owner.png)
+
+![Removal confirmation listing the pending invitation the member sent, with "Les révoquer aussi" checked](../docs/screenshots/remove-member-dialog.png)
+
 ## API types
 
 `openapi.json` is the versioned API contract, written by the API build (`dotnet build src/Api`); CI fails when it is out of date. `npm run api:gen` generates the TypeScript types from it with Hey API; `npm start`, `npm test`, `npm run test:coverage`, `npm run watch`, `npm run check` and `npm run build` run it first; the other scripts expect the types to be generated already.
 
 ## Commands
 
-| Command         | Purpose                                                                                                                           |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run check` | CI gate: type generation, Prettier, ESLint, Stylelint, type check                                                                 |
-| `npm run fix`   | Prettier, ESLint and Stylelint fixes                                                                                              |
-| `npm test`      | Unit tests (Vitest)                                                                                                               |
-| `npm run e2e`   | Playwright tests of the login and invitation acceptance pages with axe accessibility checks; the API is mocked, no backend needed |
-| `npm run build` | Production build in `dist/`                                                                                                       |
+| Command         | Purpose                                                                                                                                         |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check` | CI gate: type generation, Prettier, ESLint, Stylelint, type check                                                                               |
+| `npm run fix`   | Prettier, ESLint and Stylelint fixes                                                                                                            |
+| `npm test`      | Unit tests (Vitest)                                                                                                                             |
+| `npm run e2e`   | Playwright tests of the login, invitation acceptance and Organization pages with axe accessibility checks; the API is mocked, no backend needed |
+| `npm run build` | Production build in `dist/`                                                                                                                     |
