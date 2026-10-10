@@ -1,6 +1,6 @@
 # ADR 0005 — E-mails transactionnels : outbox après une écriture, Hangfire sinon
 
-- **Statut** : Proposé (2026-10-10)
+- **Statut** : Accepté (2026-10-10)
 - **Contexte** : l'e-mail d'invitation partait par un job Hangfire enfilé après le commit de
   l'invitation (`InviteMemberHandler`, `ResendInvitationHandler`) : une double écriture, sans
   garantie que les deux aient lieu. Le jeton brut du lien était un argument du job, donc stocké en
