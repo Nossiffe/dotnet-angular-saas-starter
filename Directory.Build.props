@@ -28,12 +28,15 @@
   </PropertyGroup>
 
   <!-- Builds déterministes / reproductibles -->
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true' or '$(TF_BUILD)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+  <!-- En CI, un lock file périmé fait échouer le restore (NU1004) au lieu d'être réécrit.
+       Ce groupe doit rester après celui qui définit ContinuousIntegrationBuild : MSBuild évalue
+       les propriétés dans l'ordre, et la condition verrait sinon une valeur vide. -->
   <PropertyGroup>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RestoreLockedMode Condition="'$(ContinuousIntegrationBuild)' == 'true'">true</RestoreLockedMode>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true' or '$(TF_BUILD)' == 'true'">
-    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
 </Project>

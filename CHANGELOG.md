@@ -58,6 +58,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Liste des produits triée par nom puis par identifiant : des produits de même nom pouvaient être sautés ou répétés d'une page à l'autre.
 - La page produits refusait un prix de 0, que l'API accepte : un produit gratuit peut maintenant y être créé.
 - En Development, un corps de requête illisible (JSON mal formé, identifiant qui n'est pas un GUID) renvoyait 500 avec un log d'erreur : `GlobalExceptionHandler` reconnaît `BadHttpRequestException` et répond son statut (400 pour un corps illisible) en problem+json, sans log d'erreur. Hors Development, ASP.NET Core répondait déjà 400, sans corps.
+- La CI ne restaurait jamais en mode verrouillé : dans `Directory.Build.props`, `RestoreLockedMode` dépendait de `ContinuousIntegrationBuild`, défini plus bas, donc encore vide au moment du test. Un `packages.lock.json` périmé était réécrit en silence au lieu de faire échouer le build, comme ceux de la PR Dependabot #22. L'ordre est corrigé, et le job `dotnet` de `ci.yml` vérifie que chaque projet restaure en mode verrouillé.
 
 ### Removed
 - Package `Microsoft.Extensions.Http.Resilience`, référencé mais jamais utilisé.
