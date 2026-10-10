@@ -25,7 +25,7 @@ Every change has to pass these gates, whoever or whatever wrote it:
 | Architecture rules | Architecture tests: dependency rules on the assemblies' actual references, conventions, ErrorOr usage, security conventions, and a source scan: every raw SQL string literal (`"""…"""`) naming a tenant-owned table must contain the `"TenantId" = @TenantId` filter | Every CI run |
 | API contract | OpenAPI document rebuilt and compared with the committed one the front end types come from | Every CI run |
 | Behaviour | Unit tests, integration tests against a real PostgreSQL (Testcontainers), end-to-end smoke test (API + PostgreSQL + Mailpit + Hangfire) | Every CI run; smoke test on backend changes |
-| Front end | Lint, format, type check, unit tests, Playwright tests of the login, invitation acceptance and Organization pages with axe accessibility checks (API mocked) | Every CI run |
+| Front end | Lint, format, type check, unit tests, Playwright tests of the login, invitation acceptance, Products and Organization pages with axe accessibility checks (API mocked) | Every CI run |
 | Test quality | Stryker mutation testing of the unit tests: blocking for the Domain, measured for the Application | Pull requests touching the Domain, weekly |
 | Static analysis | CodeQL for C# and TypeScript | Push, pull request, weekly |
 | Secrets | gitleaks with its default rules | Pre-commit hook (when gitleaks is installed) and CI |

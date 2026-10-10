@@ -40,10 +40,10 @@ The Organization page as the Owner sees it, and the confirmation of a member's r
 
 ## Commands
 
-| Command         | Purpose                                                                                                                                         |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run check` | CI gate: type generation, Prettier, ESLint, Stylelint, type check                                                                               |
-| `npm run fix`   | Prettier, ESLint and Stylelint fixes                                                                                                            |
-| `npm test`      | Unit tests (Vitest)                                                                                                                             |
-| `npm run e2e`   | Playwright tests of the login, invitation acceptance and Organization pages with axe accessibility checks; the API is mocked, no backend needed |
-| `npm run build` | Production build in `dist/`                                                                                                                     |
+| Command         | Purpose                                                                                                                                                   |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check` | CI gate: type generation, Prettier, ESLint, Stylelint, type check                                                                                         |
+| `npm run fix`   | Prettier, ESLint and Stylelint fixes                                                                                                                      |
+| `npm test`      | Unit tests (Vitest)                                                                                                                                       |
+| `npm run e2e`   | Playwright tests of the login, invitation acceptance, Products and Organization pages with axe accessibility checks; the API is mocked, no backend needed |
+| `npm run build` | Production build in `dist/`                                                                                                                               |
