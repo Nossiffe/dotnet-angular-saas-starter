@@ -3,7 +3,10 @@ name: Stryker (mutation testing)
 # Mutation testing sur les tests unitaires : chaque semaine, à la demande, et sur
 # les PR qui touchent le Domain ou ses tests (job stryker-domain seul, 1 à 2 min).
 # - stryker-domain : bloquant. Le run échoue sous le seuil `break` de
-#   stryker-config-domain.json.
+#   stryker-config-domain.json. C'est une vérification exigée sur main : le workflow se
+#   déclenche donc sur toutes les PR, sans filtre `paths` (un workflow filtré ne poste aucun
+#   statut et la PR attendrait indéfiniment). Le job `changes` décide si Stryker tourne ; un
+#   job ignoré par son `if` compte comme réussi.
 # - stryker-application : mesuré seulement (seuil `break` à 0), hors PR. Ses handlers sont
 #   couverts par les tests d'intégration sur PostgreSQL, que Stryker ne lance pas : un score
 #   bas y est attendu et n'est pas un signal de régression.
@@ -13,13 +16,6 @@ name: Stryker (mutation testing)
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'src/Domain/**'
-      - 'src/tests/UnitTests/**'
-      - 'stryker-config-domain.json'
-      - '.config/dotnet-tools.json'
-      - 'Directory.Packages.props'
-      - '.github/workflows/stryker.yml'
   schedule:
     - cron: '0 3 * * 1' # lundi 03h UTC
   workflow_dispatch:
@@ -28,7 +24,40 @@ permissions:
   contents: read
 
 jobs:
+  # Sur une PR : le Domain, ses tests ou la configuration de Stryker changent-ils ? Mêmes
+  # motifs que l'ancien filtre `paths`.
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      domain: ${{ steps.diff.outputs.domain }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2 # le commit de fusion et ses deux parents : la base et la tête de la PR
+      - name: Fichiers modifiés par la PR
+        id: diff
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          bash scripts/pr-changes.sh domain \
+            'src/Domain/**' \
+            'src/tests/UnitTests/**' \
+            'stryker-config-domain.json' \
+            '.config/dotnet-tools.json' \
+            'Directory.Packages.props' \
+            '.github/workflows/stryker.yml'
+
   stryker-domain:
+    needs: changes
+    # Toujours hors PR (cron, manuel). Sur une PR, ce job n'est ignoré que si `changes` a
+    # réussi et répondu `false` : un échec de la détection, ou une sortie absente, le fait
+    # tourner. `!cancelled()` remplace le `success()` implicite, qui ignorerait ce job dès
+    # que `changes` est ignoré ou échoue.
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.result != 'success' || needs.changes.outputs.domain != 'false') }}
     runs-on: ubuntu-24.04
     defaults:
       run:

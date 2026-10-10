@@ -182,10 +182,10 @@ dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulemen
 | Workflow | Déclencheur | Rôle | Si ça casse |
 |---|---|---|---|
 | `ci.yml` | Push/PR/`merge_group` sur `main` | Restore NuGet verrouillé (contrôle que chaque projet l'est) + build + tests (unit/intégration/archi) + front Angular (lint/format/typecheck, tests unitaires, build, Playwright + axe sur les pages de connexion et d'acceptation d'invitation) + vérification des chemins cités dans la doc (`scripts/check-docs.sh`) + couverture backend (Microsoft.CodeCoverage MTP, résumé ReportGenerator + artifact, **non bloquante** — cf. § Couverture) | Lire le log du job en échec (build/tests/front) ; NU1004 au restore : un `packages.lock.json` périmé, à régénérer par `dotnet restore` en local puis committer ; une couverture qui baisse n'échoue jamais le job, c'est un signal |
-| `smoke.yml` | Push `main` + PR touchant le backend (`src/`, `Directory.Packages.props`, `scripts/smoke.sh`, `docker-compose.yml`) + manuel | Bout-en-bout réel (Postgres + Mailpit + API + Hangfire) via `scripts/smoke.sh` | Reproduire en local : `docker compose up -d db mailpit && dotnet run --project src/Api` puis `bash scripts/smoke.sh` |
-| `deps-audit.yml` | PR touchant les manifests de deps (`Directory.Packages.props`, `packages.lock.json`, `package.json`/`package-lock.json`) + cron hebdo (lundi 05h UTC) + manuel | Bloque sur CVE High/Critical — `dotnet-audit` (NuGet, direct + transitif) et `npm-audit` (front Angular, dépendances de prod seulement) | Corriger (bump/pin) ou documenter une exception datée — voir § Procédure d'exception CVE ci-dessous |
-| `zizmor.yml` | Push/PR touchant `.github/workflows/**` | Lint de sécurité des workflows GitHub Actions (permissions, injections, cache-poisoning…) — mode console (`advanced-security: false`), exit non nul = bloquant | Reproduire en local : `uvx zizmor .github/workflows/` ; corriger le finding (permissions minimales, pin SHA, échappement d'input) |
-| `stryker.yml` | PR touchant le Domain ou ses tests (job Domain seul) + cron hebdo + manuel | Mutation testing des tests unitaires : Domain **bloquant** (seuil 60 %), Application mesuré seulement | Ouvrir le rapport HTML en artifact ; voir § Mutation testing ci-dessous |
+| `smoke.yml` | Push `main` + PR sur `main` + manuel ; sur une PR, le job `smoke` ne tourne que si le backend change (`src/`, `Directory.Packages.props`, `scripts/smoke.sh`, `docker-compose.yml`) | Bout-en-bout réel (Postgres + Mailpit + API + Hangfire) via `scripts/smoke.sh` | Reproduire en local : `docker compose up -d db mailpit && dotnet run --project src/Api` puis `bash scripts/smoke.sh` |
+| `deps-audit.yml` | PR sur `main` + cron hebdo (lundi 05h UTC) + manuel ; sur une PR, `dotnet-audit` et `npm-audit` ne tournent que si un manifeste de deps change (`Directory.Packages.props`, `packages.lock.json`, `package.json`/`package-lock.json`) | Bloque sur CVE High/Critical — `dotnet-audit` (NuGet, direct + transitif) et `npm-audit` (front Angular, dépendances de prod seulement) | Corriger (bump/pin) ou documenter une exception datée — voir § Procédure d'exception CVE ci-dessous |
+| `zizmor.yml` | Push `main` touchant `.github/workflows/**` + toute PR ; sur une PR, le job `zizmor` ne tourne que si `.github/workflows/**` change | Lint de sécurité des workflows GitHub Actions (permissions, injections, cache-poisoning…) — mode console (`advanced-security: false`), exit non nul = bloquant | Reproduire en local : `uvx zizmor .github/workflows/` ; corriger le finding (permissions minimales, pin SHA, échappement d'input) |
+| `stryker.yml` | PR sur `main` + cron hebdo + manuel ; sur une PR, seul `stryker-domain` tourne, et seulement si le Domain, ses tests, les dépendances ou la configuration de Stryker changent | Mutation testing des tests unitaires : `stryker-domain` **bloquant** (seuil 60 %), `stryker-application` mesuré seulement | Ouvrir le rapport HTML en artifact ; voir § Mutation testing ci-dessous |
 | `release.yml` | Tag `v*` + manuel | Build + push image GHCR, SBOM (CycloneDX backend + npm du front), attestation de provenance (SLSA build L2) | Voir `DEPLOYMENT.md` § Release — image, SBOM, attestation |
 | `codeql.yml` / `security.yml` | Push/PR sur `main` | SAST (CodeQL C#/TS) + secret scanning (gitleaks, règles par défaut) | Voir l'onglet Security du repo ; reproduire gitleaks en local : `gitleaks git .` |
 
@@ -193,11 +193,10 @@ dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulemen
 > le job `analyze` est ignoré au lieu d'échouer.
 
 > **Merge queue** : si la merge queue GitHub est activée sur `main`, ajouter le
-> déclencheur `merge_group:` à chaque workflow marqué comme required check (déjà
-> fait pour `ci.yml` — cf. tableau ci-dessus) ; sinon la queue attend indéfiniment
-> un statut qui ne sera jamais posté. Attention en particulier au filtre `paths:`
-> de `smoke.yml` : un run de merge queue n'a pas le même diff `paths` qu'une PR —
-> un required check qui ne se déclenche jamais bloquerait la queue indéfiniment.
+> déclencheur `merge_group:` à chaque workflow qui porte une vérification exigée (seul
+> `ci.yml` l'a aujourd'hui) ; sinon la queue attend indéfiniment un statut qui ne sera
+> jamais posté. Le job `changes` ne tourne que sur `pull_request` : dans un run de merge
+> queue, les jobs qu'il commande tourneraient toujours.
 
 ### Dependabot — mises à jour de dépendances
 

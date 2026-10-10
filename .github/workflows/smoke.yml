@@ -1,18 +1,15 @@
 name: Smoke
 
 # Parcours de bout en bout de l'API (PostgreSQL, Mailpit, Hangfire) via scripts/smoke.sh.
-# Lancé sur main, à la demande et sur les PR qui touchent le backend : le filtre
-# `paths` évite ce job coûteux pour les PR purement front.
+# Lancé sur main, à la demande et sur les PR qui touchent le backend : le job `changes`
+# évite ce job coûteux pour les PR purement front. `smoke` est une vérification exigée sur
+# main : un filtre `paths` sur `pull_request` laisserait les autres PR sans statut, en
+# attente indéfinie, alors qu'un job ignoré par son `if` compte comme réussi.
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'Directory.Packages.props'
-      - 'scripts/smoke.sh'
-      - 'docker-compose.yml'
   workflow_dispatch:
 
 concurrency:
@@ -23,7 +20,37 @@ permissions:
   contents: read
 
 jobs:
+  # Sur une PR : le backend change-t-il ? Mêmes motifs que l'ancien filtre `paths`.
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      backend: ${{ steps.diff.outputs.backend }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2 # le commit de fusion et ses deux parents : la base et la tête de la PR
+      - name: Fichiers modifiés par la PR
+        id: diff
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          bash scripts/pr-changes.sh backend \
+            'src/**' \
+            'Directory.Packages.props' \
+            'scripts/smoke.sh' \
+            'docker-compose.yml'
+
   smoke:
+    needs: changes
+    # Toujours hors PR (push sur main, manuel). Sur une PR, smoke n'est ignoré que si
+    # `changes` a réussi et répondu `false` : un échec de la détection, ou une sortie absente,
+    # le fait tourner. `!cancelled()` remplace le `success()` implicite, qui ignorerait ce job
+    # dès que `changes` est ignoré ou échoue.
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.result != 'success' || needs.changes.outputs.backend != 'false') }}
     runs-on: ubuntu-24.04
     env:
       # Reprendre les mêmes valeurs que .env (sans secrets sensibles)
