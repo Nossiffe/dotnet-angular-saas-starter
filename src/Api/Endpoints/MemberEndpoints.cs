@@ -1,7 +1,9 @@
 using Mediator;
 using Saas.Api.Common;
 using Saas.Api.Contracts;
+using Saas.Application.Members;
 using Saas.Application.Members.ChangeMemberRole;
+using Saas.Application.Members.ListMembers;
 using Saas.Infrastructure.Identity;
 
 namespace Saas.Api.Endpoints;
@@ -10,14 +12,30 @@ public sealed class MemberEndpoints : IEndpoint
 {
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
+        // Lecture : Owner ou Admin. Changement de rôle : Owner seulement, les deux policies
+        // s'appliquant à cette route.
         var group = app.MapGroup("/organizations/{orgId:guid}/members")
             .WithTags("Members")
-            .RequireAuthorization(AuthorizationPolicies.TenantOwner)
+            .RequireAuthorization(AuthorizationPolicies.TenantAdmin)
             .WithAuthorizationResponses()
             .AddEndpointFilter<OrganizationScopeFilter>();
 
+        group.MapGet("/", ListMembers)
+            .Produces<IReadOnlyList<MemberDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         group.MapPut("/{userId:guid}/role", ChangeMemberRole)
+            .RequireAuthorization(AuthorizationPolicies.TenantOwner)
             .WithNoContentResponses();
+    }
+
+    private static async Task<IResult> ListMembers(
+        Guid orgId,
+        ISender sender,
+        CancellationToken ct)
+    {
+        var result = await sender.Send(new ListMembersQuery(orgId), ct);
+        return result.ToHttpResult();
     }
 
     private static async Task<IResult> ChangeMemberRole(

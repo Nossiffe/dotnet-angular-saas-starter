@@ -176,7 +176,7 @@ Request → LoggingBehavior → ValidationBehavior → Handler
   | Policy | Claim exigé | Routes |
   |---|---|---|
   | `HasTenant` | `tenant` non vide | Produits |
-  | `TenantAdmin` | `tenant_role` = `Owner` ou `Admin` | Invitations, suppression d'un produit |
+  | `TenantAdmin` | `tenant_role` = `Owner` ou `Admin` | Invitations, liste des membres, suppression d'un produit |
   | `TenantOwner` | `tenant_role` = `Owner` | Changement de rôle d'un membre |
 
   Les tests d'intégration appliquent ces policies telles quelles : la factory de test remplace

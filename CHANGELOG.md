@@ -6,6 +6,9 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 
 ## [Unreleased]
 
+### Added
+- Liste des membres d'une organisation : `GET /organizations/{orgId}/members`, pour l'Owner et l'Admin, renvoie l'identifiant, l'e-mail, le rôle et la date d'arrivée de chaque membre, du plus ancien au plus récent.
+
 ### Fixed
 - Un access token gardait jusqu'à son expiration (15 minutes par défaut) le rôle qu'il avait à son émission. Un Admin rétrogradé en Member pouvait ainsi encore inviter une autre de ses adresses comme Admin, et garder un accès Admin, ou supprimer des produits. Les routes rattachées à une organisation (produits, invitations, membres) relisent désormais l'adhésion et le rôle en base à chaque requête : adhésion absente ou rôle différent de celui du token, 401 `Auth.SessionExpired`. Le front rafraîchit alors la session, qui reprend le rôle actuel, et rejoue la requête une fois. Un membre promu obtient ses nouveaux droits de la même façon, sans se reconnecter.
 - Front : une erreur sur la requête rejouée après un refresh réussi (un 403, par exemple) effaçait la session locale ; seul l'échec du refresh l'efface désormais. Un refresh dont toutes les requêtes avaient été annulées restait aussi en mémoire : le 401 suivant rejouait son ancien jeton sans rafraîchir la session.
