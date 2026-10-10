@@ -26,7 +26,7 @@ npm start   # http://localhost:4200
 
 ## API types
 
-`openapi.json` is the versioned API contract, written by the API build (`dotnet build src/Api`); CI fails when it is out of date. `npm run api:gen` generates the TypeScript types from it with Hey API; `npm start`, `npm test`, `npm run check` and `npm run build` run it first; the other scripts expect the types to be generated already.
+`openapi.json` is the versioned API contract, written by the API build (`dotnet build src/Api`); CI fails when it is out of date. `npm run api:gen` generates the TypeScript types from it with Hey API; `npm start`, `npm test`, `npm run test:coverage`, `npm run watch`, `npm run check` and `npm run build` run it first; the other scripts expect the types to be generated already.
 
 ## Commands
 
