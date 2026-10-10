@@ -42,6 +42,12 @@ updates:
         applies-to: security-updates
         patterns: ["vitest", "@vitest/*"]
       npm-minor-patch:
+        # The catch-all group. When a dependency matches several groups, a group with patterns
+        # gives it up to a more specific group, while a group without patterns gives up nothing
+        # and scores 500, above wildcard patterns such as "@angular/*" (95) or "@vitest/*" (94).
+        # Without "*", which scores 1, this group kept the Angular packages and
+        # @vitest/coverage-v8 away from their own groups.
+        patterns: ["*"]
         update-types: ["minor", "patch"]
         # Pre-1.0 package: minor releases may break, so it keeps its own PR.
         exclude-patterns: ["@hey-api/openapi-ts"]
