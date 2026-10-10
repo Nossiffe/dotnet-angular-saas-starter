@@ -280,7 +280,10 @@ OutboxPollingService (toutes les 5 s) → OutboxProcessor → IDomainEventHandle
   `docs/error-codes.md`). Les endpoints convertissent via `result.ToHttpResult()` /
   `ToNoContentHttpResult()` / `ToCreatedHttpResult(...)` (`Saas.Api.Common.ErrorOrHttpExtensions`),
   qui mappe chaque `ErrorType` (`Validation`→400, `NotFound`→404, `Conflict`→409, `Forbidden`→403,
-  `Unauthorized`→401, autre→500) sur un `ProblemDetails`.
+  `Unauthorized`→401, autre→500) sur un `ProblemDetails`. Le statut, le `title` et l'extension
+  `code` viennent de la première erreur ; l'extension `errors` les liste toutes, par code
+  (`{ "Invitation.Expired": ["L'invitation a expiré."] }`), sur le modèle du dictionnaire par champ
+  d'une erreur de validation.
 - **Anti-énumération** : une ressource d'un autre tenant renvoie `NotFound`, jamais `Forbidden`
   (ne révèle pas son existence).
 - **`GlobalExceptionHandler` reste responsable des exceptions légitimes restantes** (frontière

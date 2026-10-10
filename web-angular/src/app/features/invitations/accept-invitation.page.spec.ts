@@ -56,9 +56,14 @@ describe('AcceptInvitationPage', () => {
     return sent;
   }
 
+  // Erreur métier telle que l'API la renvoie : son code, et la liste des erreurs par code.
+  function businessError(code: string, status = 400) {
+    return { status, code, errors: { [code]: ['…'] } };
+  }
+
   async function askedForPassword(): Promise<ComponentFixture<AcceptInvitationPage>> {
     const fixture = await open();
-    await answer(fixture, { status: 400, code: 'Invitation.PasswordRequired' }, 400);
+    await answer(fixture, businessError('Invitation.PasswordRequired'), 400);
     return fixture;
   }
 
@@ -107,14 +112,10 @@ describe('AcceptInvitationPage', () => {
   });
 
   it.each([
-    ['an invalid link', 400, { status: 400, code: 'Invitation.Invalid' }],
-    ['an expired invitation', 400, { status: 400, code: 'Invitation.Expired' }],
-    [
-      'an invitation already accepted or revoked',
-      400,
-      { status: 400, code: 'Invitation.NotPending' },
-    ],
-    ['a deleted organization', 404, { status: 404, code: 'Organization.NotFound' }],
+    ['an invalid link', 400, businessError('Invitation.Invalid')],
+    ['an expired invitation', 400, businessError('Invitation.Expired')],
+    ['an invitation already accepted or revoked', 400, businessError('Invitation.NotPending')],
+    ['a deleted organization', 404, businessError('Organization.NotFound', 404)],
   ])('shows the same neutral message for %s', async (_case, status, body) => {
     const fixture = await open();
 
@@ -136,6 +137,16 @@ describe('AcceptInvitationPage', () => {
 
     expect(text(fixture)).toContain('Ce mot de passe ne respecte pas ces règles.');
     expect(query(fixture, 'input[type=password]')).not.toBeNull();
+  });
+
+  it('shows the neutral message when the invitation is revoked before the password call', async () => {
+    const fixture = await askedForPassword();
+    await submitPassword(fixture, PASSWORD);
+
+    await answer(fixture, businessError('Invitation.NotPending'), 400);
+
+    expect(text(fixture)).toContain('Cette invitation est invalide ou a expiré');
+    expect(query(fixture, 'input[type=password]')).toBeNull();
   });
 
   it('shows the neutral message when the first call fails validation', async () => {

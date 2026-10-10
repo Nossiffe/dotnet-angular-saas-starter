@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Saas.IntegrationTests.Auth;
 using Shouldly;
 using Xunit;
@@ -19,6 +20,10 @@ public sealed class ProductAccessTests(PostgresApiFactory factory)
         var response = await factory.CreateAuthenticatedClient().GetAsync($"/api/v1/products/{id}", ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+        problem.RootElement.GetProperty("code").GetString().ShouldBe("Product.NotFound");
+        problem.RootElement.GetProperty("errors").GetProperty("Product.NotFound")[0].GetString()
+            .ShouldBe("Produit introuvable.");
     }
 
     // Supprimer un produit demande la politique TenantAdmin (Owner ou Admin).

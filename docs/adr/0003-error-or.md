@@ -107,7 +107,9 @@ sur des erreurs impossibles), tout en gardant les vraies règles métier dans le
 - Le contrat de retour d'un handler dit explicitement quelles erreurs il peut produire
   (`ErrorOr<T>`) — plus lisible qu'un `throw` caché dans le corps de la méthode.
 - Un seul point de mapping HTTP (`ErrorOrHttpExtensions.ToHttpResult`/`ToNoContentHttpResult`/
-  `ToCreatedHttpResult`) pour tous les `ErrorType` — cohérent par construction.
+  `ToCreatedHttpResult`) pour tous les `ErrorType` — cohérent par construction. Le statut, le
+  `title` et l'extension `code` viennent de la première erreur ; l'extension `errors` porte toutes
+  les erreurs du résultat, par code, pour que l'agrégation promise plus haut atteigne le client.
 - Deux mécanismes d'erreur coexistent (`ErrorOr` métier, exceptions forme/infra) — documenté
   ci-dessus pour éviter la confusion ; vérifié par `ErrorOrConventionTests`.
 

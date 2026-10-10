@@ -39,6 +39,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Acceptation d'une invitation : statut et expiration vérifiés avant de demander un mot de passe à un invité sans compte.
 - `Program.cs` découpé en méthodes d'extension nommées (`src/Api/Hosting/`) : observabilité, limitation de débit, base de données au démarrage, serveur Hangfire, pipeline HTTP. Les explications longues passent dans `ARCHITECTURE.md` et `DEPLOYMENT.md`.
 - Création d'un produit par `ToCreatedHttpResult`, comme celle d'une invitation. Le `Location` des deux réponses 201 est calculé depuis une route nommée au lieu d'une URL écrite à la main : `/api/v1/...` comme avant, et il reprend désormais la version écrite dans la requête (`/api/v1.0/...` pour une requête en `v1.0`).
+- Réponses d'erreur métier (ErrorOr) : l'extension `errors` liste toutes les erreurs du résultat, par code, comme le prévoit l'ADR 0003 ; le statut, `title` et `code` restent ceux de la première erreur. La page d'acceptation d'une invitation distingue ces erreurs, qui portent un `code`, des erreurs de saisie.
 
 ### Fixed
 - gitleaks : la configuration du dépôt remplaçait les règles par défaut et ne détectait plus rien ; elle les étend maintenant. Le hook pre-commit bloque dès que gitleaks est installé.

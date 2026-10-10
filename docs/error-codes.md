@@ -11,6 +11,10 @@ Source **unique** des erreurs métier du backend.
 - `Description` = phrase française **complète**, se terminant par un point, **sans**
   détail technique ni identifiant paramétré (pas de `$"Produit {id} introuvable"` —
   le `code` et l'`extensions.code` du problem+json portent déjà l'identification).
+- Réponse HTTP : un problem+json dont le statut, le `title` et l'extension `code` viennent de la
+  première erreur du résultat. L'extension `errors` liste toutes les erreurs, par code :
+  `{ "Product.NotFound": ["Produit introuvable."] }`. Une erreur de validation de la requête a aussi
+  un dictionnaire `errors`, mais par champ et sans extension `code` : c'est ce qui les distingue.
 
 ## Anti-énumération : cross-tenant = `NotFound`, jamais `Forbidden`
 

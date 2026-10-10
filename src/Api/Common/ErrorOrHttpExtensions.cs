@@ -21,6 +21,7 @@ public static class ErrorOrHttpExtensions
     /// </summary>
     internal static IResult ToProblemHttpResult(this Error error) => Problem([error]);
 
+    // Statut, titre et code de la première erreur ; l'extension errors les liste toutes, par code (ADR 0003).
     private static IResult Problem(List<Error> errors)
     {
         var error = errors[0];
@@ -37,6 +38,12 @@ public static class ErrorOrHttpExtensions
             statusCode: statusCode,
             title: error.Description,
             type: $"https://httpstatuses.io/{statusCode}",
-            extensions: new Dictionary<string, object?>(StringComparer.Ordinal) { ["code"] = error.Code });
+            extensions: new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["code"] = error.Code,
+                ["errors"] = errors
+                    .GroupBy(e => e.Code, StringComparer.Ordinal)
+                    .ToDictionary(g => g.Key, g => g.Select(e => e.Description).ToArray(), StringComparer.Ordinal),
+            });
     }
 }
