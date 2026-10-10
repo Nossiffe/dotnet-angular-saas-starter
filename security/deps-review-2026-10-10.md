@@ -45,13 +45,12 @@ aucune vulnérabilité, toutes sévérités confondues.
 Aucune.
 
 `npm audit`, lancé sans `--omit=dev`, signale encore un avis sur une
-dépendance de développement. Nous ne le traitons pas comme une exception : la
-règle « Corriger sous 7 jours ou exception documentée » du tableau des seuils
-de `security/README.md` figure sur la même ligne que le blocage du merge par
-`deps-audit.yml`, dont le job npm exclut les dépendances de développement
-(« un CVE dans ESLint/Vitest ne part pas en prod »). Nous la lisons donc comme
-portant sur les avis que ce workflow bloque. L'avis est suivi ci-dessous, à
-reporter dans chaque revue tant que `npm audit` le cite.
+dépendance de développement. Ce n'est pas une exception : selon
+`security/README.md` (« Seuils de sévérité »), les délais des lignes Critical
+et High portent sur les avis que `deps-audit.yml` bloque, côté npm ceux des
+dépendances de production, et les avis sur des dépendances de développement
+npm sont suivis dans les revues datées, sans délai de correction. L'avis est
+suivi ci-dessous, à reporter dans chaque revue tant que `npm audit` le cite.
 
 ### Avis sur une dépendance de développement, laissé en l'état
 
@@ -85,7 +84,10 @@ chaîne n'entre dans l'application livrée. Le job `npm-audit` de
 `deps-audit.yml` (`npm audit --omit=dev`) ne la voit pas ; `npm audit` lancé
 sans `--omit=dev` la signale, avec les paquets qui en dépendent : micromatch,
 fast-glob, globby, stylelint, son extension `stylelint-scss` et ses
-configurations.
+configurations. GitHub a ouvert l'alerte Dependabot n° 22 sur cet avis, puis
+l'a fermée automatiquement en vertu de sa règle prédéfinie pour les
+dépendances de développement npm (« Dismiss low impact issues for
+development-scoped dependencies », qui couvre CWE-674).
 
 **Pourquoi l'avis n'est pas exploitable ici.** braces analyse des motifs de
 fichiers (globs), jamais le contenu des fichiers ni leurs noms : ceux-ci sont
