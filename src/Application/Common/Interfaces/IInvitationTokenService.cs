@@ -5,5 +5,6 @@ public interface IInvitationTokenService
 {
     string GenerateRawToken();
     string HashToken(string rawToken);
-    bool VerifyToken(string rawToken, string storedHash);
+    /// <summary>Faux si aucun hash n'est stocké : aucun lien n'est alors valable.</summary>
+    bool VerifyToken(string rawToken, string? storedHash);
 }

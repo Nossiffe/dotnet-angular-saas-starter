@@ -7,8 +7,6 @@ namespace Saas.Application.Invitations.ResendInvitation;
 
 public sealed class ResendInvitationHandler(
     IInvitationRepository invitations,
-    IInvitationTokenService tokens,
-    IInvitationEmailEnqueuer enqueuer,
     IUnitOfWork uow,
     IDateTimeProvider clock)
     : ICommandHandler<ResendInvitationCommand, ErrorOr<Success>>
@@ -23,18 +21,15 @@ public sealed class ResendInvitationHandler(
             return InvitationErrors.NotFound;
         }
 
-        var rawToken = tokens.GenerateRawToken();
-        var tokenHash = tokens.HashToken(rawToken);
-
-        var refreshed = invitation.Refresh(tokenHash, clock.UtcNow.Add(Invitation.Lifetime));
+        // Le lien précédent cesse d'être valable ici ; le nouveau part par l'outbox
+        // (InvitationResentDomainEvent, SendInvitationEmailHandler).
+        var refreshed = invitation.Refresh(clock.UtcNow.Add(Invitation.Lifetime));
         if (refreshed.IsError)
         {
             return refreshed.Errors;
         }
 
         await uow.SaveChangesAsync(cancellationToken);
-
-        enqueuer.Enqueue(invitation.Id.Value, rawToken, invitation.InviteeEmail);
 
         return Result.Success;
     }

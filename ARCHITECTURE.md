@@ -354,11 +354,27 @@ qui traite jusqu'à 20 messages, un par un :
 - **Garantie** : livraison « au moins une fois ». Un arrêt brutal entre un envoi externe et le
   commit fait rappeler ce handler ; un handler qui agit hors de la base doit le tolérer.
 
+**E-mails d'invitation** (ADR 0005). `SendInvitationEmailHandler` réagit à
+`MemberInvitedDomainEvent` et à `InvitationResentDomainEvent` : il crée le jeton du lien, enregistre
+son hash (`Invitation.IssueToken`), puis envoie l'e-mail. Le jeton brut n'est stocké nulle part,
+ni dans l'outbox ni dans Hangfire. Une invitation révoquée, acceptée ou expirée avant le lot ne
+reçoit rien ; révoquée pendant l'envoi, l'e-mail part, mais son lien est refusé. Un renvoi efface
+le hash : l'ancien lien est refusé dès le renvoi, avant le nouvel envoi.
+
+- **Au moins une fois** : un nouvel essai (échec SMTP, arrêt brutal après l'envoi) pose un nouveau
+  jeton. Un doublon remplace donc le lien précédent, qui cesse d'être valable.
+- **Ordre** : si deux envois se chevauchent (une invitation suivie aussitôt d'un renvoi), le dernier
+  e-mail reçu n'est pas forcément celui dont le lien est valable. Aucun verrou n'est tenu pendant
+  l'envoi SMTP.
+
 `OutboxTests` couvre le traitement, le délai avant une nouvelle tentative sans rappel des handlers
 passés, l'abandon après 5 tentatives, l'issue impossible à enregistrer, l'arrêt de l'application en
 cours de lot, le message verrouillé par une autre instance et la purge. Les tests d'intégration
 retirent l'`OutboxPollingService` et lancent les lots eux-mêmes, avec une horloge qu'ils avancent.
 `ConventionTests` vérifie que chaque event a un handler et survit à l'aller-retour JSON de l'outbox.
+`InvitationEmailTests` couvre l'e-mail d'invitation : envoi au lot, aucun jeton brut en base,
+nouvel essai après un échec SMTP, invitation révoquée avant le lot, ancien et nouveau lien après un
+renvoi.
 
 > Conséquence : les handlers de domain events (`ProductCreatedHandler`, etc.) s'exécutent **de façon asynchrone**, au lot suivant, et non pendant le `SaveChanges`.
 
@@ -368,7 +384,7 @@ retirent l'`OutboxPollingService` et lancent les lots eux-mêmes, avec une horlo
 
 - **Dashboard** : `/hangfire`, sécurisé par `HangfireDashboardAuthFilter`. Dev : loopback uniquement. Prod : claim `platform_role=PlatformAdmin` obligatoire.
 - **Recurring jobs** (quotidiens, `ExecuteDeleteAsync`) : `PurgeExpiredRefreshTokensJob` (refresh tokens expirés) et `PurgeProcessedOutboxMessagesJob` (messages de l'outbox traités depuis plus de 7 jours).
-- **Fire-and-forget** : `ProcessPasswordResetJob` et `ProcessInvitationEmailJob`, enfilés par la demande de réinitialisation et par l'invitation, pour que la réponse HTTP n'attende pas le SMTP.
+- **Fire-and-forget** : `ProcessPasswordResetJob`, enfilé par la demande de réinitialisation, pour que la réponse HTTP n'attende pas le SMTP. La demande n'écrit rien en base : pas de transaction où accrocher l'outbox (ADR 0005). Un échec SMTP fait échouer le job ; Hangfire le reprend trois fois au plus, puis le passe à l'état Deleted, qui expire après 24 h : l'adresse e-mail, argument du job, ne reste pas indéfiniment en base comme dans un job en échec. Le log d'échec et l'exception conservée par Hangfire portent l'identifiant de l'utilisateur, jamais l'adresse.
 
 > **Sécurité dashboard** : le dashboard est **secure-by-default** — le claim `platform_role` n'est émis par aucun flow de login standard. Le claim `tenant_role=Owner` ne suffit pas : le dashboard montre les jobs de tous les tenants. En prod, personne n'accède au dashboard tant qu'un opérateur infra n'est pas explicitement provisionné avec `platform_role=PlatformAdmin` (seed admin ou config IdP). Alternative : ne monter le dashboard que hors-production.
 
@@ -398,3 +414,4 @@ services.AddHybridCache(); // utilisera automatiquement Redis comme L2
 - `docs/adr/0002` — Persistance CQRS (repos write par agrégat + Dapper read ; Ardalis.Specification écarté)
 - `docs/adr/0003` — ErrorOr pour les erreurs métier (frontière avec les exceptions légitimes)
 - `docs/adr/0004` — Refresh token en cookie HttpOnly (pas d'antiforgery ; front et API en même origine)
+- `docs/adr/0005` — E-mails transactionnels : outbox après une écriture, Hangfire sinon

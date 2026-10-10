@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Saas.Infrastructure.Identity;
 using Saas.Infrastructure.Persistence;
 using Saas.IntegrationTests.Invitations;
+using Saas.IntegrationTests.Outbox;
 using Shouldly;
 using Xunit;
 
@@ -186,6 +187,7 @@ public sealed class AuthHardeningTests(PostgresApiFactory factory)
         var invite = await InvitationTestFlow.ClientFor(factory, otherOrgId, ownerId).PostAsJsonAsync(
             $"/api/v1/organizations/{otherOrgId}/invitations", new { email, role = "Member" }, ct);
         invite.StatusCode.ShouldBe(HttpStatusCode.Created);
+        await OutboxRunner.RunUntilIdleAsync(factory, ct); // l'e-mail d'invitation part avec un lot
         var (invitationId, token) = factory.Emails.For(email)!.ExtractInvitationLink();
         var accept = await anon.PostAsJsonAsync("/api/v1/invitations/accept", new { invitationId, token }, ct);
         accept.StatusCode.ShouldBe(HttpStatusCode.OK);

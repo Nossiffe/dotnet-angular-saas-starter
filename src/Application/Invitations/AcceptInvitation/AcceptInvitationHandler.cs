@@ -20,12 +20,21 @@ public sealed class AcceptInvitationHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        // Message neutre (anti-énumération) : ne révèle pas si l'invitation existe, est expirée,
-        // révoquée ou si le token est faux (l'endpoint est anonyme — pas d'oracle d'énumération).
+        // Message neutre (anti-énumération) : ne révèle pas si l'invitation existe, si le token est
+        // faux ou si aucun lien n'est valable (avant le premier envoi, ou après un renvoi en attente
+        // de l'outbox). L'endpoint est anonyme : pas d'oracle d'énumération.
         var invitation = await invitations.GetByIdAsync(InvitationId.From(command.InvitationId), cancellationToken);
         if (invitation is null || !tokens.VerifyToken(command.Token, invitation.TokenHash))
         {
             return InvitationErrors.Invalid;
+        }
+
+        // Statut et expiration avant le mot de passe : une invitation expirée ou révoquée est refusée
+        // directement, sans faire saisir un mot de passe à un invité qui n'a pas de compte.
+        var acceptable = invitation.CheckAcceptable(clock.UtcNow);
+        if (acceptable.IsError)
+        {
+            return acceptable.Errors;
         }
 
         var existingUser = await identity.FindByEmailAsync(invitation.InviteeEmail, cancellationToken);

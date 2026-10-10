@@ -11,7 +11,8 @@ public sealed class InvitationConfiguration : IEntityTypeConfiguration<Invitatio
         ArgumentNullException.ThrowIfNull(builder);
         builder.HasKey(i => i.Id);
         builder.Property(i => i.InviteeEmail).HasMaxLength(256).IsRequired();
-        builder.Property(i => i.TokenHash).HasMaxLength(64).IsRequired();
+        // Null tant qu'aucun lien n'est valable : l'index unique accepte plusieurs NULL (PostgreSQL).
+        builder.Property(i => i.TokenHash).HasMaxLength(64);
         builder.HasIndex(i => i.TokenHash).IsUnique();
         builder.Property(i => i.Role).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(i => i.Status).HasConversion<string>().HasMaxLength(20).IsRequired();

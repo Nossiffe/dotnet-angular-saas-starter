@@ -35,6 +35,8 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Analyseurs Meziantou, SonarAnalyzer et Roslynator en dernière version : les mises à jour NuGet de Dependabot échouaient faute d'espace disque, en téléchargeant une à une les versions intermédiaires.
 - En Development, les commandes SQL d'EF ne sont plus journalisées (catégorie `Microsoft.EntityFrameworkCore.Database.Command` en Warning) : le premier lancement affichait environ 240 lignes de SQL avant « Now listening ». Une commande en échec reste journalisée.
 - Runners CI fixés sur `ubuntu-24.04` au lieu de `ubuntu-latest` : une nouvelle image ne change plus l'environnement de la CI sans commit.
+- E-mails d'invitation envoyés par l'outbox (`SendInvitationEmailHandler`, sur `MemberInvitedDomainEvent` et `InvitationResentDomainEvent`) au lieu d'un job Hangfire enfilé après le commit : le jeton du lien est créé à l'envoi et son hash enregistré avant que l'e-mail parte. Livraison au moins une fois : un doublon remplace le lien précédent. Un renvoi rend l'ancien lien caduc aussitôt (ADR 0005).
+- Acceptation d'une invitation : statut et expiration vérifiés avant de demander un mot de passe à un invité sans compte.
 
 ### Fixed
 - gitleaks : la configuration du dépôt remplaçait les règles par défaut et ne détectait plus rien ; elle les étend maintenant. Le hook pre-commit bloque dès que gitleaks est installé.
@@ -46,9 +48,11 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Premier lancement sur une base vide : la migration automatique de développement ne journalise plus d'erreur EF (`Failed executing DbCommand`).
 - Sur un clone neuf, `npm start` échouait (`Cannot find module '../../api/generated'`) : `npm start` et `npm test` génèrent maintenant les types de l'API avant de démarrer.
 - Le build ne démarre plus de serveur Hangfire pendant la génération OpenAPI : une dizaine de lignes de log, dont deux avertissements, à chaque build.
+- Les erreurs SMTP des e-mails d'invitation et de réinitialisation étaient avalées, et l'e-mail perdu : l'invitation est maintenant retentée par l'outbox, la réinitialisation par Hangfire (trois nouvelles tentatives, puis l'état Deleted, qui expire après 24 h).
 
 ### Removed
 - Package `Microsoft.Extensions.Http.Resilience`, référencé mais jamais utilisé.
+- `IInvitationEmailEnqueuer`, `HangfireInvitationEmailEnqueuer` et `ProcessInvitationEmailJob`, remplacés par l'outbox. **Au déploiement** : laisser la file Hangfire se vider avant de mettre à jour, ou supprimer depuis le dashboard les jobs `ProcessInvitationEmailJob` restants et renvoyer les invitations concernées. Sinon, ces jobs ne peuvent plus être chargés et restent en échec, avec le jeton brut et l'adresse en arguments.
 
 ### Security
 - Connexion : un e-mail inconnu ou un compte verrouillé coûte le même calcul de hash qu'un mauvais mot de passe, qui fait l'essentiel de la durée de la réponse ; un échec sur un compte existant enregistre encore la tentative en base, un écart bien plus faible. L'inscription, elle, signale toujours un e-mail déjà pris (voir `ARCHITECTURE.md`).
@@ -59,8 +63,10 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Organisation par défaut à la connexion : la plus ancienne adhésion, au lieu d'un ordre SQL indéterminé.
 - `TenantId`, l'audit et la suppression logique n'ont plus de setter public ; l'intercepteur couvre aussi `SaveChanges` synchrone et refuse un changement de tenant.
 - Routes `/organizations/{orgId}` : contrôle de portée centralisé dans `OrganizationScopeFilter` ; test d'architecture qui exige le filtre `"TenantId" = @TenantId` dans chaque requête SQL écrite en raw string literal (`"""`) qui nomme une table d'entité tenant.
+- Le jeton brut d'une invitation n'est plus stocké en clair dans les tables Hangfire, comme argument du job : seul son hash est en base. Le job de réinitialisation, passé à l'état Deleted après ses tentatives, n'y garde pas l'adresse e-mail plus de 24 h ; son log d'échec et l'exception que Hangfire conserve ne contiennent que l'identifiant de l'utilisateur.
 - Rôle Admin effectif (invitations, suppression de produits) ; changement de rôle réservé à l'Owner. Les tests appliquent les vraies policies au lieu d'une copie.
 
 ### Migrations DB
 - `RemoveUserDisplayName` : supprime la colonne inutilisée `AspNetUsers.DisplayName`.
 - `OutboxConsumersAndRetries` : crée la table `OutboxMessageConsumers`, ajoute `OutboxMessages.NextAttemptOn` et l'index partiel des messages à traiter.
+- `InvitationTokenIssuedOnSend` : `Invitations.TokenHash` devient nullable (aucun lien valable avant le premier envoi, ni après un renvoi jusqu'au nouvel envoi).

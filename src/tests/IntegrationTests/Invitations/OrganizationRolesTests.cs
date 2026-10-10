@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Saas.Application.Common.Interfaces;
 using Saas.Domain.Tenancy;
 using Saas.Infrastructure.Persistence;
+using Saas.IntegrationTests.Outbox;
 using Shouldly;
 using Xunit;
 
@@ -102,7 +103,8 @@ public sealed class OrganizationRolesTests(PostgresApiFactory factory)
         var invite = await InvitationTestFlow.ClientFor(factory, orgId, ownerId)
             .PostAsJsonAsync($"/api/v1/organizations/{orgId}/invitations", new { email, role = "Member" }, ct);
         invite.StatusCode.ShouldBe(HttpStatusCode.Created);
-        return (orgId, factory.Emails.For(email)!.ExtractInvitationLink().InvitationId, memberId);
+        await OutboxRunner.RunUntilIdleAsync(factory, ct);
+        return (orgId, factory.Emails.For(email).ShouldNotBeNull().ExtractInvitationLink().InvitationId, memberId);
     }
 
     // Lignes de l'organisation avec leur version (xmin) : toute écriture sur l'une d'elles la change.

@@ -45,6 +45,7 @@ description.
 | `InvitationErrors.NotPendingRevoke` | Validation | `Invitation.NotPending` | Seule une invitation en attente peut être révoquée. |
 | `InvitationErrors.NotPendingAccept` | Validation | `Invitation.NotPending` | Seule une invitation en attente peut être acceptée. |
 | `InvitationErrors.NotPendingRefresh` | Validation | `Invitation.NotPending` | Seule une invitation en attente peut être renouvelée. |
+| `InvitationErrors.NotPendingIssueToken` | Validation | `Invitation.NotPending` | Seule une invitation en attente peut recevoir un nouveau lien. |
 | `InvitationErrors.Expired` | Validation | `Invitation.Expired` | Cette invitation a expiré. |
 | `InvitationErrors.Invalid` | Validation | `Invitation.Invalid` | Invitation invalide ou expirée. |
 | `InvitationErrors.PasswordRequired` | Validation | `Invitation.PasswordRequired` | Un mot de passe est requis pour finaliser la création du compte. |
@@ -61,7 +62,8 @@ Notes :
   contre une race entre le check applicatif et l'insert.
 - `InvitationErrors.Invalid` est le message anti-énumération verbatim de
   `AcceptInvitationHandler` : **avant** vérification du token, un seul message
-  (invitation inexistante, token faux, révoquée). Une fois le token valide
+  (invitation inexistante, token faux, ou aucun lien valable : avant le premier envoi, ou après
+  un renvoi, jusqu'au nouvel envoi). Une fois le token valide
   (l'appelant détient la preuve), les messages précis `Expired`/`NotPending`
   s'appliquent : ce n'est pas un oracle.
 - Pas de `OrganizationErrors.AlreadyJoined` : le cas « déjà membre pendant l'accept »
