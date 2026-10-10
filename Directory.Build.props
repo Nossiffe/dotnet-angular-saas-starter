@@ -33,7 +33,8 @@
   </PropertyGroup>
   <!-- En CI, un lock file périmé fait échouer le restore (NU1004) au lieu d'être réécrit.
        Ce groupe doit rester après celui qui définit ContinuousIntegrationBuild : MSBuild évalue
-       les propriétés dans l'ordre, et la condition verrait sinon une valeur vide. -->
+       les propriétés dans l'ordre, et la condition verrait sinon une valeur vide.
+       ci.yml (job dotnet) vérifie que RestoreLockedMode vaut true pour chaque projet. -->
   <PropertyGroup>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RestoreLockedMode Condition="'$(ContinuousIntegrationBuild)' == 'true'">true</RestoreLockedMode>
