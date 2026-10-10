@@ -24,6 +24,15 @@ jobs:
         with:
           persist-credentials: false
 
+      # Sur un tag (push, ou lancement manuel sur un tag : metadata-action pose alors aussi les
+      # tags semver et latest), la section du CHANGELOG est vérifiée avant de publier quoi que ce
+      # soit : sans elle, le job github-release échouerait après la publication de l'image.
+      - name: Section du CHANGELOG pour ce tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: bash scripts/release-notes.sh "${TAG#v}" > /dev/null
+
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
@@ -62,12 +71,20 @@ jobs:
           # https://docs.zizmor.sh/audits/#cache-poisoning).
           package-manager-cache: false
       - name: SBOM backend (CycloneDX)
+        # Les dépendances NuGet du projet de l'API, celui que l'image publie, et des projets qu'il
+        # référence : la solution entière ajouterait les projets de test. --exclude-dev écarte les
+        # paquets marqués comme dépendances de développement (analyseurs Sonar, Roslynator et
+        # Meziantou, générateur de Mediator, DotNet.ReproducibleBuilds). L'image de base et le
+        # runtime .NET n'y figurent pas.
         run: |
           dotnet tool restore
-          dotnet tool run dotnet-CycloneDX -- Saas.slnx -o sbom --filename sbom-backend.json --json
+          dotnet tool run dotnet-CycloneDX -- src/Api/Saas.Api.csproj -o sbom --filename sbom-backend.json --json --exclude-dev
       - name: SBOM front (npm sbom natif)
+        # Sans --omit dev : npm écarterait aussi tout paquet de production qu'une dépendance de
+        # développement utilise, dont @angular/core, rxjs et tslib. L'arbre complet marque les
+        # paquets qui ne servent qu'au développement de la propriété cdx:npm:package:development.
         run: |
-          (cd web-angular && npm ci --ignore-scripts && npm sbom --sbom-format cyclonedx --omit dev > ../sbom/sbom-web-angular.json)
+          (cd web-angular && npm ci --ignore-scripts && npm sbom --sbom-format cyclonedx > ../sbom/sbom-web-angular.json)
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sbom
@@ -79,6 +96,49 @@ jobs:
           subject-name: ghcr.io/${{ github.repository }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
+
+  # Les artifacts d'un run sont conservés 90 jours par défaut : les SBOM sont aussi attachés à
+  # la GitHub Release du tag, qui les garde. Job séparé pour que seul lui ait contents: write,
+  # sans exécuter le code de build (npm ci, outils .NET, docker build). Sur un tag v* seulement,
+  # poussé ou choisi pour un lancement manuel ; pas sur une branche.
+  github-release:
+    name: GitHub Release
+    needs: build-and-push
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # créer la release du tag et y attacher les SBOM
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: sbom
+          path: sbom
+
+      - name: Notes de release depuis le CHANGELOG
+        env:
+          TAG: ${{ github.ref_name }}
+        run: bash scripts/release-notes.sh "${TAG#v}" > release-notes.md
+
+      # Créée au premier run ; mise à jour (SBOM remplacés, notes réécrites) si elle existe déjà,
+      # par exemple quand le job est relancé après un échec.
+      - name: Créer ou mettre à jour la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$TAG" sbom/sbom-backend.json sbom/sbom-web-angular.json \
+              --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file release-notes.md
+          else
+            gh release create "$TAG" sbom/sbom-backend.json sbom/sbom-web-angular.json \
+              --repo "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --notes-file release-notes.md
+          fi
 
 # NOTE : Ce workflow construit et pousse l'image sur GHCR.
 # Le déploiement effectif (vers le runtime : k8s, ECS, VM, etc.) est à brancher

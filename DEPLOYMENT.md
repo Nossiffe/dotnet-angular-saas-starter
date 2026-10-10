@@ -23,30 +23,65 @@ docker run --rm -p 8080:8080 \
 
 ---
 
-## Release — image, SBOM, attestation de provenance
+## Release — image, SBOM, attestation de provenance, GitHub Release
 
-Le workflow `.github/workflows/release.yml` se déclenche sur un tag `v*` (ou manuellement) et,
-pour chaque release :
+Le workflow `.github/workflows/release.yml` se déclenche au push d'un tag `v*`, ou
+manuellement, sur une branche ou sur un tag. Sur un tag, poussé ou choisi pour le lancement
+manuel, il vérifie d'abord que `CHANGELOG.md` a une section pour la version, avec sa rubrique
+**Migrations DB** remplie (`scripts/release-notes.sh`) : sans elle, rien n'est publié. Puis :
 
-1. **Build & push** l'image sur GHCR (`ghcr.io/<repo>`), taguée par semver + SHA court.
-2. **SBOM** (Software Bill of Materials), généré avant l'attestation (voir note ci-dessous) :
-   - Backend : `dotnet tool run dotnet-CycloneDX -- Saas.slnx -o sbom --filename sbom-backend.json --json`
-     (format CycloneDX ; le `--` sépare les arguments de `dotnet tool run` de ceux passés à
-     l'outil).
-   - Front Angular : `npm sbom --sbom-format cyclonedx --omit dev` (SBOM natif npm, dépendances
-     de prod uniquement).
-   - Tous les fichiers `sbom/*.json` sont publiés en artifact du run (`actions/upload-artifact`).
+1. **Build & push** de l'image sur GHCR, `ghcr.io/<owner>/<repo>` en minuscules (ici
+   `ghcr.io/nossiffe/dotnet-angular-saas-starter`,
+   [`docker/metadata-action`](https://github.com/docker/metadata-action/blob/dc802804100637a589fabce1cb79ff13a1411302/README.md#image-name-and-tag-sanitization) met le nom en minuscules).
+   L'image contient l'API seule, construite par le `Dockerfile` ; le front n'en fait pas
+   partie. Tags, pour le tag Git `v0.1.0` : `0.1.0`, `0.1`, `latest` (ajouté à chaque tag
+   semver, [`latest=auto`](https://github.com/docker/metadata-action/blob/dc802804100637a589fabce1cb79ff13a1411302/README.md#latest-tag)) et `sha-<7 premiers caractères du commit>`. Un
+   lancement manuel sur une branche ne produit que le tag `sha-…` ; lancé sur un tag, il pose
+   les mêmes tags qu'un push du tag, `latest` compris, car `docker/metadata-action` ne regarde
+   que [la référence](https://github.com/docker/metadata-action/blob/dc802804100637a589fabce1cb79ff13a1411302/src/meta.ts#L155-L158) : le lancer sur un ancien tag ramènerait `latest` en
+   arrière.
+2. **SBOM** (Software Bill of Materials, format CycloneDX), générés avant l'attestation (voir
+   note ci-dessous) :
+   - `sbom-backend.json`, l'API :
+     `dotnet tool run dotnet-CycloneDX -- src/Api/Saas.Api.csproj -o sbom --filename sbom-backend.json --json --exclude-dev`.
+     Il décrit les dépendances NuGet du projet de l'API, celui que l'image publie, et des
+     projets qu'il référence (Application, Infrastructure, Domain) : ni les projets de test, ni
+     les paquets marqués comme dépendances de développement (analyseurs Sonar, Roslynator et
+     Meziantou, générateur de source de Mediator, DotNet.ReproducibleBuilds). L'image de base et
+     le runtime .NET n'y figurent pas. Le `--` sépare les arguments de `dotnet tool run` de ceux passés à l'outil.
+   - `sbom-web-angular.json`, le front : `npm sbom --sbom-format cyclonedx` (SBOM natif npm). Le
+     front n'est pas dans l'image : ce SBOM décrit les dépendances de `web-angular` à cette
+     version. Il contient tout l'arbre installé ; les paquets qui ne servent qu'au développement
+     portent la propriété `cdx:npm:package:development` à `true`. Pas de `--omit dev` : npm
+     écarterait aussi les paquets de production qu'une dépendance de développement utilise, dont
+     `@angular/core`, `rxjs` et `tslib` (sélecteur
+     [`.dev`](https://docs.npmjs.com/cli/v11/using-npm/dependency-selectors#dependency-type-selectors)).
+   - Les deux fichiers sont publiés en artifact du run (`actions/upload-artifact`), conservé
+     [90 jours par défaut](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/remove-workflow-artifacts), puis attachés à la GitHub Release (étape 4).
 3. **Attestation de provenance** (SLSA build L2, `actions/attest-build-provenance`) sur le
    digest de l'image poussée — preuve vérifiable que l'image provient bien de ce repo/run/commit,
    publiée sur le registre GHCR. Placée **après** les SBOM dans le workflow : sur un dépôt
    privé hors GitHub Enterprise, cette étape échoue (les attestations y exigent GitHub
-   Enterprise Cloud) ; les SBOM des images déjà poussées restent alors publiés.
+   Enterprise Cloud) ; les SBOM des images déjà poussées restent alors publiés en artifact.
+4. **GitHub Release** du tag (job `github-release`, sur un tag seulement) : titre = nom du tag
+   (ex. `v0.1.0`), notes reprises de la section du `CHANGELOG.md`, et les deux SBOM en pièces
+   jointes, qui restent après l'expiration des artifacts. Ce job ne tourne que si le précédent a
+   réussi, attestation comprise. Seul lui a `contents: write`, et il n'exécute pas le code de
+   build. Si la Release existe déjà, il remplace ses SBOM et réécrit ses notes au lieu
+   d'échouer.
+
+Si seul `github-release` échoue, relancer les jobs en échec (« Re-run failed jobs ») : relancer
+tout le workflow reconstruirait et repousserait l'image, et ses tags pourraient pointer vers un
+nouveau digest.
 
 ### Vérifier l'attestation d'une image
 
 ```bash
 gh attestation verify oci://ghcr.io/<owner>/<repo>:<tag> --owner <owner>
+# ici : gh attestation verify oci://ghcr.io/nossiffe/dotnet-angular-saas-starter:0.1.0 --owner Nossiffe
 ```
+
+Si le paquet GHCR est privé, s'authentifier d'abord auprès du registre (`docker login ghcr.io`).
 
 Une vérification réussie confirme que l'image a été construite par le workflow `release.yml`
 de ce dépôt (pas d'image substituée en amont du registre) — à faire avant tout déploiement

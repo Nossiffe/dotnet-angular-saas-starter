@@ -148,9 +148,12 @@ au déploiement (cf. `DEPLOYMENT.md` § Migration Bundle).
    Bundle) — c'est ce bundle qui applique ces migrations en production, une seule fois par
    release, avant le déploiement de la nouvelle version.
 
-`release.yml` (déclenché par le tag) gère le build/push image + SBOM + attestation (cf.
-tableau CI/CD ci-dessous) — il ne touche pas au `CHANGELOG.md`, qui reste maintenu à la
-main lors du tag.
+`release.yml` (déclenché par le tag) gère le build/push image + SBOM + attestation, puis
+crée la GitHub Release du tag avec les SBOM en pièces jointes (cf. tableau CI/CD ci-dessous).
+Il lit la section du `CHANGELOG.md` pour les notes de la release (`scripts/release-notes.sh`),
+sans le modifier, et s'arrête avant de publier quoi que ce soit si elle manque ou n'a pas de
+rubrique **Migrations DB** remplie (« aucune » au moins) : le `CHANGELOG.md` est mis à jour à la main, dans une PR fusionnée
+avant de poser le tag.
 
 ---
 
@@ -186,7 +189,7 @@ dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulemen
 | `deps-audit.yml` | PR sur `main` + cron hebdo (lundi 05h UTC) + manuel ; sur une PR, `dotnet-audit` et `npm-audit` ne tournent que si un manifeste de deps change (`Directory.Packages.props`, `packages.lock.json`, `package.json`/`package-lock.json`) | Bloque sur CVE High/Critical — `dotnet-audit` (NuGet, direct + transitif) et `npm-audit` (front Angular, dépendances de prod seulement) | Corriger (bump/pin) ou documenter une exception datée — voir § Procédure d'exception CVE ci-dessous |
 | `zizmor.yml` | Push `main` touchant `.github/workflows/**` + toute PR ; sur une PR, le job `zizmor` ne tourne que si `.github/workflows/**` change | Lint de sécurité des workflows GitHub Actions (permissions, injections, cache-poisoning…) — mode console (`advanced-security: false`), exit non nul = bloquant | Reproduire en local : `uvx zizmor .github/workflows/` ; corriger le finding (permissions minimales, pin SHA, échappement d'input) |
 | `stryker.yml` | PR sur `main` + cron hebdo + manuel ; sur une PR, seul `stryker-domain` tourne, et seulement si le Domain, ses tests, les dépendances ou la configuration de Stryker changent | Mutation testing des tests unitaires : `stryker-domain` **bloquant** (seuil 60 %), `stryker-application` mesuré seulement | Ouvrir le rapport HTML en artifact ; voir § Mutation testing ci-dessous |
-| `release.yml` | Tag `v*` + manuel | Build + push image GHCR, SBOM (CycloneDX backend + npm du front), attestation de provenance (SLSA build L2) | Voir `DEPLOYMENT.md` § Release — image, SBOM, attestation |
+| `release.yml` | Tag `v*` + manuel | Build + push image GHCR, SBOM (CycloneDX backend + npm du front), attestation de provenance (SLSA build L2), GitHub Release avec les notes du CHANGELOG et les SBOM (tag seulement) | Voir `DEPLOYMENT.md` § Release — image, SBOM, attestation de provenance, GitHub Release |
 | `codeql.yml` / `security.yml` | Push/PR sur `main` | SAST (CodeQL C#/TS) + secret scanning (gitleaks, règles par défaut) | Voir l'onglet Security du repo ; reproduire gitleaks en local : `gitleaks git .` |
 
 > **CodeQL** : gratuit sur un dépôt public. Sur un dépôt privé sans GitHub Advanced Security,

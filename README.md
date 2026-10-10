@@ -31,7 +31,7 @@ Every change has to pass these gates, whoever or whatever wrote it:
 | Secrets | gitleaks with its default rules | Pre-commit hook (when gitleaks is installed) and CI |
 | Dependencies | Audit blocking High/Critical CVEs (NuGet including transitive, npm); NuGet advisories of every severity shown as build warnings, without failing the build; grouped Dependabot updates with a 7-day cooldown | Audit: pull requests touching manifests, weekly. Warnings: every build |
 | CI security | zizmor workflow linting, actions pinned by SHA | Workflow changes |
-| Supply chain | CycloneDX SBOM and build provenance attestation | Every release |
+| Supply chain | Docker image of the API on GHCR with a build provenance attestation; GitHub Release with the CHANGELOG notes and two CycloneDX SBOMs (API, front end) | Every `v*` tag |
 
 On `main`, the checks of the gates that run on pull requests are required: `doc-lint`, `dotnet`, `web-angular`, `e2e-angular`, `gitleaks`, `Analyze (csharp)`, `Analyze (javascript-typescript)`, `dotnet-audit`, `npm-audit`, `stryker-domain`, `smoke` and `zizmor`. The last five only concern part of the files. On a pull request that does not change those files, a `changes` job skips them, and GitHub [counts a job skipped this way as passed](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#handling-skipped-but-required-checks). If that detection fails, they run.
 
