@@ -73,6 +73,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Routes `/organizations/{orgId}` : contrôle de portée centralisé dans `OrganizationScopeFilter` ; test d'architecture qui exige le filtre `"TenantId" = @TenantId` dans chaque requête SQL écrite en raw string literal (`"""`) qui nomme une table d'entité tenant.
 - Le jeton brut d'une invitation n'est plus stocké en clair dans les tables Hangfire, comme argument du job : seul son hash est en base. Le job de réinitialisation, passé à l'état Deleted après ses tentatives, n'y garde pas l'adresse e-mail plus de 24 h ; son log d'échec et l'exception que Hangfire conserve ne contiennent que l'identifiant de l'utilisateur.
 - Rôle Admin effectif (invitations, suppression de produits) ; changement de rôle réservé à l'Owner. Les tests appliquent les vraies policies au lieu d'une copie.
+- Front : vitest et `@vitest/coverage-v8` passent en 4.1.11, qui corrige GHSA-82fw-gwwq-j7x9 (sévérité modérée), une traversée de chemin dans les redirections de mocks de `@vitest/mocker`. Dépendances de développement : rien n'en part dans l'application livrée.
 
 ### Migrations DB
 - `RemoveUserDisplayName` : supprime la colonne inutilisée `AspNetUsers.DisplayName`.
