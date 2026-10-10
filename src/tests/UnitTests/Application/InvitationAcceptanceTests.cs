@@ -22,7 +22,7 @@ public sealed class InvitationAcceptanceTests
     {
         _clock.UtcNow.Returns(Now);
         _uow.ExecuteInTransactionAsync(Arg.Any<Func<CancellationToken, Task>>(), Arg.Any<CancellationToken>())
-            .Returns(call => call.Arg<Func<CancellationToken, Task>>()!(CancellationToken.None));
+            .Returns(call => call.Arg<Func<CancellationToken, Task>>()(CancellationToken.None));
     }
 
     [Fact]

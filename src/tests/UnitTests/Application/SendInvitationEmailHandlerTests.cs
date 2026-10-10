@@ -43,7 +43,7 @@ public sealed class SendInvitationEmailHandlerTests
             _ = _email.SendAsync(
                 invitation.InviteeEmail,
                 Arg.Any<string>(),
-                Arg.Is<string>(body => body!.Contains("https://app.test/accept-invitation?token=raw-token", StringComparison.Ordinal)),
+                Arg.Is<string>(body => body.Contains("https://app.test/accept-invitation?token=raw-token", StringComparison.Ordinal)),
                 Arg.Any<CancellationToken>());
         });
     }
