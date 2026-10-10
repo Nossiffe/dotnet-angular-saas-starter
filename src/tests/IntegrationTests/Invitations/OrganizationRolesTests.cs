@@ -64,6 +64,8 @@ public sealed class OrganizationRolesTests(PostgresApiFactory factory)
     [InlineData("POST", "invitations/{invitation}/resend")]
     [InlineData("DELETE", "invitations/{invitation}")]
     [InlineData("PUT", "members/{member}/role")]
+    [InlineData("GET", "members")]
+    [InlineData("DELETE", "members/{member}")]
     public async Task Another_organization_in_the_route_returns_404_and_changes_nothing(string method, string route)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -91,8 +93,9 @@ public sealed class OrganizationRolesTests(PostgresApiFactory factory)
     {
         var ownerId = Guid.CreateVersion7();
         var memberId = Guid.CreateVersion7();
-        var organization = Organization.Create($"Org-{Guid.NewGuid():N}", Slug.From($"org-{Guid.NewGuid():N}"), ownerId);
-        organization.AddMember(memberId, OrganizationRole.Member);
+        var organization = Organization.Create(
+            $"Org-{Guid.NewGuid():N}", Slug.From($"org-{Guid.NewGuid():N}"), ownerId, DateTimeOffset.UtcNow);
+        organization.AddMember(memberId, OrganizationRole.Member, DateTimeOffset.UtcNow);
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             scope.ServiceProvider.GetRequiredService<IOrganizationRepository>().Add(organization);

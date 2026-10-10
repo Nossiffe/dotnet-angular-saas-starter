@@ -98,7 +98,7 @@ public sealed class InvitationAcceptanceTests
 
         result.Value.IsNewUser.ShouldBeFalse();
         invitation.Status.ShouldBe(InvitationStatus.Accepted);
-        organization.Memberships.ShouldContain(m => m.UserId == invitee.Id && m.Role == invitation.Role);
+        organization.Memberships.ShouldContain(m => m.UserId == invitee.Id && m.Role == invitation.Role && m.JoinedAt == Now);
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 

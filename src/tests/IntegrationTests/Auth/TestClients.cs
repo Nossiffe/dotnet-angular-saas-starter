@@ -56,8 +56,8 @@ public static class TestClients
             ON CONFLICT ("Id") DO NOTHING
             """);
         db.Database.ExecuteSql($"""
-            INSERT INTO "OrganizationMemberships" ("Id", "OrganizationId", "UserId", "Role")
-            VALUES ({membershipId}, {tenantId}, {userId}, {role})
+            INSERT INTO "OrganizationMemberships" ("Id", "OrganizationId", "UserId", "Role", "JoinedAt")
+            VALUES ({membershipId}, {tenantId}, {userId}, {role}, now())
             ON CONFLICT ("UserId", "OrganizationId") DO NOTHING
             """);
     }

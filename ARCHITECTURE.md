@@ -51,7 +51,7 @@ token vivent dans l'Infrastructure : le Domain ne connaît un utilisateur que pa
   `ArgumentException` (garde technique, la validation FluentValidation passe avant) ; une règle métier
   violée renvoie une erreur `ErrorOr` (`InvitationErrors.OwnerRole`).
 - Setters privés — mutations uniquement via méthodes de comportement (`Rename`, `ChangePrice`, `AddMember`,
-  `ChangeMemberRole`, `Accept`, `Revoke`).
+  `ChangeMemberRole`, `RemoveMember`, `Accept`, `Revoke`).
 - Domain events : l'agrégat appelle `Raise(new XxxDomainEvent(...))`. Persistés en transaction par `DomainEventsInterceptor` puis dispatchés de façon fiable par l'`OutboxProcessor` (voir « Robustesse » plus bas).
 
 ### Value objects
@@ -169,15 +169,20 @@ Request → LoggingBehavior → ValidationBehavior → Handler
   est seulement refusé, et un refresh refusé supprime le cookie. L'adhésion est vérifiée avant
   la rotation : un utilisateur retiré d'une organisation perd ses sessions sur celle-ci, sur
   chaque appareil, et garde celles de ses autres organisations. Le refresh lit aussi le rôle en
-  base : le nouveau token porte le rôle actuel, jamais celui de l'ancien token. Une
-  réinitialisation de mot de passe révoque toutes les sessions ouvertes.
+  base : le nouveau token porte le rôle actuel, jamais celui de l'ancien token. Un refresh refusé
+  faute d'adhésion révoque les sessions de l'utilisateur sur l'organisation ; mais si aucun de
+  ses appareils n'en tente entre son retrait et une nouvelle invitation, ses refresh tokens
+  restent actifs et redeviendraient valables. Le retrait d'un membre par l'API les révoque donc
+  aussi, par l'outbox (`MemberRemovedHandler`). Ses access tokens, eux, sont refusés dès le
+  retrait (adhésion relue à chaque requête, plus bas). Une réinitialisation de mot de passe
+  révoque toutes les sessions ouvertes.
 - **Rôles d'organisation et policies** (`AuthorizationPolicies`) :
 
   | Policy | Claim exigé | Routes |
   |---|---|---|
   | `HasTenant` | `tenant` non vide | Produits |
-  | `TenantAdmin` | `tenant_role` = `Owner` ou `Admin` | Invitations, suppression d'un produit |
-  | `TenantOwner` | `tenant_role` = `Owner` | Changement de rôle d'un membre |
+  | `TenantAdmin` | `tenant_role` = `Owner` ou `Admin` | Invitations, liste des membres, suppression d'un produit |
+  | `TenantOwner` | `tenant_role` = `Owner` | Changement de rôle et retrait d'un membre (jamais d'un Owner) |
 
   Les tests d'intégration appliquent ces policies telles quelles : la factory de test remplace
   seulement le schéma d'authentification.

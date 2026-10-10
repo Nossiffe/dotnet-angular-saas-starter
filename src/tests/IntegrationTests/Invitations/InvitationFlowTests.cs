@@ -392,7 +392,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
 
             var organization = await organizations.GetByIdAsync(OrganizationId.From(orgId), ct);
             organization.ShouldNotBeNull();
-            organization.AddMember(user.Id, OrganizationRole.Member);
+            organization.AddMember(user.Id, OrganizationRole.Member, DateTimeOffset.UtcNow);
             await uow.SaveChangesAsync(ct);
 
             rawToken = tokens.GenerateRawToken();

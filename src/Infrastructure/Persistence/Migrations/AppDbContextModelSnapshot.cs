@@ -17,7 +17,7 @@ namespace Saas.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.9")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -545,6 +545,11 @@ namespace Saas.Infrastructure.Persistence.Migrations
                         {
                             b1.Property<Guid>("Id")
                                 .HasColumnType("uuid");
+
+                            b1.Property<DateTimeOffset>("JoinedAt")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("timestamp with time zone")
+                                .HasDefaultValueSql("now()");
 
                             b1.Property<Guid>("OrganizationId")
                                 .HasColumnType("uuid");

@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Xunit;
 
@@ -34,12 +36,27 @@ public sealed class RealJwtFlowTests(RealJwtApiFactory factory)
         listResp.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
-    [Fact]
-    public async Task Products_without_a_token_return_401()
+    // La route existe (vérifié dans les endpoints de l'application) : le 401 vient de l'absence de
+    // token, et non d'une route inconnue, que la fallback policy refuserait aussi par un 401.
+    [Theory]
+    [InlineData("GET", "/api/v1/products", "/products")]
+    [InlineData("GET", "/api/v1/organizations/{org}/members", "/organizations/{orgId:guid}/members")]
+    [InlineData("DELETE", "/api/v1/organizations/{org}/members/{user}", "/organizations/{orgId:guid}/members/{userId:guid}")]
+    public async Task Organization_routes_without_a_token_return_401(string method, string route, string pattern)
     {
         var ct = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
-        var resp = await client.GetAsync("/api/v1/products", ct);
+        var path = route
+            .Replace("{org}", Guid.CreateVersion7().ToString(), StringComparison.Ordinal)
+            .Replace("{user}", Guid.CreateVersion7().ToString(), StringComparison.Ordinal);
+        using var request = new HttpRequestMessage(new HttpMethod(method), path);
+
+        var resp = await client.SendAsync(request, ct);
+
+        factory.Services.GetRequiredService<EndpointDataSource>().Endpoints.OfType<RouteEndpoint>()
+            .Any(e => (e.RoutePattern.RawText ?? "").TrimEnd('/').EndsWith(pattern, StringComparison.Ordinal)
+                && e.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.Contains(method, StringComparer.OrdinalIgnoreCase) == true)
+            .ShouldBeTrue();
         resp.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 

@@ -22,6 +22,10 @@ public static class OrganizationErrors
         code: "Membership.CannotChangeOwnRole",
         description: "Vous ne pouvez pas modifier votre propre rôle.");
 
+    public static Error CannotRemoveOwner => Error.Validation(
+        code: "Membership.CannotRemoveOwner",
+        description: "Impossible de retirer un Owner de l'organisation.");
+
     public static Error InvalidRole => Error.Validation(
         code: "Membership.InvalidRole",
         description: "Rôle invalide. Valeurs acceptées : Member, Admin.");

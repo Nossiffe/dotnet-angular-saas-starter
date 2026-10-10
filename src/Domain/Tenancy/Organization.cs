@@ -26,7 +26,7 @@ public sealed class Organization : AggregateRoot<OrganizationId>, IAuditable
     public string? UpdatedBy { get; private set; }
 #pragma warning restore S1144
 
-    public static Organization Create(string name, Slug slug, Guid ownerUserId)
+    public static Organization Create(string name, Slug slug, Guid ownerUserId, DateTimeOffset createdAt)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -39,19 +39,42 @@ public sealed class Organization : AggregateRoot<OrganizationId>, IAuditable
             Name = name.Trim(),
             Slug = slug,
         };
-        organization.AddMember(ownerUserId, OrganizationRole.Owner); // intentionnel : émet MemberJoinedDomainEvent pour le Owner à la création
+        organization.AddMember(ownerUserId, OrganizationRole.Owner, createdAt); // intentionnel : émet MemberJoinedDomainEvent pour le Owner à la création
         return organization;
     }
 
-    public void AddMember(Guid userId, OrganizationRole role)
+    public void AddMember(Guid userId, OrganizationRole role, DateTimeOffset joinedAt)
     {
         if (_memberships.Exists(m => m.UserId == userId))
         {
             return;
         }
 
-        _memberships.Add(OrganizationMembership.Create(Id, userId, role));
+        _memberships.Add(OrganizationMembership.Create(Id, userId, role, joinedAt));
         Raise(new MemberJoinedDomainEvent(Id, userId, role));
+    }
+
+    // Un Owner ne se retire pas, et aucun autre membre ne le retire : un retrait ne fait jamais
+    // perdre un Owner à l'organisation. Pour en retirer un, il faudrait d'abord changer son rôle.
+    // Comme la garde du dernier Owner (ChangeMemberRole), le contrôle porte sur les adhésions
+    // chargées, sans verrou : il ne résisterait pas à une promotion en Owner simultanée, que l'API
+    // ne permet pas aujourd'hui.
+    public ErrorOr<Success> RemoveMember(Guid userId)
+    {
+        var membership = _memberships.Find(m => m.UserId == userId);
+        if (membership is null)
+        {
+            return OrganizationErrors.MemberNotFound;
+        }
+
+        if (membership.Role == OrganizationRole.Owner)
+        {
+            return OrganizationErrors.CannotRemoveOwner;
+        }
+
+        _memberships.Remove(membership);
+        Raise(new MemberRemovedDomainEvent(Id, userId, membership.Role));
+        return Result.Success;
     }
 
     public ErrorOr<Success> ChangeMemberRole(Guid userId, OrganizationRole newRole)

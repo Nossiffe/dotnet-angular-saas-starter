@@ -31,7 +31,8 @@ internal static class InvitationTestFlow
         var org = Organization.Create(
             $"Org-{Guid.NewGuid():N}",
             Slug.From($"org-{Guid.NewGuid():N}"),
-            ownerUserId);
+            ownerUserId,
+            DateTimeOffset.UtcNow);
         orgs.Add(org);
         await uow.SaveChangesAsync(cancellationToken);
 

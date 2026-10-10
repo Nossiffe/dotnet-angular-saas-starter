@@ -14,6 +14,7 @@ public sealed partial class RegisterHandler(
     IIdentityService identity,
     IEmailSender email,
     IEmailLinkBuilder links,
+    IDateTimeProvider clock,
     ILogger<RegisterHandler> logger)
     : ICommandHandler<RegisterCommand, ErrorOr<Guid>>
 {
@@ -42,7 +43,8 @@ public sealed partial class RegisterHandler(
             var organization = Organization.Create(
                 command.Email,
                 Slug.From($"org-{userId:N}"),
-                userId);
+                userId,
+                clock.UtcNow);
             organizations.Add(organization);
 
             await uow.SaveChangesAsync(ct2);
