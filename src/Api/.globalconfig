@@ -1,0 +1,11 @@
+is_global = true
+
+# Asp.Versioning : AV0029 (AddApiVersioning().AddOpenApi()) et AV0030
+# (MapOpenApi().WithDocumentPerVersion()) demandent un document OpenAPI par version.
+# L'API n'a qu'une version, v1, et sert volontairement un seul document : la
+# documentation des deux règles juge la désactivation sans risque dans ce cas.
+# Les adopter changerait aussi web-angular/openapi.json. À réévaluer à l'arrivée d'une v2.
+# Ici plutôt que dans .editorconfig : AV0029 se déclenche aussi dans le code généré par
+# Microsoft.AspNetCore.OpenApi, que .editorconfig n'atteint pas ; un .globalconfig, si.
+dotnet_diagnostic.AV0029.severity = none
+dotnet_diagnostic.AV0030.severity = none
