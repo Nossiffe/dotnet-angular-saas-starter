@@ -20,12 +20,13 @@ public sealed class ListProductsHandler(IDbConnectionFactory factory, ITenantPro
 
         await using var connection = await factory.OpenConnectionAsync(cancellationToken);
 
+        // "Id" départage les produits de même nom : l'ordre reste le même d'une page à l'autre.
         var rowsCommand = new CommandDefinition(
             """
             SELECT "Id", "Name", "Price_Amount" AS "Price", COUNT(*) OVER() AS "TotalCount"
             FROM "Products"
             WHERE "TenantId" = @TenantId AND "IsDeleted" = FALSE
-            ORDER BY "Name"
+            ORDER BY "Name", "Id"
             LIMIT @PageSize OFFSET @Offset
             """,
             new { tenant.TenantId, PageSize = pageSize, Offset = offset },

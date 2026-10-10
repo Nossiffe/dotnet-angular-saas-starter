@@ -62,6 +62,32 @@ public sealed class ProductsEndpointTests(PostgresApiFactory factory)
         problem.ShouldNotBeNull().Errors.Keys.ShouldBe(["Name", "Price"], ignoreOrder: true);
     }
 
+    // Des produits de même nom gardent un ordre stable d'une page à l'autre : aucun n'est sauté ni
+    // répété. Assez de lignes pour que le tri de PostgreSQL ne garde pas l'ordre d'insertion.
+    [Fact]
+    public async Task Products_with_the_same_name_are_paged_in_a_stable_order()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var client = factory.CreateAuthenticatedClient();
+        var name = $"Homonyme-{Guid.NewGuid():N}";
+        List<Guid> ids = [];
+        for (var i = 0; i < 25; i++)
+        {
+            ids.Add(await client.CreateProductAsync(name, 1m, ct));
+        }
+
+        List<Guid> paged = [];
+        for (var page = 1; page <= 3; page++)
+        {
+            var result = await client.GetFromJsonAsync<PagedResult<ProductDto>>($"/api/v1/products?page={page}&pageSize=10", ct);
+            paged.AddRange(result.ShouldNotBeNull().Items.Select(p => p.Id));
+        }
+
+        // Ordre de PostgreSQL sur un uuid : celui des octets, donc du texte hexadécimal. Deux identifiants
+        // créés dans la même milliseconde ne suivent pas forcément l'ordre de création.
+        paged.ShouldBe(ids.OrderBy(id => id.ToString(), StringComparer.Ordinal));
+    }
+
     [Fact]
     public async Task Pagination_page1_pageSize2_returns_correct_items_and_total()
     {
