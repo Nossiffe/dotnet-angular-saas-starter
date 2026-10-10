@@ -93,4 +93,68 @@ describe('authInterceptor', () => {
 
     expect(responseReceived).toBe(true);
   });
+
+  // Un seul refresh par requête : le rejeu ne repasse pas par l'intercepteur. Un second 401 est
+  // transmis tel quel, sans nouveau refresh, si bien que le front ne boucle pas.
+  it('a 401 on the retried request is passed on without a second refresh', () => {
+    auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
+    httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);
+
+    let status = 0;
+    http
+      .get('/api/v1/products')
+      .subscribe({ error: (err: { status: number }) => (status = err.status) });
+
+    httpMock.expectOne('/api/v1/products').flush(null, { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectOne('/api/v1/auth/refresh').flush(NEW_TOKEN_RESP);
+    httpMock.expectOne('/api/v1/products').flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    httpMock.expectNone('/api/v1/auth/refresh');
+    expect(status).toBe(401);
+  });
+
+  // Après un refresh réussi, un refus du rejeu (le rôle actuel ne suffit pas, par exemple) est une
+  // réponse ordinaire : la session, valide, n'est pas effacée.
+  it('an error on the retried request keeps the refreshed session', () => {
+    auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
+    httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);
+    const clearSpy = vi.spyOn(auth, 'clearLocalState');
+
+    let status = 0;
+    http
+      .post('/api/v1/organizations/o/invitations', {})
+      .subscribe({ error: (err: { status: number }) => (status = err.status) });
+
+    httpMock
+      .expectOne('/api/v1/organizations/o/invitations')
+      .flush(null, { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectOne('/api/v1/auth/refresh').flush(NEW_TOKEN_RESP);
+    httpMock
+      .expectOne('/api/v1/organizations/o/invitations')
+      .flush(null, { status: 403, statusText: 'Forbidden' });
+
+    expect(status).toBe(403);
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(auth.token()).toBe('AT2');
+    clearSpy.mockRestore();
+  });
+
+  // Toutes les requêtes qui attendaient le refresh ont été annulées (composant détruit, par
+  // exemple) : le refresh se termine quand même, puis il est oublié. Le 401 suivant en lance un
+  // nouveau au lieu de rejouer le jeton de l'ancien.
+  it('a refresh whose requests were all cancelled is not reused by the next 401', () => {
+    auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
+    httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);
+
+    const cancelled = http.get('/api/v1/products').subscribe({ error: () => undefined });
+    httpMock.expectOne('/api/v1/products').flush(null, { status: 401, statusText: 'Unauthorized' });
+    const firstRefresh = httpMock.expectOne('/api/v1/auth/refresh');
+    cancelled.unsubscribe();
+    firstRefresh.flush(NEW_TOKEN_RESP);
+
+    http.get('/api/v1/products').subscribe({ error: () => undefined });
+    httpMock.expectOne('/api/v1/products').flush(null, { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectOne('/api/v1/auth/refresh').flush(NEW_TOKEN_RESP);
+    httpMock.expectOne('/api/v1/products').flush([]);
+  });
 });

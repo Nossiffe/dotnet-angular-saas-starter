@@ -17,7 +17,7 @@ npm start   # http://localhost:4200
 
 | Folder                         | Content                                                                                                                                                                             |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app/core/auth`            | Auth service (access token in memory, refresh through the HttpOnly cookie), route guard, interceptor that refreshes the token on a 401 (one shared refresh for concurrent requests) |
+| `src/app/core/auth`            | Auth service (access token in memory, refresh through the HttpOnly cookie), route guard, interceptor that refreshes on a 401 and replays the request once (a single shared refresh) |
 | `src/app/core/error`           | Global error handler and HTTP error interceptor                                                                                                                                     |
 | `src/app/features/auth`        | Login, registration, e-mail confirmation, forgotten and reset password pages                                                                                                        |
 | `src/app/features/products`    | Products page, the sample tenant-scoped feature                                                                                                                                     |

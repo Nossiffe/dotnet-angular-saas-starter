@@ -6,6 +6,9 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 
 ## [Unreleased]
 
+### Fixed
+- Front : une erreur sur la requête rejouée après un refresh réussi (un 403, par exemple) effaçait la session locale ; seul l'échec du refresh l'efface désormais. Un refresh dont toutes les requêtes avaient été annulées restait aussi en mémoire : le 401 suivant rejouait son ancien jeton sans rafraîchir la session.
+
 ## [0.1.0] - 2026-10-10
 
 ### Added
