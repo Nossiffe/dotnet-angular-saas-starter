@@ -21,15 +21,66 @@ export interface CurrentUser {
   email: string;
 }
 
+/** Rôle dans l'organisation du jeton (claim `tenant_role`). */
+export type TenantRole = 'Owner' | 'Admin' | 'Member';
+
+/**
+ * Claims du jeton d'accès utiles à l'affichage : l'utilisateur, son organisation et son rôle.
+ * Lus sans vérifier la signature : ils ne servent qu'à adapter l'interface, l'API contrôle chaque
+ * appel (adhésion et rôle relus en base).
+ */
+export interface SessionClaims {
+  userId: string;
+  tenantId: string;
+  tenantRole: TenantRole | null;
+}
+
+interface AccessTokenPayload {
+  sub?: unknown;
+  tenant?: unknown;
+  tenant_role?: unknown;
+}
+
+function decodeClaims(token: string | null): SessionClaims | null {
+  const payload = token?.split('.')[1];
+  if (!payload) return null;
+  try {
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const claims = JSON.parse(atob(padded)) as AccessTokenPayload;
+    const role = claims.tenant_role;
+    return {
+      userId: typeof claims.sub === 'string' ? claims.sub : '',
+      tenantId: typeof claims.tenant === 'string' ? claims.tenant : '',
+      tenantRole: role === 'Owner' || role === 'Admin' || role === 'Member' ? role : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
 
   private readonly accessToken = signal<string | null>(null);
   private readonly user = signal<CurrentUser | null>(null);
+  private readonly endedByLogout = signal(false);
 
   readonly currentUser = this.user.asReadonly();
   readonly isAuthenticated = computed(() => this.accessToken() !== null);
+  /**
+   * La dernière session s'est terminée par « Déconnexion », et non par un refresh refusé : une page
+   * n'annonce alors pas une session expirée.
+   */
+  readonly loggedOut = this.endedByLogout.asReadonly();
+  /** Claims du jeton courant ; mis à jour à chaque refresh, donc après un changement de rôle. */
+  readonly session = computed(() => decodeClaims(this.accessToken()));
+  /** Owner ou Admin : accès à l'écran Organisation. */
+  readonly canManageOrganization = computed(() => {
+    const role = this.session()?.tenantRole;
+    return role === 'Owner' || role === 'Admin';
+  });
 
   token(): string | null {
     return this.accessToken();
@@ -80,6 +131,7 @@ export class AuthService {
   clearLocalState(): void {
     this.accessToken.set(null);
     this.user.set(null);
+    this.endedByLogout.set(false);
   }
 
   /**
@@ -89,9 +141,9 @@ export class AuthService {
    */
   logout(): Observable<void> {
     return this.http.post<void>('/api/v1/auth/logout', {}).pipe(
-      tap(() => this.clearLocalState()),
+      tap(() => this.endByLogout()),
       catchError(() => {
-        this.clearLocalState();
+        this.endByLogout();
         return of(undefined);
       }),
     );
@@ -118,8 +170,14 @@ export class AuthService {
     });
   }
 
+  private endByLogout(): void {
+    this.clearLocalState();
+    this.endedByLogout.set(true);
+  }
+
   private applyTokens(res: TokenResponse, email?: string): void {
     this.accessToken.set(res.accessToken);
+    this.endedByLogout.set(false);
     if (email) this.user.set({ email });
   }
 }

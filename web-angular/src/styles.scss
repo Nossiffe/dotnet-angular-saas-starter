@@ -16,3 +16,13 @@ body {
   margin: 0;
   font-family: Roboto, sans-serif;
 }
+
+// Bouton d'une action destructive (confirmation d'un retrait) : couleur d'erreur du thème.
+.danger {
+  @include mat.button-overrides(
+    (
+      filled-container-color: var(--mat-sys-error),
+      filled-label-text-color: var(--mat-sys-on-error),
+    )
+  );
+}

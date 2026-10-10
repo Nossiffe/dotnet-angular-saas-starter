@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
+import { organizationAdminGuard } from './core/auth/organization-admin.guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'products' },
@@ -35,6 +36,12 @@ export const routes: Routes = [
     path: 'products',
     canActivate: [authGuard],
     loadComponent: () => import('./features/products/products.page').then((m) => m.ProductsPage),
+  },
+  {
+    path: 'organization',
+    canActivate: [authGuard, organizationAdminGuard],
+    loadComponent: () =>
+      import('./features/organization/organization.page').then((m) => m.OrganizationPage),
   },
   { path: '**', redirectTo: 'products' },
 ];

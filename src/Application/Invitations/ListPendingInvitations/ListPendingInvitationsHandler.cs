@@ -18,7 +18,7 @@ public sealed class ListPendingInvitationsHandler(IDbConnectionFactory connectio
         // (offset zéro = UTC) pour respecter le contrat InvitationDto sans dépendre du mapping implicite.
         var rows = await connection.QueryAsync<Row>(new CommandDefinition(
             """
-            SELECT "Id", "InviteeEmail" AS "Email", "Role", "ExpiresAt", "CreatedAt"
+            SELECT "Id", "InviteeEmail" AS "Email", "Role", "InvitedByUserId", "ExpiresAt", "CreatedAt"
             FROM "Invitations"
             WHERE "OrganizationId" = @OrgId AND "Status" = 'Pending'
             ORDER BY "CreatedAt" DESC
@@ -31,10 +31,12 @@ public sealed class ListPendingInvitationsHandler(IDbConnectionFactory connectio
                 r.Id,
                 r.Email,
                 r.Role,
+                r.InvitedByUserId,
                 new DateTimeOffset(r.ExpiresAt, TimeSpan.Zero),
                 new DateTimeOffset(r.CreatedAt, TimeSpan.Zero)))
             .ToList();
     }
 
-    private sealed record Row(Guid Id, string Email, string Role, DateTime ExpiresAt, DateTime CreatedAt);
+    private sealed record Row(
+        Guid Id, string Email, string Role, Guid InvitedByUserId, DateTime ExpiresAt, DateTime CreatedAt);
 }

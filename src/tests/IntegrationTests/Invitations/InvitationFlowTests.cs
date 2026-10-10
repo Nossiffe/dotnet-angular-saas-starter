@@ -220,6 +220,29 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         list.ShouldAllBe(i => i.Email != null);
     }
 
+    // Chaque invitation en attente indique qui l'a envoyée : ici deux expéditeurs différents.
+    [Fact]
+    public async Task Each_pending_invitation_shows_who_sent_it()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var ownerId = Guid.CreateVersion7();
+        var adminId = Guid.CreateVersion7();
+        var orgId = await InvitationTestFlow.SeedOrganizationAsync(factory, ownerId, ct);
+        var owner = factory.CreateAuthenticatedClient(orgId, userId: ownerId);
+        var admin = factory.CreateAuthenticatedClient(orgId, "Admin", adminId);
+        var byOwner = UniqueEmail("by-owner");
+        var byAdmin = UniqueEmail("by-admin");
+
+        (await owner.PostAsJsonAsync($"/api/v1/organizations/{orgId}/invitations", new { email = byOwner, role = "Member" }, ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Created);
+        (await admin.PostAsJsonAsync($"/api/v1/organizations/{orgId}/invitations", new { email = byAdmin, role = "Admin" }, ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Created);
+        var list = await owner.GetFromJsonAsync<List<InvitationDto>>($"/api/v1/organizations/{orgId}/invitations", ct);
+
+        list.ShouldNotBeNull().Select(i => (i.Email, i.InvitedByUserId)).ShouldBe(
+            [(byOwner, ownerId), (byAdmin, adminId)], ignoreOrder: true);
+    }
+
     [Fact]
     public async Task ChangeMemberRole_promotes_member_to_admin_reflected_on_relogin()
     {

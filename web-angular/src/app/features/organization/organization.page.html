@@ -1,0 +1,173 @@
+<h1>Organisation</h1>
+
+<p class="status" role="status">{{ status() }}</p>
+
+<section aria-labelledby="members-title">
+  <h2 id="members-title" #membersHeading tabindex="-1">Membres</h2>
+  @if (membersError(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+  @if (members.isLoading() && !members.hasValue()) {
+    <p>Chargement des membres…</p>
+  } @else if (members.error()) {
+    <p class="error" role="alert">{{ loadError(members.error()) }}</p>
+  } @else if (members.hasValue()) {
+    <table mat-table [dataSource]="members.value()!">
+      <caption class="visually-hidden">
+        Membres de l'organisation
+      </caption>
+      <ng-container matColumnDef="email">
+        <th mat-header-cell *matHeaderCellDef scope="col">E-mail</th>
+        <td mat-cell *matCellDef="let m">{{ m.email }}</td>
+      </ng-container>
+      <ng-container matColumnDef="role">
+        <th mat-header-cell *matHeaderCellDef scope="col">Rôle</th>
+        <td mat-cell *matCellDef="let m">
+          @if (canChangeRole(m)) {
+            <!-- Le choix d'un rôle n'est envoyé qu'au clic sur « Appliquer » : une flèche du clavier
+                 sur la liste ne change rien côté API. -->
+            <div class="role-change">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="compact">
+                <select
+                  matNativeControl
+                  [attr.aria-label]="'Rôle de ' + m.email"
+                  [disabled]="membersLocked()"
+                  (change)="chooseRole(m, $event)"
+                >
+                  @for (role of roles; track role) {
+                    <option [value]="role" [selected]="role === selectedRole(m)">{{ role }}</option>
+                  }
+                </select>
+              </mat-form-field>
+              <button
+                mat-button
+                type="button"
+                [disabled]="membersLocked() || selectedRole(m) === m.role"
+                [attr.aria-label]="'Appliquer le rôle de ' + m.email"
+                (click)="applyRole(m)"
+              >
+                Appliquer
+              </button>
+            </div>
+          } @else {
+            {{ m.role }}
+          }
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="joinedAt">
+        <th mat-header-cell *matHeaderCellDef scope="col">Arrivée</th>
+        <td mat-cell *matCellDef="let m">{{ m.joinedAt | date: 'dd/MM/yyyy' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef scope="col">
+          <span class="visually-hidden">Actions</span>
+        </th>
+        <td mat-cell *matCellDef="let m">
+          @if (canRemove(m)) {
+            <button
+              mat-button
+              type="button"
+              [disabled]="membersLocked()"
+              [attr.aria-label]="'Retirer ' + m.email"
+              (click)="confirmRemoval(m, $event)"
+            >
+              Retirer
+            </button>
+          }
+        </td>
+      </ng-container>
+      <tr mat-header-row *matHeaderRowDef="memberColumns()"></tr>
+      <tr mat-row *matRowDef="let row; columns: memberColumns()"></tr>
+    </table>
+  }
+</section>
+
+<section aria-labelledby="invitations-title">
+  <h2 id="invitations-title" #invitationsHeading tabindex="-1">Invitations en attente</h2>
+  @if (invitationsError(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+  @if (invitations.isLoading() && !invitations.hasValue()) {
+    <p>Chargement des invitations…</p>
+  } @else if (invitations.error()) {
+    <p class="error" role="alert">{{ loadError(invitations.error()) }}</p>
+  } @else if (invitations.hasValue()) {
+    @if (invitations.value()!.length === 0) {
+      <p>Aucune invitation en attente.</p>
+    } @else {
+      <table mat-table [dataSource]="invitations.value()!">
+        <caption class="visually-hidden">
+          Invitations en attente
+        </caption>
+        <ng-container matColumnDef="email">
+          <th mat-header-cell *matHeaderCellDef scope="col">E-mail</th>
+          <td mat-cell *matCellDef="let i">{{ i.email }}</td>
+        </ng-container>
+        <ng-container matColumnDef="role">
+          <th mat-header-cell *matHeaderCellDef scope="col">Rôle</th>
+          <td mat-cell *matCellDef="let i">{{ i.role }}</td>
+        </ng-container>
+        <ng-container matColumnDef="invitedBy">
+          <th mat-header-cell *matHeaderCellDef scope="col">Envoyée par</th>
+          <td mat-cell *matCellDef="let i">{{ invitedBy(i) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="expiresAt">
+          <th mat-header-cell *matHeaderCellDef scope="col">Expire le</th>
+          <td mat-cell *matCellDef="let i">{{ i.expiresAt | date: 'dd/MM/yyyy' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef scope="col">
+            <span class="visually-hidden">Actions</span>
+          </th>
+          <td mat-cell *matCellDef="let i">
+            <button
+              mat-button
+              type="button"
+              [disabled]="invitationsLocked()"
+              [attr.aria-label]="'Renvoyer l\'invitation à ' + i.email"
+              (click)="resend(i)"
+            >
+              Renvoyer
+            </button>
+            <button
+              mat-button
+              type="button"
+              [disabled]="invitationsLocked()"
+              [attr.aria-label]="'Révoquer l\'invitation de ' + i.email"
+              (click)="revoke(i)"
+            >
+              Révoquer
+            </button>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="invitationColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: invitationColumns"></tr>
+      </table>
+    }
+  }
+
+  <h3 id="invite-title">Inviter une personne</h3>
+  <form class="invite" aria-labelledby="invite-title" (submit)="invite($event)" novalidate>
+    <mat-form-field appearance="outline">
+      <mat-label>E-mail</mat-label>
+      <input #inviteEmail matInput type="email" autocomplete="off" [formField]="inviteForm.email" />
+      @if (inviteForm.email().touched() && inviteForm.email().invalid()) {
+        @for (e of inviteForm.email().errors(); track e.kind) {
+          <mat-error>{{ e.message }}</mat-error>
+        }
+      }
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Rôle</mat-label>
+      <select matNativeControl [formField]="inviteForm.role">
+        @for (role of roles; track role) {
+          <option [value]="role">{{ role }}</option>
+        }
+      </select>
+    </mat-form-field>
+    <button mat-flat-button type="submit" [disabled]="invitationsLocked()">Inviter</button>
+  </form>
+  @if (inviteError(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+</section>
