@@ -56,5 +56,10 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.71.0",
     "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "@hey-api/json-schema-ref-parser@1.4.4": {
+      "js-yaml": "^4.3.2"
+    }
   }
 }

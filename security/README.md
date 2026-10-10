@@ -114,6 +114,44 @@ upstream, breaking change non absorbable dans le délai, etc.) :
 
 ---
 
+## Versions forcées (`overrides` npm)
+
+Quand une version corrigée existe mais qu'une dépendance intermédiaire exige
+encore la version vulnérable, `web-angular/package.json` impose la version
+corrigée à cette dépendance seule, par un `overrides` limité à sa version
+exacte. Chaque override est listé ici avec la condition de son retrait.
+
+| Paquet | Version imposée | À qui | Avis corrigés | Retirer quand |
+|---|---|---|---|---|
+| `js-yaml` | `^4.3.2`, au lieu de 4.2.0 exactement | `@hey-api/json-schema-ref-parser` 1.4.4, tiré par `@hey-api/openapi-ts` 0.99.0 | GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh (élevés : consommation CPU quadratique sur un YAML piégé) | le parseur tiré par `@hey-api/openapi-ts` accepte un js-yaml corrigé (4.3.2 ou plus, ou 5.x) ; s'il change de version sans le corriger, reporter l'override sur sa nouvelle version |
+
+js-yaml ne sert qu'aux outils de développement : la génération des types de
+l'API (`npm run api:gen`) et le chargement de la configuration de stylelint
+par `cosmiconfig`, qui accepte `^4.1.0` et partage la copie 4.3.2 du parseur.
+4.3.2 reste dans la même version majeure que 4.2.0 ; les types générés depuis
+`openapi.json` sont identiques avec l'une et l'autre.
+
+L'override vise la version 1.4.4 du parseur, pas tout l'arbre : les versions
+en préparation de Hey API passent à js-yaml 5, et un override global leur
+imposerait js-yaml 4 sans qu'aucun contrôle ne le signale. En contrepartie,
+une nouvelle version du parseur qui exigerait encore un js-yaml vulnérable
+échapperait à l'override : seuls une alerte Dependabot et `npm audit` le
+montreraient, car `deps-audit.yml` ignore les dépendances de développement.
+
+À chaque montée de `@hey-api/openapi-ts`, que Dependabot propose dans une PR
+à part, et dans cette même PR :
+
+1. `npm ls @hey-api/json-schema-ref-parser js-yaml` : si le parseur est
+   toujours en 1.4.4, rien à faire.
+2. Sinon, `npm view @hey-api/json-schema-ref-parser@<nouvelle version> dependencies.js-yaml` :
+   - js-yaml 4.3.2 ou plus, ou 5.x : retirer l'override de `package.json`,
+     puis lancer `npm install` ;
+   - encore un js-yaml vulnérable : reporter l'override sur la nouvelle
+     version du parseur.
+3. `npm audit` ne doit plus citer ces avis.
+
+---
+
 ## Convention de nommage
 
 - `security/deps-review-YYYY-MM-DD.md` — une revue par événement déclencheur
@@ -132,4 +170,6 @@ upstream, breaking change non absorbable dans le délai, etc.) :
   *Dependencies audit (CVE)*.
 - **Décisions historiques et exceptions actives** : fichiers
   `security/deps-review-*.md`.
+- **Versions imposées par `overrides` npm** : section « Versions forcées »
+  ci-dessus.
 - **Procédure d'escalade** : section « Procédure d'exception » ci-dessus.

@@ -74,6 +74,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Le jeton brut d'une invitation n'est plus stocké en clair dans les tables Hangfire, comme argument du job : seul son hash est en base. Le job de réinitialisation, passé à l'état Deleted après ses tentatives, n'y garde pas l'adresse e-mail plus de 24 h ; son log d'échec et l'exception que Hangfire conserve ne contiennent que l'identifiant de l'utilisateur.
 - Rôle Admin effectif (invitations, suppression de produits) ; changement de rôle réservé à l'Owner. Les tests appliquent les vraies policies au lieu d'une copie.
 - Front : vitest et `@vitest/coverage-v8` passent en 4.1.11, qui corrige GHSA-82fw-gwwq-j7x9 (sévérité modérée), une traversée de chemin dans les redirections de mocks de `@vitest/mocker`. Dépendances de développement : rien n'en part dans l'application livrée.
+- Front : un `overrides` npm impose js-yaml 4.3.2 à `@hey-api/json-schema-ref-parser` 1.4.4, utilisé par la génération des types de l'API, qui exige encore exactement 4.2.0. 4.3.2 corrige GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj et GHSA-2883-xcg3-v3hh (sévérité élevée, consommation CPU sur un YAML piégé). Dépendance de développement elle aussi ; raison et condition de retrait dans `security/README.md`.
 
 ### Migrations DB
 - `RemoveUserDisplayName` : supprime la colonne inutilisée `AspNetUsers.DisplayName`.
