@@ -55,13 +55,11 @@
   <!-- Stack de test (référencée par les projets *Tests) — runner natif MTP (xunit.v3),
        couverture via Microsoft.Testing.Extensions.CodeCoverage. -->
   <ItemGroup>
-    <PackageVersion Include="xunit.v3" Version="3.2.2" />
-    <!-- Aligné sur MTP v1 (xunit.v3 3.2.2 → xunit.v3.core.mtp-v1 pin MTP 1.9.1) :
-         la dernière CodeCoverage restant sur la ligne MTP v1.x est 18.0.6 (→ MTP 1.8.4,
-         unifié vers 1.9.1). 18.1.0+ sautent à MTP 2.x → TypeLoadException (IDataConsumer)
-         car l'extension MSBuild reste en 1.9.1. Remonter quand xunit.v3 passera à MTP v2, et retirer
-         alors la règle ignore de .github/dependabot.yml. -->
-    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.0.6" />
+    <!-- xunit.v3 et CodeCoverage doivent viser la même version majeure de Microsoft Testing
+         Platform : xunit.v3 4 et CodeCoverage 18.1.0+ sont sur MTP 2. Un écart fait planter les
+         deux projets de test (TypeLoadException) sans exécuter un seul test : les monter ensemble. -->
+    <PackageVersion Include="xunit.v3" Version="4.0.1" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.2" />
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />

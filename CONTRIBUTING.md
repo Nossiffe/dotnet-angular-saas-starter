@@ -169,10 +169,11 @@ dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulemen
 ```
 
 > ⚠️ **Runner MTP** : `dotnet test` transmet les options qu'il ne connaît pas aux
-> exécutables de test ; une option VSTest historique (`--nologo`, `--filter`,
-> `--collect`…) est rejetée par MTP → chaque projet imprime son aide et le run se
-> termine en « Zéro tests exécutés » (exit 5). En cas d'exit 5 inattendu, retirer
-> les options avant de soupçonner les tests.
+> exécutables de test ; une option VSTest historique (`--nologo`, `--collect`…) est
+> rejetée par MTP → chaque projet imprime son aide et le run se termine en « Zéro
+> tests exécutés » (exit 5). En cas d'exit 5 inattendu, retirer les options avant de
+> soupçonner les tests. Exception : depuis xunit.v3 4, `--filter` (syntaxe VSTest) est
+> accepté, par exemple `--filter "FullyQualifiedName~RateLimitingTests"`.
 
 ---
 
