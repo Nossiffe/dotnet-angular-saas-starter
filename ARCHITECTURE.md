@@ -205,7 +205,8 @@ par `Program.cs` dans l'ordre.
   par IP, sans limite pour les appels en loopback ; fixed window de 10 requêtes par 30 secondes et
   par IP sur `/auth` (`RateLimitingExtensions.AuthPolicy`). Les tests d'intégration remplacent ces
   limites (`PostgresApiFactory`) : sous `TestServer`, tous les appels arrivent sans IP, donc dans
-  la même partition. Le smoke test vérifie le 429 contre l'application réelle.
+  la même partition. `RateLimitingTests` vérifie la limite globale ; la politique `/auth` n'est
+  vérifiée que par le smoke test, contre l'application réelle.
 - **Délai des requêtes** : un filet global coupe une requête après 30 secondes
   (`RequestTimeouts:DefaultSeconds`), sauf sous débogueur. Un endpoint long légitime s'en exempte
   avec `[DisableRequestTimeout]` ou une politique nommée.
