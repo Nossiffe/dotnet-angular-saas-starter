@@ -8,8 +8,8 @@ COPY Directory.Build.props Directory.Packages.props NuGet.config global.json .ed
 # Copy all source projects (lock files are inside each project dir)
 COPY src/ src/
 
-# Restore (lock files are present in src/**/packages.lock.json)
-RUN dotnet restore "src/Api/Saas.Api.csproj"
+# Restore against the lock files (src/**/packages.lock.json): a stale one fails the build (NU1004)
+RUN dotnet restore "src/Api/Saas.Api.csproj" --locked-mode
 
 # Publish
 RUN dotnet publish "src/Api/Saas.Api.csproj" \
