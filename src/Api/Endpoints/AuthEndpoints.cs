@@ -1,6 +1,7 @@
 using Mediator;
 using Saas.Api.Common;
 using Saas.Api.Contracts;
+using Saas.Api.Hosting;
 using Saas.Application.Auth.ConfirmEmail;
 using Saas.Application.Auth.ForgotPassword;
 using Saas.Application.Auth.Login;
@@ -16,7 +17,7 @@ public sealed class AuthEndpoints : IEndpoint
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
         // Groupe de base : rate-limiting auth partagé. Chaque route gère son propre niveau d'accès.
-        var group = app.MapGroup("/auth").WithTags("Auth").RequireRateLimiting("auth");
+        var group = app.MapGroup("/auth").WithTags("Auth").RequireRateLimiting(RateLimitingExtensions.AuthPolicy);
 
         group.MapPost("/register", Register)
             .AllowAnonymous()

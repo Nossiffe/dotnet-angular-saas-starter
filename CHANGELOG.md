@@ -37,6 +37,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Runners CI fixés sur `ubuntu-24.04` au lieu de `ubuntu-latest` : une nouvelle image ne change plus l'environnement de la CI sans commit.
 - E-mails d'invitation envoyés par l'outbox (`SendInvitationEmailHandler`, sur `MemberInvitedDomainEvent` et `InvitationResentDomainEvent`) au lieu d'un job Hangfire enfilé après le commit : le jeton du lien est créé à l'envoi et son hash enregistré avant que l'e-mail parte. Livraison au moins une fois : un doublon remplace le lien précédent. Un renvoi rend l'ancien lien caduc aussitôt (ADR 0005).
 - Acceptation d'une invitation : statut et expiration vérifiés avant de demander un mot de passe à un invité sans compte.
+- `Program.cs` découpé en méthodes d'extension nommées (`src/Api/Hosting/`) : observabilité, limitation de débit, base de données au démarrage, serveur Hangfire, pipeline HTTP. Les explications longues passent dans `ARCHITECTURE.md` et `DEPLOYMENT.md`.
 
 ### Fixed
 - gitleaks : la configuration du dépôt remplaçait les règles par défaut et ne détectait plus rien ; elle les étend maintenant. Le hook pre-commit bloque dès que gitleaks est installé.

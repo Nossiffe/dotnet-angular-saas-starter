@@ -90,6 +90,7 @@ Vault, AWS Secrets Manager, Kubernetes Secrets, etc.) — **ne jamais committer 
 | `Jwt__Audience` | `saas-clients` | Audience des JWT |
 | `Jwt__AccessTokenMinutes` | `15` | Durée de vie du token d'accès |
 | `Jwt__RefreshTokenDays` | `7` | Durée de vie du refresh token |
+| `RequestTimeouts__DefaultSeconds` | `30` | Délai au-delà duquel une requête est coupée |
 
 ---
 
@@ -184,12 +185,21 @@ pourrait usurper `X-Forwarded-For`/`X-Forwarded-Proto` directement — surface d
 l'API est exposée sans proxy devant). Le middleware ne traite que `X-Forwarded-For` et
 `X-Forwarded-Proto`.
 
+Le middleware s'exécute avant `UseHsts` et `UseHttpsRedirection`, qui doivent voir le scheme du
+client. Par défaut, ASP.NET Core n'accepte ces en-têtes que d'un proxy en loopback, et les ignore
+sans erreur dès que le proxy est sur une autre machine (cas courant : nginx dans un conteneur
+séparé, sur le réseau Docker). L'API vide donc la liste des proxys connus et n'accepte qu'un seul
+saut (`ForwardLimit = 1`) : la confiance repose sur le fait que `ForwardedHeaders__Enabled` n'est
+activé que derrière un proxy qui écrase ces en-têtes pour les requêtes externes. Si le port de
+l'API restait joignable en direct, un client pourrait forger `X-Forwarded-For` et fausser le
+partitionnement par IP de la limitation de débit.
+
 ---
 
 ## Headers de sécurité — API vs SPA statique
 
 L'API applique déjà un preset de headers de sécurité (`NetEscapades.AspNetCore.SecurityHeaders`,
-`AddDefaultApiSecurityHeaders()` dans `Program.cs`) — rien à faire côté backend.
+`AddDefaultApiSecurityHeaders()` dans `HttpPipelineExtensions`) — rien à faire côté backend.
 
 Le **SPA statique** (Angular buildé, servi par nginx ou équivalent) a besoin de ses
 propres headers — notamment une CSP stricte, différente de celle de l'API (elle doit
@@ -214,7 +224,9 @@ add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
 ### Développement (`dotnet run`)
 
-En environnement `Development` avec `Database:MigrateOnStartup=true` (valeur par défaut), l'API applique automatiquement les migrations au démarrage via `CreateExecutionStrategy().ExecuteAsync(() => MigrateAsync())`.
+En environnement `Development` avec `Database:MigrateOnStartup=true` (valeur par défaut), l'API applique automatiquement les migrations au démarrage via `CreateExecutionStrategy().ExecuteAsync(() => MigrateAsync())` (`DatabaseStartupExtensions`). Les deux conditions sont requises ; les tests d'intégration désactivent la seconde, car ils migrent eux-mêmes leur base.
+
+Sur une base vide, `MigrateAsync` lit d'abord la table d'historique, absente, et EF journalise cet échec attendu en erreur. L'API crée donc la base et la table d'historique avant de migrer, pour un premier lancement sans erreur dans les logs.
 
 **Ne pas activer ce comportement en production** (risque de race condition en multi-instance).
 
@@ -323,5 +335,5 @@ builder.Services.AddStackExchangeRedisCache(options =>
 
 La terminaison TLS est gérée au niveau du **reverse-proxy / ingress** (nginx, Traefik, ALB, Ingress Controller).
 
-- `HSTS` (`max-age` 730 jours, `includeSubDomains`) et `HttpsRedirection` sont actifs hors `Development` (cf. `Program.cs`). Le `preload` HSTS n'est **pas** activé par défaut (engagement quasi irréversible auprès des listes des navigateurs) — opt-in commenté dans `Program.cs`, à activer seulement après confirmation que le domaine reste HTTPS partout durablement.
+- `HSTS` (`max-age` 730 jours, `includeSubDomains`) et `HttpsRedirection` sont actifs hors `Development` (`src/Api/Hosting/HttpPipelineExtensions.cs`). Le `preload` HSTS n'est **pas** activé par défaut (engagement quasi irréversible auprès des listes des navigateurs) : l'ajouter (`options.Preload = true` dans `AddHsts`) seulement après avoir confirmé que le domaine reste HTTPS partout durablement, puis le soumettre à hstspreload.org.
 - En production, configurer le reverse-proxy pour forcer HTTPS et transmettre les headers `X-Forwarded-*`, et activer `ForwardedHeaders__Enabled=true` côté API (§ dédiée ci-dessus) pour qu'elle les interprète.

@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Saas.Api.Hosting;
 using Saas.Application.Common.Events;
 using Saas.Application.Common.Interfaces;
 using Saas.Infrastructure.Identity;
@@ -57,7 +58,7 @@ public class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             services.RemoveAll<IConfigureOptions<RateLimiterOptions>>();
             services.Configure<RateLimiterOptions>(options =>
-                options.AddPolicy("auth", _ => RateLimitPartition.GetNoLimiter("tests")));
+                options.AddPolicy(RateLimitingExtensions.AuthPolicy, _ => RateLimitPartition.GetNoLimiter("tests")));
         });
 
         // Remplace l'envoi SMTP réel par un fake capturant (recipient + corps/lien).

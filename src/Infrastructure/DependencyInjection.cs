@@ -67,7 +67,7 @@ public static class DependencyInjection
             .UseRecommendedSerializerSettings()
             .UsePostgreSqlStorage(opt =>
                 opt.UseNpgsqlConnection(configuration.GetConnectionString("Default"))));
-        // Le serveur qui exécute les jobs est ajouté par l'hôte (Program.cs), qui sait s'il doit tourner.
+        // Le serveur qui exécute les jobs est ajouté par l'hôte (Api), qui sait s'il doit tourner.
 
         services.AddScoped<PurgeExpiredRefreshTokensJob>();
         services.AddScoped<PurgeProcessedOutboxMessagesJob>();
@@ -79,7 +79,7 @@ public static class DependencyInjection
     }
 
     // Enregistre les recurring jobs (types internes à l'Infrastructure).
-    // Appelé depuis Program.cs après Build() — IRecurringJobManager n'existe qu'au runtime.
+    // Appelé par l'hôte après Build() — IRecurringJobManager n'existe qu'au runtime.
     public static void RegisterRecurringJobs(IServiceProvider services)
     {
         var manager = services.GetRequiredService<IRecurringJobManager>();
