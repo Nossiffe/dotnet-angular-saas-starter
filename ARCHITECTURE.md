@@ -291,8 +291,11 @@ OutboxPollingService (toutes les 5 s) → OutboxProcessor → IDomainEventHandle
   refus d'Identity liés à un champ, à l'inscription et à l'acceptation d'une invitation (→ 400
   `ProblemDetails` par champ), `DbUpdateException`/`DbUpdateConcurrencyException`
   côté infrastructure (→ 409, ex. contrainte d'unicité Postgres 23505 en défense en profondeur
-  derrière une vérification applicative `ErrorOr`), toute autre exception non prévue → 500 (Serilog
-  la logue).
+  derrière une vérification applicative `ErrorOr`), `BadHttpRequestException` pour une requête
+  illisible (→ le statut porté par l'exception : 400 pour un JSON mal formé ou un identifiant qui
+  n'est pas un GUID, 415 pour un mauvais `Content-Type`), toute autre exception non prévue → 500
+  (Serilog la logue). ASP.NET Core ne lève `BadHttpRequestException` qu'en Development ; ailleurs,
+  il répond lui-même le statut, sans corps problem+json.
 - Depuis .NET 10, une exception traitée par un `IExceptionHandler` ne produit plus de log d'erreur
   ni de métrique d'erreur. L'API les garde pour les 500, et seulement pour eux
   (`SuppressDiagnosticsCallback`) : un 400 de validation n'est pas une erreur serveur.

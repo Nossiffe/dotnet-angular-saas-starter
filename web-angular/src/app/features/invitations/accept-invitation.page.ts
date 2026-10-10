@@ -21,7 +21,7 @@ function problemOf(err: HttpErrorResponse): Problem | null {
 }
 
 // Identifiant d'invitation au format GUID : un lien tronqué ou modifié est refusé sans appel à
-// l'API, qui répondrait 500 en Development (échec de lecture du corps JSON).
+// l'API.
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Erreurs de saisie (FluentValidation ou refus d'Identity) : un dictionnaire `errors` par champ, sans

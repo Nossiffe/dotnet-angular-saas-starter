@@ -54,6 +54,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Les erreurs SMTP des e-mails d'invitation et de réinitialisation étaient avalées, et l'e-mail perdu : l'invitation est maintenant retentée par l'outbox, la réinitialisation par Hangfire (trois nouvelles tentatives, puis l'état Deleted, qui expire après 24 h).
 - Liste des produits triée par nom puis par identifiant : des produits de même nom pouvaient être sautés ou répétés d'une page à l'autre.
 - La page produits refusait un prix de 0, que l'API accepte : un produit gratuit peut maintenant y être créé.
+- En Development, un corps de requête illisible (JSON mal formé, identifiant qui n'est pas un GUID) renvoyait 500 avec un log d'erreur : `GlobalExceptionHandler` reconnaît `BadHttpRequestException` et répond son statut (400 pour un corps illisible) en problem+json, sans log d'erreur. Hors Development, ASP.NET Core répondait déjà 400, sans corps.
 
 ### Removed
 - Package `Microsoft.Extensions.Http.Resilience`, référencé mais jamais utilisé.

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using Shouldly;
 using Xunit;
@@ -32,6 +33,29 @@ public sealed class ErrorLoggingTests(PostgresApiFactory factory)
         entries.ShouldContain(e => string.Equals(e.Category, RequestLogCategory, StringComparison.Ordinal)
             && e.Level == LogLevel.Information
             && e.Message.Contains("responded 400", StringComparison.Ordinal));
+        entries.Where(e => e.Level >= LogLevel.Error).ShouldBeEmpty();
+    }
+
+    // Un corps illisible (JSON tronqué, identifiant qui n'est pas un GUID) est une erreur du client :
+    // 400 en problem+json, sans log d'erreur. En Development, ASP.NET Core lève alors une exception.
+    [Theory]
+    [InlineData("/api/v1/products", """{ "name": "Stylo", "price": """)]
+    [InlineData("/api/v1/invitations/accept", """{ "invitationId": "pas-un-guid", "token": "t" }""")]
+    public async Task A_malformed_body_is_a_400_problem_without_any_error_log(string url, string body)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var traceId = ActivityTraceId.CreateRandom();
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Add("traceparent", $"00-{traceId.ToHexString()}-{ActivitySpanId.CreateRandom().ToHexString()}-01");
+
+        var response = await factory.CreateClient().SendAsync(request, ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/problem+json");
+        var entries = await WaitForRequestLogAsync(traceId, ct);
         entries.Where(e => e.Level >= LogLevel.Error).ShouldBeEmpty();
     }
 
