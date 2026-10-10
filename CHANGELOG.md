@@ -53,6 +53,7 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Le build ne démarre plus de serveur Hangfire pendant la génération OpenAPI : une dizaine de lignes de log, dont deux avertissements, à chaque build.
 - Les erreurs SMTP des e-mails d'invitation et de réinitialisation étaient avalées, et l'e-mail perdu : l'invitation est maintenant retentée par l'outbox, la réinitialisation par Hangfire (trois nouvelles tentatives, puis l'état Deleted, qui expire après 24 h).
 - Liste des produits triée par nom puis par identifiant : des produits de même nom pouvaient être sautés ou répétés d'une page à l'autre.
+- La page produits refusait un prix de 0, que l'API accepte : un produit gratuit peut maintenant y être créé.
 
 ### Removed
 - Package `Microsoft.Extensions.Http.Resilience`, référencé mais jamais utilisé.

@@ -12,8 +12,8 @@
     <input
       matInput
       type="number"
-      [value]="price()"
-      (input)="price.set(+$any($event.target).value)"
+      [value]="price() ?? ''"
+      (input)="setPrice($any($event.target).value)"
     />
   </mat-form-field>
   <button mat-flat-button color="primary" type="submit" [disabled]="creating()">Ajouter</button>
