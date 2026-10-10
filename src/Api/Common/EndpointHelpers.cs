@@ -10,4 +10,9 @@ internal static class EndpointHelpers
         => Enum.TryParse<OrganizationRole>(role, ignoreCase: true, out var parsed) && Enum.IsDefined(parsed)
             ? parsed
             : OrganizationErrors.InvalidRole;
+
+    // Chemin d'une route nommée, avec la version d'API de la requête en cours.
+    internal static string PathTo(this HttpContext http, string routeName, object values)
+        => http.RequestServices.GetRequiredService<LinkGenerator>().GetPathByRouteValues(http, routeName, values)
+            ?? throw new InvalidOperationException($"Aucune route nommée {routeName} ne correspond à ces valeurs.");
 }

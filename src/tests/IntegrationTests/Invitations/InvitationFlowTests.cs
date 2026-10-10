@@ -39,6 +39,7 @@ public sealed class InvitationFlowTests(PostgresApiFactory factory)
         var invite = await owner.PostAsJsonAsync(
             $"/api/v1/organizations/{orgId}/invitations", new { email, role = "Member" }, ct);
         invite.StatusCode.ShouldBe(HttpStatusCode.Created);
+        invite.Headers.Location.ShouldNotBeNull().OriginalString.ShouldBe($"/api/v1/organizations/{orgId}/invitations");
 
         var (invitationId, token) = (await InvitationEmailAsync(email, ct)).ExtractInvitationLink();
 

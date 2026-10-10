@@ -221,19 +221,27 @@ public sealed class ProductEndpoints : IEndpoint
 {
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/products").RequireAuthorization("HasTenant");
-        group.MapPost("/", CreateProduct).Produces<CreateProductResponse>(201);
+        var group = app.MapGroup("/products").RequireAuthorization(AuthorizationPolicies.HasTenant);
+        group.MapPost("/", CreateProduct).WithCreatedResponses<CreateProductResponse>();
+        group.MapGet("/{id:guid}", GetProduct).WithMetadata(new RouteNameMetadata(GetProductRoute));
         // ...
     }
-    private static async Task<Created<CreateProductResponse>> CreateProduct(
-        CreateProductCommand cmd, ISender sender, CancellationToken ct)
-        => /* map → Send au Mediator */;
+    private static async Task<IResult> CreateProduct(
+        CreateProductRequest request, ISender sender, HttpContext http, CancellationToken ct)
+    {
+        var result = await sender.Send(new CreateProductCommand(request.Name, request.Price), ct);
+        return result
+            .Then(id => new CreateProductResponse(id))
+            .ToCreatedHttpResult(created => http.PathTo(GetProductRoute, new { id = created.Id }));
+    }
 }
 ```
 
 Enregistrement auto via `AddEndpoints()` / `MapEndpoints()` (scan de l'assembly Api). Les
 endpoints reçoivent des contrats `Saas.Api.Contracts` (`XxxRequest`) et les traduisent en commandes :
-le contrat HTTP ne dépend pas des types de l'Application.
+le contrat HTTP ne dépend pas des types de l'Application. Le `Location` d'un 201 est le chemin
+d'une route nommée (`RouteNameMetadata`), calculé avec la version de la requête : aucune URL
+n'est écrite à la main, et le nom de route n'apparaît pas dans le contrat OpenAPI.
 
 ### Contrat OpenAPI
 
@@ -259,7 +267,7 @@ HTTP POST /products
       → IProductRepository.Add(Product.Create(...))
       → IUnitOfWork.SaveChangesAsync()
         → DomainEventsInterceptor → ProductCreatedDomainEvent écrit dans OutboxMessages (même transaction)
-  → TypedResults.Created(...)
+  → ToCreatedHttpResult (201, Location vers GET /products/{id})
 
 Plus tard, hors requête :
 OutboxPollingService (toutes les 5 s) → OutboxProcessor → IDomainEventHandler<ProductCreatedDomainEvent> (ProductCreatedHandler)

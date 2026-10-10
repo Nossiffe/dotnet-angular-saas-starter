@@ -14,6 +14,8 @@ namespace Saas.Api.Endpoints;
 
 public sealed class ProductEndpoints : IEndpoint
 {
+    private const string GetProductRoute = "GetProduct";
+
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/products").WithTags("Products")
@@ -27,6 +29,7 @@ public sealed class ProductEndpoints : IEndpoint
             .Produces<PagedResult<ProductDto>>(StatusCodes.Status200OK);
 
         group.MapGet("/{id:guid}", GetProduct)
+            .WithMetadata(new RouteNameMetadata(GetProductRoute))
             .WithStandardResponses<ProductDto>();
 
         // 409 : le produit a été modifié par une autre requête entre la lecture et l'écriture.
@@ -40,12 +43,12 @@ public sealed class ProductEndpoints : IEndpoint
     }
 
     private static async Task<IResult> CreateProduct(
-        CreateProductRequest request, ISender sender, CancellationToken ct)
+        CreateProductRequest request, ISender sender, HttpContext http, CancellationToken ct)
     {
         var result = await sender.Send(new CreateProductCommand(request.Name, request.Price), ct);
-        return result.Match(
-            id => Results.Created($"/api/v1/products/{id}", new CreateProductResponse(id)),
-            _ => result.ToHttpResult());
+        return result
+            .Then(id => new CreateProductResponse(id))
+            .ToCreatedHttpResult(created => http.PathTo(GetProductRoute, new { id = created.Id }));
     }
 
     private static async Task<IResult> ListProducts(

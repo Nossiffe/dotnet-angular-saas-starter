@@ -13,6 +13,8 @@ namespace Saas.Api.Endpoints;
 
 public sealed class InvitationEndpoints : IEndpoint
 {
+    private const string PendingInvitationsRoute = "ListPendingInvitations";
+
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
         // Routes d'une organisation : Owner ou Admin, sur sa propre organisation.
@@ -27,6 +29,7 @@ public sealed class InvitationEndpoints : IEndpoint
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         orgGroup.MapGet("/", ListPendingInvitations)
+            .WithMetadata(new RouteNameMetadata(PendingInvitationsRoute))
             .Produces<IReadOnlyList<InvitationDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
@@ -46,6 +49,7 @@ public sealed class InvitationEndpoints : IEndpoint
         Guid orgId,
         InviteMemberRequest req,
         ISender sender,
+        HttpContext http,
         CancellationToken ct)
     {
         var result = await EndpointHelpers.ParseRole(req.Role)
@@ -55,7 +59,7 @@ public sealed class InvitationEndpoints : IEndpoint
         // en attente, qui la contient.
         return result
             .Then(id => new InviteResponse(id))
-            .ToCreatedHttpResult(_ => $"/api/v1/organizations/{orgId}/invitations");
+            .ToCreatedHttpResult(_ => http.PathTo(PendingInvitationsRoute, new { orgId }));
     }
 
     private static async Task<IResult> ListPendingInvitations(
