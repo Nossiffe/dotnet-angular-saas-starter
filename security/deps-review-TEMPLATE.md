@@ -12,7 +12,7 @@
 - CVE corrigées depuis la dernière revue : N
 - Exceptions actives (voir tableau §3) : N
 - Dépendances ≥ 2 versions majeures de retard : N
-- État `deps-audit.yml` depuis la dernière revue : X vert / Y rouge
+- État `deps-audit.yml` depuis la dernière revue : X vert / Y rouge, en ne comptant que les runs où les audits ont tourné
 
 ## 2. CVE corrigées depuis la dernière revue
 
@@ -50,8 +50,8 @@ _Si vide, écrire « Aucune »._
 
 ## 6. Santé des contrôles
 
-- **`dotnet-audit`** (deps-audit.yml) — dernier run vert : YYYY-MM-DD
-- **`npm-audit`** (deps-audit.yml, web-angular) — dernier run vert : YYYY-MM-DD
+- **`dotnet-audit`** (deps-audit.yml) — dernier run où l'audit a tourné et réussi : YYYY-MM-DD (un job ignoré faute de manifeste modifié n'a rien audité)
+- **`npm-audit`** (deps-audit.yml, web-angular) — dernier run où l'audit a tourné et réussi : YYYY-MM-DD
 - **Runs rouges depuis la dernière revue** : N (lien vers les runs si pertinent)
 - **PR Dependabot fusionnées depuis la dernière revue** : N
 

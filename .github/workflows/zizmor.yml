@@ -1,17 +1,45 @@
 name: zizmor (workflows lint)
 
+# `zizmor` est une vérification exigée sur main. Sur `pull_request`, le workflow se déclenche
+# donc sans filtre `paths` (un workflow filtré ne poste aucun statut et la PR attendrait
+# indéfiniment) ; le job `changes` décide si zizmor tourne, et un job ignoré par son `if`
+# compte comme réussi. Le push sur main garde son filtre : il ne bloque aucune PR.
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/**']
   pull_request:
-    paths: ['.github/workflows/**']
 
 permissions:
   contents: read
 
 jobs:
+  # Sur une PR : un workflow change-t-il ? Même motif que l'ancien filtre `paths`.
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      workflows: ${{ steps.diff.outputs.workflows }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2 # le commit de fusion et ses deux parents : la base et la tête de la PR
+      - name: Fichiers modifiés par la PR
+        id: diff
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/pr-changes.sh workflows '.github/workflows/**'
+
   zizmor:
+    needs: changes
+    # Toujours sur un push. Sur une PR, zizmor n'est ignoré que si `changes` a réussi et
+    # répondu `false` : un échec de la détection, ou une sortie absente, le fait tourner.
+    # `!cancelled()` remplace le `success()` implicite, qui ignorerait ce job dès que
+    # `changes` est ignoré ou échoue.
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.result != 'success' || needs.changes.outputs.workflows != 'false') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read

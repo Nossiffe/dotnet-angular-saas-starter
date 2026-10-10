@@ -33,6 +33,8 @@ Every change has to pass these gates, whoever or whatever wrote it:
 | CI security | zizmor workflow linting, actions pinned by SHA | Workflow changes |
 | Supply chain | CycloneDX SBOM and build provenance attestation | Every release |
 
+On `main`, the checks of the gates that run on pull requests are required: `doc-lint`, `dotnet`, `web-angular`, `e2e-angular`, `gitleaks`, `Analyze (csharp)`, `Analyze (javascript-typescript)`, `dotnet-audit`, `npm-audit`, `stryker-domain`, `smoke` and `zizmor`. The last five only concern part of the files. On a pull request that does not change those files, a `changes` job skips them, and GitHub [counts a job skipped this way as passed](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#handling-skipped-but-required-checks). If that detection fails, they run.
+
 Mutation testing runs on the unit tests only. The Domain scores 88 % against a blocking threshold of 60 %. The Application scores about 43 % and is not gated: the handlers that read with Dapper (login, refresh, invitations, queries) are covered by the integration tests against PostgreSQL, which Stryker does not run.
 
 Design decisions are recorded as ADRs in [`docs/adr`](docs/adr). How the project got here is in [Project history](#project-history).
