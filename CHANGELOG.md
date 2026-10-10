@@ -6,6 +6,8 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-10
+
 ### Added
 - Timeouts de requête globaux (`RequestTimeouts:DefaultSeconds`, 30 s par défaut).
 - Cache HybridCache de la lecture d'un produit, avec clé et tag propres au tenant, invalidé à la modification et à la suppression.
@@ -87,6 +89,11 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 - Première revue datée des dépendances, `security/deps-review-2026-10-10.md` : 37 avis corrigés, tous sur des dépendances de développement, et aucune exception active. `security/README.md` précise que les délais de correction des avis Critical et High portent sur ceux que `deps-audit.yml` bloque ; côté npm, les avis sur des dépendances de développement sont suivis dans les revues datées. `npm audit` signale encore braces (GHSA-vfj7-8cjw-p6xm, sévérité élevée, sans version corrigée), tirée par stylelint en dépendance de développement : laissée en l'état, car elle n'analyse que des motifs de fichiers écrits dans le dépôt ou dans stylelint. Réexamen au plus tard le 2026-11-09.
 
 ### Migrations DB
+Première release : une base vide reçoit les sept migrations, dans cet ordre.
+- `InitialCreate` : tables d'Identity (`AspNetUsers`, `AspNetRoles` et leurs tables de claims, logins, rôles et jetons), `Organizations`, `OrganizationMemberships`, `Products` et `RefreshTokens`.
+- `AddOutbox` : table `OutboxMessages`.
+- `MapXminConcurrencyToken` : aucune DDL. La colonne système `xmin` de PostgreSQL sert de jeton de concurrence optimiste ; la migration garde le snapshot du modèle à jour.
+- `AddInvitationsAndTypedRole` : table `Invitations`, avec un index unique partiel qui interdit deux invitations en attente pour la même organisation et la même adresse.
 - `RemoveUserDisplayName` : supprime la colonne inutilisée `AspNetUsers.DisplayName`.
 - `OutboxConsumersAndRetries` : crée la table `OutboxMessageConsumers`, ajoute `OutboxMessages.NextAttemptOn` et l'index partiel des messages à traiter.
 - `InvitationTokenIssuedOnSend` : `Invitations.TokenHash` devient nullable (aucun lien valable avant le premier envoi, ni après un renvoi jusqu'au nouvel envoi).
