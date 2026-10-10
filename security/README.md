@@ -11,7 +11,7 @@ laissé en l'état (et pourquoi), et à quelle échéance c'est réexaminé. Il 
 
 | Cadence | Mécanisme | Rôle |
 |---|---|---|
-| À chaque PR touchant les manifests de dépendances | `.github/workflows/deps-audit.yml` | Bloque le merge si CVE High/Critical (direct ou transitif) |
+| À chaque PR touchant les manifests de dépendances | `.github/workflows/deps-audit.yml` | Bloque le merge si CVE High/Critical (direct ou transitif ; côté npm, dépendances de production seulement) |
 | Hebdomadaire (lundi 05h UTC) | `deps-audit.yml` (cron) | Attrape les CVE publiées sans changement de code |
 | Hebdomadaire (lundi 05h Europe/Zurich) | Dependabot (`.github/dependabot.yml`) | PR automatiques de mise à jour, groupées par écosystème |
 | Continu, à chaque build | `NuGetAuditLevel=low` (`Directory.Build.props`) | Filet local : toute sévérité NuGet remonte en warning dès `dotnet build`, sans attendre le CI et sans faire échouer le build |
@@ -90,8 +90,9 @@ d'audit.
 Un seul contrôle bloquant, `deps-audit.yml`, complété par un signal local qui ne bloque pas :
 
 - **`deps-audit.yml` (CI, triage)** : ne bloque que High/Critical, côté NuGet comme
-  côté npm (`--audit-level=high`). Le restore de ce workflow désactive l'audit
-  NuGet (`-p:NuGetAudit=false`) : c'est le parseur JSON qui fait le tri de sévérité.
+  côté npm (`--audit-level=high`, dépendances de production seulement). Le
+  restore de ce workflow désactive l'audit NuGet (`-p:NuGetAudit=false`) : c'est
+  le parseur JSON qui fait le tri de sévérité.
 - **Build normal NuGet (`Directory.Build.props`, `NuGetAuditLevel=low`)** : plus
   large mais non bloquant — **toute** sévérité (y compris Low/Moderate) remonte en
   warning dès `dotnet build`/`dotnet restore`, sans attendre le CI. Ce signal local
@@ -105,12 +106,18 @@ Un seul contrôle bloquant, `deps-audit.yml`, complété par un signal local qui
 | **Moderate** | 🟡 Signalé côté npm (non bloquant, `--audit-level=high`) ; non remonté côté NuGet (le triage `deps-audit.yml` filtre sur High/Critical) | ⚠️ Warning NU1902 | Revue à la prochaine échéance documentée |
 | **Low** | Non remonté (ni NuGet ni npm — le triage CI filtre sur High/Critical) | ⚠️ Warning NU1901 | Revue annuelle |
 
+Les délais des lignes Critical et High portent sur les avis que
+`deps-audit.yml` bloque : côté npm, ceux des dépendances de production
+(`--omit=dev`). Les avis sur des dépendances de développement npm sont suivis
+dans les revues datées (`deps-review-*.md`), sans délai de correction.
+
 ---
 
 ## Procédure d'exception
 
-Quand une CVE ≥ High ne peut pas être corrigée immédiatement (pas de patch
-upstream, breaking change non absorbable dans le délai, etc.) :
+Quand un avis ≥ High bloqué par `deps-audit.yml` ne peut pas être corrigé
+immédiatement (pas de patch upstream, breaking change non absorbable dans le
+délai, etc.) :
 
 1. Ouvrir un ticket de suivi (CVE, date cible de résolution).
 2. Documenter dans la revue courante (`deps-review-*.md`), section « Tableau
@@ -148,8 +155,9 @@ L'override vise la version 1.4.4 du parseur, pas tout l'arbre : les versions
 en préparation de Hey API passent à js-yaml 5, et un override global leur
 imposerait js-yaml 4 sans qu'aucun contrôle ne le signale. En contrepartie,
 une nouvelle version du parseur qui exigerait encore un js-yaml vulnérable
-échapperait à l'override : seuls une alerte Dependabot et `npm audit` le
-montreraient, car `deps-audit.yml` ignore les dépendances de développement.
+échapperait à l'override : seul `npm audit` le montrerait à coup sûr, car
+`deps-audit.yml` ignore les dépendances de développement et GitHub peut fermer
+d'office l'alerte Dependabot d'une dépendance de développement npm.
 
 À chaque montée de `@hey-api/openapi-ts`, que Dependabot propose dans une PR
 à part, et dans cette même PR :
