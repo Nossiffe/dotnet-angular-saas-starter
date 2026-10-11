@@ -171,8 +171,8 @@ avant de poser le tag.
 - **Parcours de bout en bout** (`web-angular/e2e-backend/`, job CI `e2e-backend`) : Playwright
   contre le vrai backend, sans rien simuler. Inscription et e-mail de confirmation lu dans
   Mailpit, connexion, un produit créé, modifié et supprimé, invitation d'un Admin et son e-mail,
-  acceptation, l'Admin sur l'écran Organisation, son retrait, après lequel il perd l'accès ; axe
-  sur chaque page traversée.
+  acceptation et connexion de l'Admin, l'Admin parmi les membres sur l'écran Organisation de
+  l'Owner, son retrait, après lequel il perd l'accès ; axe sur chaque page traversée.
 
 ```bash
 dotnet test                                                  # tous
