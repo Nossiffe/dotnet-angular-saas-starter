@@ -2,8 +2,12 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { AuthService } from './auth.service';
+import { AuthService, SESSION_COOKIE_LOCK } from './auth.service';
 import { fakeAccessToken, ORG_ID, OWNER_ID } from '../../testing/fake-session';
+import { FakeLocks } from '../../testing/fake-locks';
+
+// Les verrous sont accordés de façon asynchrone, comme dans un navigateur.
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -114,6 +118,58 @@ describe('AuthService', () => {
 
     expect(restored).toBe(false);
     expect(service.isAuthenticated()).toBe(false);
+  });
+
+  // Les onglets partagent le cookie : un refresh ou un logout attend que l'appel d'un autre onglet
+  // ait reçu sa réponse, et donc le cookie qu'elle a posé (voir refresh() et logout()).
+  describe('with another tab holding the session cookie lock', () => {
+    let locks: FakeLocks;
+    let uninstall: () => void;
+    let otherTabDone: () => void;
+
+    beforeEach(() => {
+      locks = new FakeLocks();
+      uninstall = locks.install();
+      void locks.request(
+        SESSION_COOKIE_LOCK,
+        {},
+        () => new Promise<void>((resolve) => (otherTabDone = resolve)),
+      );
+    });
+    afterEach(() => uninstall());
+
+    it('sends the refresh once that tab is done, and releases the lock on the answer', async () => {
+      service.refresh().subscribe();
+      await settle();
+      httpMock.expectNone('/api/v1/auth/refresh');
+
+      otherTabDone();
+      await settle();
+      const req = httpMock.expectOne('/api/v1/auth/refresh');
+      expect(locks.held.has(SESSION_COOKIE_LOCK)).toBe(true);
+      req.flush({ accessToken: 'AT', expiresAt: '2030-01-01T00:00:00Z' });
+      await settle();
+
+      expect(service.token()).toBe('AT');
+      expect(locks.held.has(SESSION_COOKIE_LOCK)).toBe(false);
+    });
+
+    it('sends the logout once that tab is done, and releases the lock on the answer', async () => {
+      let loggedOut = false;
+      service.logout().subscribe(() => (loggedOut = true));
+      await settle();
+      httpMock.expectNone('/api/v1/auth/logout');
+
+      otherTabDone();
+      await settle();
+      const req = httpMock.expectOne('/api/v1/auth/logout');
+      expect(locks.held.has(SESSION_COOKIE_LOCK)).toBe(true);
+      req.flush(null, { status: 204, statusText: 'No Content' });
+      await settle();
+
+      expect(loggedOut).toBe(true);
+      expect(locks.held.has(SESSION_COOKIE_LOCK)).toBe(false);
+    });
   });
 
   // Le rôle affiché suit le jeton courant : un refresh après un changement de rôle met l'écran à jour.

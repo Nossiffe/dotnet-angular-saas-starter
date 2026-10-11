@@ -13,10 +13,14 @@ const SKIP_AUTH_RETRY = new HttpContextToken(() => false);
 
 let refresh$: Observable<TokenResponse> | null = null;
 
+// Le logout aussi : il tient le verrou du cookie de session (AuthService.logout()), et un refresh
+// lancé par un 401 sur lui attendrait ce verrou pendant que le logout attendrait ce refresh. Il est
+// anonyme côté serveur, sa preuve est le cookie : le jeton d'accès ne lui sert à rien.
 const isAuthCall = (url: string): boolean =>
   url.includes('/api/v1/auth/login') ||
   url.includes('/api/v1/auth/register') ||
-  url.includes('/api/v1/auth/refresh');
+  url.includes('/api/v1/auth/refresh') ||
+  url.includes('/api/v1/auth/logout');
 
 const isSameOrigin = (url: string): boolean =>
   url.startsWith('/') || url.startsWith(window.location.origin);

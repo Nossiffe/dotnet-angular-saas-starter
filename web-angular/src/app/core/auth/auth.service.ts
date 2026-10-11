@@ -12,6 +12,13 @@ import type {
   PostApiV1AuthConfirmEmailData,
 } from '../../api/generated';
 import { SKIP_ERROR_TOAST } from '../error/http-error.interceptor';
+import { withCrossTabLock } from './cross-tab-lock';
+
+/**
+ * Verrou Web Locks des appels qui présentent le cookie `rt` puis le remplacent ou le suppriment
+ * (refresh et logout), partagé par les onglets de l'origine. Voir refresh().
+ */
+export const SESSION_COOKIE_LOCK = 'auth-session-cookie';
 
 // Réponse jeton = DTO généré `AuthResponse` (Hey API).
 export type TokenResponse = AuthResponse;
@@ -104,11 +111,19 @@ export class AuthService {
    * Renouvelle le jeton d'accès. Le refresh token n'est jamais lisible en JS : il vit dans le
    * cookie HttpOnly `rt` (Path=/api/v1/auth), que le navigateur envoie seul (même origine, via le
    * proxy de dev).
+   *
+   * Un refresh à la fois entre les onglets. Ils partagent le cookie, et l'API fait tourner le
+   * refresh token à chaque refresh : un second refresh parti avant la réponse du premier présente
+   * le même token. Traité en même temps que le premier, il est refusé par le contrôle de
+   * concurrence de la rotation ; arrivé après elle, l'API y voit un vol et révoque toutes les
+   * sessions de l'utilisateur. Dans les deux cas, le refus supprime le cookie partagé. Avec le
+   * verrou, le second part après la réponse du premier, avec le cookie qu'elle a posé.
    */
   refresh(): Observable<TokenResponse> {
-    return this.http
-      .post<TokenResponse>('/api/v1/auth/refresh', {})
-      .pipe(tap((res) => this.applyTokens(res, this.user()?.email)));
+    return withCrossTabLock(
+      SESSION_COOKIE_LOCK,
+      this.http.post<TokenResponse>('/api/v1/auth/refresh', {}),
+    ).pipe(tap((res) => this.applyTokens(res, this.user()?.email)));
   }
 
   /**
@@ -138,9 +153,17 @@ export class AuthService {
    * Révoque le refresh token côté serveur, puis efface l'état local, même si l'appel échoue.
    * `/auth/logout` est anonyme côté serveur : la preuve est le cookie HttpOnly `rt`, pas le jeton
    * d'accès, donc un jeton d'accès expiré ou absent n'empêche pas la révocation.
+   *
+   * Sous le même verrou que refresh() : sinon, le logout d'un onglet pendant le refresh d'un autre
+   * présenterait le token que ce refresh vient de remplacer. L'API n'aurait rien à révoquer, et la
+   * réponse du refresh, arrivée après celle du logout, reposerait un cookie valide : la session
+   * survivrait à « Déconnexion ».
    */
   logout(): Observable<void> {
-    return this.http.post<void>('/api/v1/auth/logout', {}).pipe(
+    return withCrossTabLock(
+      SESSION_COOKIE_LOCK,
+      this.http.post<void>('/api/v1/auth/logout', {}),
+    ).pipe(
       tap(() => this.endByLogout()),
       catchError(() => {
         this.endByLogout();

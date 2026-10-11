@@ -96,8 +96,8 @@ jobs:
   e2e-angular:
     runs-on: ubuntu-24.04
     # Tests front seuls : les pages de connexion, d'acceptation d'invitation, Produits et
-    # Organisation, avec l'API simulée par Playwright, et un contrôle d'accessibilité axe. Pas de
-    # backend dans ce job.
+    # Organisation, et deux onglets qui partagent la session, avec l'API simulée par Playwright, et
+    # un contrôle d'accessibilité axe. Pas de backend dans ce job.
     defaults:
       run:
         working-directory: web-angular

@@ -6,6 +6,8 @@
 
 A SaaS starter with Clean Architecture, DDD and CQRS: **.NET 10**, **Angular 22** and **PostgreSQL 17**, with the quality and security gates I rely on for business-critical platforms.
 
+![The Organization screen as its Owner sees it: members with their role and arrival date, pending invitations with who sent them, the invitation form](docs/screenshots/organization-owner.png)
+
 ## What it demonstrates
 
 - **Architecture**: Clean Architecture layers with a framework-free Domain, rich DDD aggregates with strongly-typed IDs (Vogen), CQRS with Mediator and FluentValidation, EF Core for writes and Dapper for reads, ErrorOr results instead of business exceptions.
@@ -25,7 +27,7 @@ Every change has to pass these gates, whoever or whatever wrote it:
 | Architecture rules | Architecture tests: dependency rules on the assemblies' actual references, conventions, ErrorOr usage, security conventions, and a source scan: every raw SQL string literal (`"""…"""`) naming a tenant-owned table must contain the `"TenantId" = @TenantId` filter | Every CI run |
 | API contract | OpenAPI document rebuilt and compared with the committed one the front end types come from | Every CI run |
 | Behaviour | Unit tests, integration tests against a real PostgreSQL (Testcontainers), end-to-end smoke test (API + PostgreSQL + Mailpit + Hangfire) | Every CI run; smoke test on backend changes |
-| Front end | Lint, format, type check, unit tests, Playwright tests of the login, invitation acceptance, Products and Organization pages with axe accessibility checks (API mocked) | Every CI run |
+| Front end | Lint, format, type check, unit tests, Playwright tests of the login, invitation acceptance, Products and Organization pages with axe accessibility checks, and of two tabs sharing one session (API mocked) | Every CI run |
 | End-to-end journey | Playwright against the real backend, nothing mocked: the API's Docker image, PostgreSQL and Mailpit. Sign-up with the confirmation e-mail read in Mailpit, sign-in, a product added, edited and deleted, an Admin invited and their e-mail, acceptance, the Admin on the Organization screen, then removed and losing access; axe on every page it goes through. The rate limiting stays as in production | Every CI run |
 | Test quality | Stryker mutation testing of the unit tests: blocking for the Domain, measured for the Application | Pull requests touching the Domain, weekly |
 | Static analysis | CodeQL for C# and TypeScript | Push, pull request, weekly |
@@ -34,7 +36,7 @@ Every change has to pass these gates, whoever or whatever wrote it:
 | CI security | zizmor workflow linting, actions pinned by SHA | Workflow changes |
 | Supply chain | Docker image of the API on GHCR with a build provenance attestation; GitHub Release with the CHANGELOG notes and two CycloneDX SBOMs (API, front end) | Every `v*` tag |
 
-On `main`, the checks of the gates that run on pull requests are required: `doc-lint`, `dotnet`, `web-angular`, `e2e-angular`, `gitleaks`, `Analyze (csharp)`, `Analyze (javascript-typescript)`, `dotnet-audit`, `npm-audit`, `stryker-domain`, `smoke` and `zizmor`. The last five only concern part of the files. On a pull request that does not change those files, a `changes` job skips them, and GitHub [counts a job skipped this way as passed](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#handling-skipped-but-required-checks). If that detection fails, they run.
+On `main`, the checks of the gates that run on pull requests are required: `doc-lint`, `dotnet`, `web-angular`, `e2e-angular`, `e2e-backend`, `gitleaks`, `Analyze (csharp)`, `Analyze (javascript-typescript)`, `dotnet-audit`, `npm-audit`, `stryker-domain`, `smoke` and `zizmor`. The last five only concern part of the files. On a pull request that does not change those files, a `changes` job skips them, and GitHub [counts a job skipped this way as passed](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#handling-skipped-but-required-checks). If that detection fails, they run.
 
 Mutation testing runs on the unit tests only. The Domain scores 88 % against a blocking threshold of 60 %. The Application scores about 43 % and is not gated: the handlers that read with Dapper (login, refresh, invitations, queries) are covered by the integration tests against PostgreSQL, which Stryker does not run.
 
