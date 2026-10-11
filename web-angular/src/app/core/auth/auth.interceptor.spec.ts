@@ -45,6 +45,23 @@ describe('authInterceptor', () => {
     req.flush(TOKEN_RESP);
   });
 
+  // Le logout tient le verrou du cookie de session : un refresh lancé par un 401 sur lui attendrait
+  // ce verrou, et le logout attendrait ce refresh.
+  it('sends the logout without the access token, and a 401 on it triggers no refresh', () => {
+    auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
+    httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);
+
+    let loggedOut = false;
+    auth.logout().subscribe(() => (loggedOut = true));
+    const req = httpMock.expectOne('/api/v1/auth/logout');
+    expect(req.request.headers.has('Authorization')).toBe(false);
+    req.flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    httpMock.expectNone('/api/v1/auth/refresh');
+    expect(loggedOut).toBe(true);
+    expect(auth.isAuthenticated()).toBe(false);
+  });
+
   it('a failed refresh calls clearLocalState(), not logout()', () => {
     auth.login({ email: 'a@b.com', password: 'secret12' }).subscribe();
     httpMock.expectOne('/api/v1/auth/login').flush(TOKEN_RESP);

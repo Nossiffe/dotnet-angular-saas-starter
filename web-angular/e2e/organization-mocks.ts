@@ -31,7 +31,7 @@ export interface Call {
 }
 
 // Access token for the front end, which reads its claims without checking the signature.
-function accessToken(userId: string, role: Role): string {
+export function accessToken(userId: string, role: Role): string {
   const encode = (value: object) =>
     btoa(JSON.stringify(value)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
   return [

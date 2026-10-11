@@ -166,7 +166,17 @@ Request → LoggingBehavior → ValidationBehavior → Handler
 - **Sessions** : chaque refresh fait tourner le refresh token. Présenter de nouveau un token déjà
   remplacé par une rotation est un signe de vol : toutes les sessions de l'utilisateur sont
   révoquées. Un token révoqué autrement (logout, réinitialisation, retrait d'une organisation)
-  est seulement refusé, et un refresh refusé supprime le cookie. L'adhésion est vérifiée avant
+  est seulement refusé, et un refresh refusé supprime le cookie. Les onglets d'un navigateur
+  partagent ce cookie : le front ne lance qu'un refresh ou un logout à la fois entre eux (verrou
+  Web Locks, `withCrossTabLock`). Sans lui, un second refresh parti avant la réponse du premier
+  présente le même token. Traité en même temps que le premier, il est refusé par le contrôle de
+  concurrence de la rotation ; arrivé après elle, il déclenche la détection de réutilisation. Son
+  refus supprime le cookie partagé. Une tolérance de l'API pour un token tout juste remplacé
+  l'aurait évité aussi, mais en acceptant ce token de quiconque le présente pendant ce délai.
+  Limite : le verrou ne couvre pas un refresh dont la réponse se perd après la rotation (onglet
+  fermé ou rechargé pendant le refresh, réseau coupé). Le navigateur garde l'ancien token, et le
+  refresh suivant déclenche la détection de réutilisation ; c'est le cas qu'une telle tolérance
+  couvrirait. L'adhésion est vérifiée avant
   la rotation : un utilisateur retiré d'une organisation perd ses sessions sur celle-ci, sur
   chaque appareil, et garde celles de ses autres organisations. Le refresh lit aussi le rôle en
   base : le nouveau token porte le rôle actuel, jamais celui de l'ancien token. Un refresh refusé
