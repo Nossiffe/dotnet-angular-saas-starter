@@ -15,16 +15,48 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
 import { CurrencyPipe } from '@angular/common';
+import {
+  form,
+  FormField,
+  maxLength,
+  pattern,
+  required,
+  validate,
+  type FieldTree,
+} from '@angular/forms/signals';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import type { ErrorStateMatcher } from '@angular/material/core';
 import { finalize } from 'rxjs';
 import type { ProductDto } from '../../api/generated';
 import { ProductsService } from './products.service';
 
 /** Longueur maximale du nom, comme la validation de l'API (UpdateProductValidator). */
 export const NAME_MAX_LENGTH = 200;
+
+/**
+ * Un prix positif, avec deux décimales au plus, après un point ou une virgule. Au plus 13 chiffres
+ * avant : au-delà, le nombre envoyé (un double JavaScript) perdrait des centimes, bien que la
+ * colonne numeric(18,2) en accepte 16.
+ */
+const PRICE_PATTERN = /^\d{1,13}([.,]\d{1,2})?$/;
+
+/**
+ * Valeurs du formulaire, telles que tapées. Le prix reste un texte jusqu'à l'envoi : un champ
+ * numérique réécrirait la saisie en cours (« 3. » devient « 3 », le curseur part au début).
+ */
+interface ProductFields {
+  name: string;
+  price: string;
+}
+
+const EMPTY_FIELDS: ProductFields = { name: '', price: '' };
+
+function toPrice(text: string): number {
+  return Number(text.replace(',', '.'));
+}
 
 /**
  * Produits de l'organisation : liste, ajout, modification et suppression. Un seul formulaire sert
@@ -34,30 +66,42 @@ export const NAME_MAX_LENGTH = 200;
 @Component({
   selector: 'app-products',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CurrencyPipe, MatTableModule, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [
+    CurrencyPipe,
+    FormField,
+    MatTableModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+  ],
   templateUrl: './products.page.html',
 })
 export class ProductsPage {
   protected readonly svc = inject(ProductsService);
   protected readonly cols = ['name', 'price', 'actions'];
-  protected readonly name = signal('');
-  protected readonly price = signal<number | null>(null);
+  // Les règles de l'API : un nom ni vide ni fait d'espaces, de 200 caractères au plus, et un
+  // prix positif ou nul. required et maxLength posent aussi les attributs natifs des champs.
+  private readonly fields = signal<ProductFields>(EMPTY_FIELDS);
+  protected readonly productForm = form(this.fields, (p) => {
+    required(p.name, { message: 'Nom requis' });
+    validate(p.name, ({ value }) =>
+      value() !== '' && value().trim() === ''
+        ? { kind: 'blank', message: 'Nom requis' }
+        : undefined,
+    );
+    maxLength(p.name, NAME_MAX_LENGTH, { message: `Au plus ${NAME_MAX_LENGTH} caractères` });
+    required(p.price, { message: 'Prix requis' });
+    pattern(p.price, PRICE_PATTERN, {
+      message: 'Un prix positif, avec deux décimales au plus (2,50)',
+    });
+  });
   protected readonly creating = signal(false);
   /** Produit en cours de modification dans le formulaire ; `null` : le formulaire ajoute. */
   protected readonly editing = signal<ProductDto | null>(null);
   protected readonly saving = signal(false);
   protected readonly status = signal<string | null>(null);
-  protected readonly nameMaxLength = NAME_MAX_LENGTH;
   /** Un ajout ou une modification en cours : les actions des lignes attendent. */
   protected readonly busy = computed(() => this.creating() || this.saving());
-
-  // Les règles de l'API : un nom ni vide ni fait d'espaces, de 200 caractères au plus, et un
-  // prix positif ou nul.
-  private readonly valid = computed(() => {
-    const name = this.name();
-    const price = this.price();
-    return name.trim() !== '' && name.length <= NAME_MAX_LENGTH && price !== null && price >= 0;
-  });
   /**
    * Produit dont le bouton « Modifier » reçoit le focus une fois la liste relue, et l'élément qui
    * avait le focus à la fin de l'enregistrement.
@@ -84,15 +128,43 @@ export class ProductsPage {
     });
   }
 
-  setName(value: string): void {
-    this.focusAfterReload.set(null);
-    this.name.set(value);
+  /**
+   * Les erreurs s'affichent sur un champ que l'utilisateur a modifié puis quitté, ou sur tout le
+   * formulaire après un envoi refusé. Pas sur un champ seulement « touché » : le focus déplacé par
+   * la page après une remise à zéro (Échap, enregistrement) marquerait le champ vidé comme touché.
+   */
+  private readonly submitRefused = signal(false);
+
+  protected showErrors(field: FieldTree<string>): boolean {
+    return this.errorsShown(field());
   }
 
-  // Champ vide : aucun prix, et non un prix de 0.
-  setPrice(value: string): void {
+  /**
+   * La même règle pour l'état d'erreur de Material (contour rouge, aria-invalid). Les champs sont
+   * liés par [formField] : Material appelle isSignalErrorState ; isErrorState sert aux formulaires
+   * réactifs.
+   */
+  protected readonly errorMatcher: ErrorStateMatcher = {
+    isErrorState: (control) =>
+      !!control?.invalid && ((control.dirty && control.touched) || this.submitRefused()),
+    isSignalErrorState: (field) => !!field && this.errorsShown(field()),
+  };
+
+  private errorsShown(state: { invalid(): boolean; dirty(): boolean; touched(): boolean }) {
+    return state.invalid() && ((state.dirty() && state.touched()) || this.submitRefused());
+  }
+
+  /** Les messages d'erreur d'un champ, à la suite, pour son mat-error. */
+  protected errorText(field: FieldTree<string>): string {
+    return field()
+      .errors()
+      .map((e) => e.message)
+      .join(' ');
+  }
+
+  // Une saisie de l'utilisateur ; le formulaire, lui, reçoit la valeur par [formField].
+  userInput(): void {
     this.focusAfterReload.set(null);
-    this.price.set(value === '' ? null : Number(value));
   }
 
   submit(): void {
@@ -104,12 +176,12 @@ export class ProductsPage {
   }
 
   add(): void {
-    const price = this.price();
-    if (!this.valid() || price === null || this.creating()) return;
+    if (this.creating() || !this.checkValid()) return;
+    const { name, price } = this.fields();
     this.creating.set(true);
     this.status.set(null);
     this.svc
-      .create({ name: this.name(), price })
+      .create({ name, price: toPrice(price) })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.creating.set(false)),
@@ -130,8 +202,7 @@ export class ProductsPage {
   edit(product: ProductDto): void {
     this.focusAfterReload.set(null);
     this.editing.set(product);
-    this.name.set(product.name);
-    this.price.set(Number(product.price));
+    this.fill({ name: product.name, price: Number(product.price).toFixed(2) });
     this.status.set(null);
     this.focus(() => this.nameInput().nativeElement);
   }
@@ -157,12 +228,11 @@ export class ProductsPage {
 
   private save(): void {
     const product = this.editing();
-    const price = this.price();
-    if (!product || !this.valid() || price === null || this.saving()) return;
-    const name = this.name();
+    if (!product || this.saving() || !this.checkValid()) return;
+    const { name, price } = this.fields();
     this.saving.set(true);
     this.svc
-      .update(product.id, { name, price })
+      .update(product.id, { name, price: toPrice(price) })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.saving.set(false)),
@@ -185,10 +255,27 @@ export class ProductsPage {
       });
   }
 
+  // Formulaire invalide : rien ne part, et les champs affichent leur erreur, même sans avoir été
+  // modifiés ni quittés (Entrée dans un champ, formulaire vide). Le formulaire a novalidate : la
+  // page affiche ses propres messages au lieu de la bulle du navigateur.
+  private checkValid(): boolean {
+    if (this.productForm().valid()) return true;
+    this.submitRefused.set(true);
+    return false;
+  }
+
   private resetForm(): void {
     this.editing.set(null);
-    this.name.set('');
-    this.price.set(null);
+    this.fill(EMPTY_FIELDS);
+  }
+
+  // Toute valeur posée par le code passe par reset(), qui écrit aussi les champs du DOM, tout de
+  // suite. Un simple set() ne les écrirait qu'au rendu suivant, et seulement si la valeur a changé
+  // depuis la dernière écriture : un texte tapé depuis resterait affiché, par exemple après
+  // « Modifier », une saisie et Échap sans rendu entre les trois.
+  private fill(values: ProductFields): void {
+    this.submitRefused.set(false);
+    this.productForm().reset({ ...values });
   }
 
   private editButton(id: string): HTMLElement | null {

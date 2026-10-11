@@ -43,10 +43,11 @@ describe('ProductsPage', () => {
   }
 
   const element = (fixture: ComponentFixture<ProductsPage>) => fixture.nativeElement as HTMLElement;
+  // Les deux champs du formulaire, dans l'ordre : le nom, puis le prix.
   const nameInput = (fixture: ComponentFixture<ProductsPage>) =>
-    element(fixture).querySelector<HTMLInputElement>('input:not([type=number])')!;
+    element(fixture).querySelectorAll<HTMLInputElement>('form input')[0]!;
   const priceInput = (fixture: ComponentFixture<ProductsPage>) =>
-    element(fixture).querySelector<HTMLInputElement>('input[type=number]')!;
+    element(fixture).querySelectorAll<HTMLInputElement>('form input')[1]!;
   const form = (fixture: ComponentFixture<ProductsPage>) => element(fixture).querySelector('form')!;
   const button = (fixture: ComponentFixture<ProductsPage>, label: string) =>
     Array.from(element(fixture).querySelectorAll('button')).find(
@@ -153,6 +154,10 @@ describe('ProductsPage', () => {
     it.each([
       ['a negative price', 'Stylo', '-1'],
       ['an empty price field', 'Stylo', ''],
+      ['a price that is not a number', 'Stylo', '2a'],
+      ['a price with three decimals', 'Stylo', '2.555'],
+      // Au-delà de 13 chiffres, le nombre envoyé (un double) perdrait des centimes.
+      ['a price of 14 digits', 'Stylo', '12345678901234'],
       ['a blank name', '   ', '2'],
       ['a name over 200 characters', 'x'.repeat(201), '2'],
     ])('does not send a product with %s', async (_case, name, price) => {
@@ -175,13 +180,122 @@ describe('ProductsPage', () => {
       expect(button(fixture, 'Supprimer Encre')).toBeDefined();
     });
 
+    // Les règles du formulaire posent aussi les attributs natifs : le navigateur et les lecteurs
+    // d'écran savent les deux champs obligatoires. Le prix est un champ texte, avec le clavier
+    // décimal sur mobile.
+    it('marks both fields required, the name limited and the price decimal', async () => {
+      const fixture = await open([PEN]);
+
+      expect(nameInput(fixture).required).toBe(true);
+      expect(nameInput(fixture).maxLength).toBe(200);
+      expect(priceInput(fixture).required).toBe(true);
+      expect(priceInput(fixture).type).toBe('text');
+      expect(priceInput(fixture).getAttribute('inputmode')).toBe('decimal');
+    });
+
+    it('accepts a comma as the decimal separator', async () => {
+      const fixture = await open([PEN]);
+      await edit(fixture, PEN);
+
+      await fill(fixture, 'Stylo', '3,20');
+      await submit(fixture);
+
+      const put = httpMock.expectOne({ method: 'PUT', url: `${PRODUCTS_URL}/${PEN.id}` });
+      expect(put.request.body).toEqual({ name: 'Stylo', price: 3.2 });
+      put.flush(null, NO_CONTENT);
+      await reload(fixture, [{ ...PEN, price: 3.2 }]);
+    });
+
+    const errorsOf = (input: HTMLInputElement) =>
+      Array.from(input.closest('mat-form-field')!.querySelectorAll('mat-error'), (e) =>
+        e.textContent?.trim(),
+      );
+    const markedInvalid = (input: HTMLInputElement) =>
+      input.closest('mat-form-field')!.classList.contains('mat-form-field-invalid');
+
+    // Après Échap, la page déplace le focus : le champ vidé est quitté. Il n'est pas en erreur
+    // pour autant, l'utilisateur ne l'ayant pas modifié depuis.
+    it('shows no error on the emptied form when the focus leaves it', async () => {
+      const fixture = await open([PEN]);
+      await edit(fixture, PEN);
+      await fill(fixture, 'Stylo bleu', '3');
+      nameInput(fixture).dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+      await fixture.whenStable();
+
+      nameInput(fixture).dispatchEvent(new Event('blur'));
+      priceInput(fixture).dispatchEvent(new Event('blur'));
+      await fixture.whenStable();
+
+      expect(errorsOf(nameInput(fixture))).toEqual([]);
+      expect(markedInvalid(nameInput(fixture))).toBe(false);
+      expect(markedInvalid(priceInput(fixture))).toBe(false);
+    });
+
+    it('shows the error of a field the user emptied and left', async () => {
+      const fixture = await open([PEN]);
+      await edit(fixture, PEN);
+
+      await fill(fixture, '', '2.50');
+      nameInput(fixture).dispatchEvent(new Event('blur'));
+      await fixture.whenStable();
+
+      expect(errorsOf(nameInput(fixture))).toEqual(['Nom requis']);
+      expect(markedInvalid(nameInput(fixture))).toBe(true);
+      expect(markedInvalid(priceInput(fixture))).toBe(false);
+    });
+
+    // Un envoi refusé montre toutes les erreurs ; la remise à zéro suivante les efface.
+    it('shows every error of an empty form submitted, until it is reset', async () => {
+      const fixture = await open([PEN]);
+
+      await submit(fixture);
+
+      httpMock.expectNone({ method: 'POST' });
+      expect(errorsOf(nameInput(fixture))).toEqual(['Nom requis']);
+      expect(errorsOf(priceInput(fixture))).toEqual(['Prix requis']);
+      expect(markedInvalid(priceInput(fixture))).toBe(true);
+      await edit(fixture, PEN);
+      expect(errorsOf(nameInput(fixture))).toEqual([]);
+      // De retour au formulaire vide (Échap), les erreurs du premier envoi ne reviennent pas.
+      nameInput(fixture).dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+      await fixture.whenStable();
+      expect(errorsOf(nameInput(fixture))).toEqual([]);
+      expect(errorsOf(priceInput(fixture))).toEqual([]);
+      expect(markedInvalid(priceInput(fixture))).toBe(false);
+    });
+
+    // Entrée dans le champ : le formulaire part sans que le champ ait été quitté ; l'erreur
+    // s'affiche quand même, sous le champ concerné.
+    it.each([
+      ['name', '   ', '3', 'Nom requis'],
+      ['price', 'Stylo', '-1', 'Un prix positif, avec deux décimales au plus (2,50)'],
+    ])('shows why a change with an invalid %s is not sent', async (field, name, price, message) => {
+      const fixture = await open([PEN]);
+      await edit(fixture, PEN);
+
+      await fill(fixture, name, price);
+      await submit(fixture);
+
+      httpMock.expectNone({ method: 'PUT' });
+      const input = field === 'name' ? nameInput(fixture) : priceInput(fixture);
+      const errors = Array.from(
+        input.closest('mat-form-field')!.querySelectorAll('mat-error'),
+        (e) => e.textContent?.trim(),
+      );
+      expect(errors).toEqual([message]);
+    });
+
     it('fills the form with the product and moves the focus to its name', async () => {
       const fixture = await open([PEN, INK]);
 
       await edit(fixture, PEN);
 
       expect(nameInput(fixture).value).toBe('Stylo');
-      expect(priceInput(fixture).value).toBe('2.5');
+      expect(priceInput(fixture).value).toBe('2.50');
       expect(element(fixture).textContent).toContain('Modification de « Stylo »');
       expect(form(fixture).getAttribute('aria-labelledby')).toBe('editing-caption');
       expect(button(fixture, 'Enregistrer')).toBeDefined();
@@ -195,7 +309,7 @@ describe('ProductsPage', () => {
 
       await edit(fixture, PEN);
 
-      expect(priceInput(fixture).value).toBe('2.5');
+      expect(priceInput(fixture).value).toBe('2.50');
     });
 
     it('saves the change, reloads the list and gives the focus back to the product', async () => {
@@ -325,6 +439,7 @@ describe('ProductsPage', () => {
       ['a name over 200 characters', 'x'.repeat(201), '3'],
       ['a negative price', 'Stylo', '-1'],
       ['an empty price field', 'Stylo', ''],
+      ['a price that is not a number', 'Stylo', 'abc'],
     ])('does not send a change with %s', async (_case, name, price) => {
       const fixture = await open([PEN]);
       await edit(fixture, PEN);
@@ -371,6 +486,27 @@ describe('ProductsPage', () => {
       expect(button(fixture, 'Ajouter')).toBeDefined();
       expect(element(fixture).textContent).not.toContain('Modification de');
       expect(document.activeElement).toBe(button(fixture, 'Modifier Stylo'));
+    });
+
+    // Même sans aucun rendu entre « Modifier », la saisie et Échap (ce qu'un navigateur chargé
+    // peut faire), Échap vide les champs : la remise à zéro écrit le DOM elle-même.
+    it('empties the fields on Escape even when nothing was rendered since « Modifier »', async () => {
+      const fixture = await open([PEN, INK]);
+
+      button(fixture, 'Modifier Encre')!.click();
+      nameInput(fixture).value = 'Encre noire';
+      nameInput(fixture).dispatchEvent(new Event('input'));
+      priceInput(fixture).value = '5';
+      priceInput(fixture).dispatchEvent(new Event('input'));
+      nameInput(fixture).dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+      await fixture.whenStable();
+
+      expect(button(fixture, 'Ajouter')).toBeDefined();
+      expect(nameInput(fixture).value).toBe('');
+      expect(priceInput(fixture).value).toBe('');
+      httpMock.expectNone({ method: 'PUT' });
     });
 
     // Le toast global (httpErrorInterceptor, absent de ce test) affiche le refus.
