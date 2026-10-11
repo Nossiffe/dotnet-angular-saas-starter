@@ -15,23 +15,15 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
 import { CurrencyPipe } from '@angular/common';
-import {
-  form,
-  FormField,
-  maxLength,
-  pattern,
-  required,
-  validate,
-  type FieldTree,
-} from '@angular/forms/signals';
+import { form, FormField, maxLength, pattern, required, validate } from '@angular/forms/signals';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import type { ErrorStateMatcher } from '@angular/material/core';
 import { finalize } from 'rxjs';
 import type { ProductDto } from '../../api/generated';
 import { ProductsService } from './products.service';
+import { FormErrors } from '../../core/forms/form-errors';
 
 /** Longueur maximale du nom, comme la validation de l'API (UpdateProductValidator). */
 export const NAME_MAX_LENGTH = 200;
@@ -129,38 +121,11 @@ export class ProductsPage {
   }
 
   /**
-   * Les erreurs s'affichent sur un champ que l'utilisateur a modifié puis quitté, ou sur tout le
-   * formulaire après un envoi refusé. Pas sur un champ seulement « touché » : le focus déplacé par
-   * la page après une remise à zéro (Échap, enregistrement) marquerait le champ vidé comme touché.
+   * Les erreurs s'affichent sur un champ modifié puis quitté, ou sur tout le formulaire après un
+   * envoi refusé (FormErrors). Après Échap ou un enregistrement, la page déplace le focus : le champ
+   * vidé est quitté, mais pas modifié, et reste sans erreur.
    */
-  private readonly submitRefused = signal(false);
-
-  protected showErrors(field: FieldTree<string>): boolean {
-    return this.errorsShown(field());
-  }
-
-  /**
-   * La même règle pour l'état d'erreur de Material (contour rouge, aria-invalid). Les champs sont
-   * liés par [formField] : Material appelle isSignalErrorState ; isErrorState sert aux formulaires
-   * réactifs.
-   */
-  protected readonly errorMatcher: ErrorStateMatcher = {
-    isErrorState: (control) =>
-      !!control?.invalid && ((control.dirty && control.touched) || this.submitRefused()),
-    isSignalErrorState: (field) => !!field && this.errorsShown(field()),
-  };
-
-  private errorsShown(state: { invalid(): boolean; dirty(): boolean; touched(): boolean }) {
-    return state.invalid() && ((state.dirty() && state.touched()) || this.submitRefused());
-  }
-
-  /** Les messages d'erreur d'un champ, à la suite, pour son mat-error. */
-  protected errorText(field: FieldTree<string>): string {
-    return field()
-      .errors()
-      .map((e) => e.message)
-      .join(' ');
-  }
+  protected readonly errors = new FormErrors();
 
   // Une saisie de l'utilisateur ; le formulaire, lui, reçoit la valeur par [formField].
   userInput(): void {
@@ -259,9 +224,7 @@ export class ProductsPage {
   // modifiés ni quittés (Entrée dans un champ, formulaire vide). Le formulaire a novalidate : la
   // page affiche ses propres messages au lieu de la bulle du navigateur.
   private checkValid(): boolean {
-    if (this.productForm().valid()) return true;
-    this.submitRefused.set(true);
-    return false;
+    return this.errors.check(this.productForm);
   }
 
   private resetForm(): void {
@@ -274,7 +237,7 @@ export class ProductsPage {
   // depuis la dernière écriture : un texte tapé depuis resterait affiché, par exemple après
   // « Modifier », une saisie et Échap sans rendu entre les trois.
   private fill(values: ProductFields): void {
-    this.submitRefused.set(false);
+    this.errors.clear();
     this.productForm().reset({ ...values });
   }
 

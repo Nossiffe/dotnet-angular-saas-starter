@@ -10,7 +10,7 @@
       créer et rejoindre l'organisation : au moins 12 caractères, avec une majuscule, une minuscule,
       un chiffre et un caractère spécial.
     </p>
-    <form (submit)="onSubmit($event)">
+    <form novalidate (submit)="onSubmit($event)">
       <mat-form-field appearance="outline">
         <mat-label>Mot de passe</mat-label>
         <input
@@ -19,22 +19,17 @@
           autocomplete="new-password"
           aria-describedby="password-rules"
           [formField]="passwordForm.password"
+          [errorStateMatcher]="errors.matcher"
         />
-        @if (passwordForm.password().touched() && passwordForm.password().invalid()) {
-          @for (e of passwordForm.password().errors(); track e.kind) {
-            <mat-error>{{ e.message }}</mat-error>
-          }
+        <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
+        @if (errors.shown(passwordForm.password)) {
+          <mat-error>{{ errors.text(passwordForm.password) }}</mat-error>
         }
       </mat-form-field>
       @if (serverError()) {
         <p class="error" role="alert">{{ serverError() }}</p>
       }
-      <button
-        mat-flat-button
-        color="primary"
-        type="submit"
-        [disabled]="passwordForm().invalid() || submitting()"
-      >
+      <button mat-flat-button color="primary" type="submit" [disabled]="submitting()">
         {{ submitting() ? 'Création du compte…' : 'Créer mon compte et rejoindre' }}
       </button>
     </form>

@@ -28,6 +28,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { SKIP_ERROR_TOAST } from '../../core/error/http-error.interceptor';
 import { InvitableRole, OrganizationService } from './organization.service';
 import { problemMessage } from './problem-message';
+import { FormErrors } from '../../core/forms/form-errors';
 import {
   RemoveMemberDecision,
   RemoveMemberDialog,
@@ -138,6 +139,8 @@ export class OrganizationPage {
     required(p.email, { message: 'Adresse e-mail requise' });
     email(p.email, { message: 'Adresse e-mail invalide' });
   });
+  /** Erreurs sous le champ modifié puis quitté, ou après un envoi refusé. */
+  protected readonly inviteErrors = new FormErrors();
   protected readonly inviteError = signal<string | null>(null);
 
   private readonly membersHeading = viewChild<ElementRef<HTMLElement>>('membersHeading');
@@ -253,16 +256,14 @@ export class OrganizationPage {
 
   invite(event: Event): void {
     event.preventDefault();
-    if (this.inviteForm().invalid()) {
-      this.inviteForm().markAsTouched();
-      return;
-    }
+    if (!this.inviteErrors.check(this.inviteForm)) return;
     if (this.invitationsLocked()) return;
     const { email: address, role } = this.inviteModel();
     this.start('invite');
     this.organization.invite(this.orgId(), address, role).subscribe({
       next: () => {
         this.inviteForm().reset({ email: '', role: 'Member' });
+        this.inviteErrors.clear();
         this.done(`Invitation envoyée à ${address}.`, this.invitations, this.inviteEmail);
       },
       // Un 409 sans code vient de l'index unique des invitations en attente : même sens que

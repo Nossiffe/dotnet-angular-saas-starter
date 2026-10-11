@@ -19,16 +19,27 @@ npm start   # http://localhost:4200
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `src/app/core/auth`             | Auth service (access token in memory, refresh through the HttpOnly cookie, organization and role read from the token for display), route guards (signed in; Owner or Admin), interceptor that refreshes on a 401 and replays the request once (a single shared refresh), one refresh at a time across the browser's tabs (Web Locks) |
 | `src/app/core/error`            | Global error handler and HTTP error interceptor                                                                                                                                                                                                                                                                                      |
+| `src/app/core/forms`            | When a form shows its errors: the rule every form shares (`FormErrors`)                                                                                                                                                                                                                                                              |
 | `src/app/features/auth`         | Login, registration, e-mail confirmation, forgotten and reset password pages                                                                                                                                                                                                                                                         |
 | `src/app/features/products`     | Products page, the sample tenant-scoped feature: list, add, edit, delete                                                                                                                                                                                                                                                             |
 | `src/app/features/invitations`  | Invitation acceptance page, opened from the link of the invitation e-mail                                                                                                                                                                                                                                                            |
 | `src/app/features/organization` | Organization page, for the Owner and Admins: members (role change and removal by the Owner), pending invitations (invite, resend, revoke)                                                                                                                                                                                            |
 | `src/app/api/generated`         | TypeScript types generated from `openapi.json` (not versioned)                                                                                                                                                                                                                                                                       |
-| `src/app/testing`               | Test helpers: a signed-in session with a given role, a Web Locks manager for jsdom                                                                                                                                                                                                                                                   |
+| `src/app/testing`               | Test helpers: a signed-in session with a given role, a Web Locks manager for jsdom, what a form field shows of its errors                                                                                                                                                                                                            |
 
 ## Products
 
 Known limit of the edit: the API does not receive the version of the product the page read, so when two people edit the same product one after the other, both starting from the same version, the second save overwrites the first without warning. The 409 only covers two saves landing at the same moment.
+
+## Forms
+
+Every form shows its errors the same way (`FormErrors`):
+
+- a message under the field, which the field's `aria-describedby` names;
+- on a field the user changed and left, or on every field after a refused submit;
+- nothing on a field only tabbed through, nor on a field the page emptied and focused after a reset.
+
+An invalid form does not disable the submit button: a refused submit says why. The forms have `novalidate`, so the browser's own bubbles do not compete with these messages.
 
 ## Screens
 
@@ -44,11 +55,11 @@ The Organization page as the Owner sees it, and the confirmation of a member's r
 
 ## Commands
 
-| Command               | Purpose                                                                                                                                                   |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run check`       | CI gate: type generation, Prettier, ESLint, Stylelint, type check                                                                                         |
-| `npm run fix`         | Prettier, ESLint and Stylelint fixes                                                                                                                      |
-| `npm test`            | Unit tests (Vitest)                                                                                                                                       |
-| `npm run e2e`         | Playwright tests of the login, invitation acceptance, Products and Organization pages with axe accessibility checks; the API is mocked, no backend needed |
-| `npm run e2e:backend` | The end-to-end journey against the real backend, with axe checks; PostgreSQL, Mailpit and the API must be running (see CONTRIBUTING.md § Tests)           |
-| `npm run build`       | Production build in `dist/`                                                                                                                               |
+| Command               | Purpose                                                                                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check`       | CI gate: type generation, Prettier, ESLint, Stylelint, type check (`npm run typecheck`: the app, the unit tests, both Playwright suites and the tool configs) |
+| `npm run fix`         | Prettier, ESLint and Stylelint fixes                                                                                                                          |
+| `npm test`            | Unit tests (Vitest)                                                                                                                                           |
+| `npm run e2e`         | Playwright tests of the login, invitation acceptance, Products and Organization pages with axe accessibility checks; the API is mocked, no backend needed     |
+| `npm run e2e:backend` | The end-to-end journey against the real backend, with axe checks; PostgreSQL, Mailpit and the API must be running (see CONTRIBUTING.md § Tests)               |
+| `npm run build`       | Production build in `dist/`                                                                                                                                   |

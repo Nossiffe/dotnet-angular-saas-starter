@@ -15,12 +15,12 @@
       #nameInput
       matInput
       [formField]="productForm.name"
-      [errorStateMatcher]="errorMatcher"
+      [errorStateMatcher]="errors.matcher"
       (input)="userInput()"
     />
     <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
-    @if (showErrors(productForm.name)) {
-      <mat-error>{{ errorText(productForm.name) }}</mat-error>
+    @if (errors.shown(productForm.name)) {
+      <mat-error>{{ errors.text(productForm.name) }}</mat-error>
     }
   </mat-form-field>
   <mat-form-field appearance="outline">
@@ -30,12 +30,12 @@
       matInput
       inputmode="decimal"
       [formField]="productForm.price"
-      [errorStateMatcher]="errorMatcher"
+      [errorStateMatcher]="errors.matcher"
       (input)="userInput()"
     />
     <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
-    @if (showErrors(productForm.price)) {
-      <mat-error>{{ errorText(productForm.price) }}</mat-error>
+    @if (errors.shown(productForm.price)) {
+      <mat-error>{{ errors.text(productForm.price) }}</mat-error>
     }
   </mat-form-field>
   <button mat-flat-button color="primary" type="submit" [disabled]="busy()">

@@ -1,0 +1,17 @@
+/* Le code exécuté par Node : les deux suites Playwright (API simulée dans e2e/, vrai backend dans */
+/* e2e-backend/), leurs configurations et celle de la génération des types de l'API. */
+/* Playwright transpile ses fichiers sans contrôler les types : `npm run typecheck` s'en charge. */
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/node",
+    "types": ["node"]
+  },
+  "include": [
+    "e2e/**/*.ts",
+    "e2e-backend/**/*.ts",
+    "playwright.config.ts",
+    "playwright.backend.config.ts",
+    "openapi-ts.config.ts"
+  ]
+}
