@@ -103,11 +103,18 @@ Confirmation, invitation and password reset e-mails land in Mailpit (http://loca
 
 ## Project history
 
-- **June–July 2026: first version.** Built with an AI coding agent, under my direction. Commit subjects from that period still use the agent's working vocabulary (numbered plans, agent configuration): the history is kept as it was written. The `Co-Authored-By` trailer was adopted later, so those commits do not carry it.
-- **October 2026: hardening.** A review of the whole repository by a separate AI agent, which had not written the code, then three pull requests acting on its findings, each reviewed and merged by me:
-  - [#7](https://github.com/Nossiffe/dotnet-angular-saas-starter/pull/7): CI, Quickstart, mutation testing and documentation brought in line with what this README claims.
-  - [#8](https://github.com/Nossiffe/dotnet-angular-saas-starter/pull/8): authentication and multi-tenant isolation: login timing oracle, malformed tokens, sessions after a removal from an organization, a single organization scope check, a working Admin role, one log per request.
-  - [#9](https://github.com/Nossiffe/dotnet-angular-saas-starter/pull/9): architecture guarantees: a framework-free Domain, ErrorOr for every business refusal, an outbox with one transaction per message and delayed retries, an OpenAPI contract checked by the CI, integration tests with a single possible outcome.
+- **June–July 2026: first version.** Built with an AI coding agent, under my direction. Its commit subjects are kept as they were written.
+- **October 2026: review and hardening.** Before the repository was made public, a second AI agent, which had not written the code, reviewed all of it. I reviewed and merged the three pull requests that followed:
+  - [#7](https://github.com/Nossiffe/dotnet-angular-saas-starter/pull/7): CI, Quickstart and mutation testing in line with this README;
+  - [#8](https://github.com/Nossiffe/dotnet-angular-saas-starter/pull/8): authentication and multi-tenant isolation hardened;
+  - [#9](https://github.com/Nossiffe/dotnet-angular-saas-starter/pull/9): architecture rules checked by tests, and a reliable outbox.
+- **October 2026: features and releases.**
+  - [#34](https://github.com/Nossiffe/dotnet-angular-saas-starter/pull/34): membership and role re-checked on every request to an organization's routes;
+  - [#35](https://github.com/Nossiffe/dotnet-angular-saas-starter/pull/35) and [#36](https://github.com/Nossiffe/dotnet-angular-saas-starter/pull/36): member management and the Organization screen;
+  - [#38](https://github.com/Nossiffe/dotnet-angular-saas-starter/pull/38): the end-to-end journey against the real backend, on every pull request;
+  - releases [v0.1.0](https://github.com/Nossiffe/dotnet-angular-saas-starter/releases/tag/v0.1.0) and [v0.2.0](https://github.com/Nossiffe/dotnet-angular-saas-starter/releases/tag/v0.2.0).
+
+Every gate in the [guardrails table](#built-with-an-ai-coding-agent-under-strict-guardrails) runs in CI, and the ones that run on pull requests are required on `main`.
 
 ## License
 
