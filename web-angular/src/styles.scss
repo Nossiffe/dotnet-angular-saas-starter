@@ -1,20 +1,142 @@
 @use '@angular/material' as mat;
 
+// Thème : une seule couleur d'accent, le bleu (palette azure), sur des neutres. Les surfaces
+// dérivées d'azure sont des gris à peine bleutés, sans le fond rosé de la palette violette.
 html {
   color-scheme: light dark;
 
   @include mat.theme(
     (
-      color: mat.$violet-palette,
+      color: mat.$azure-palette,
       typography: Roboto,
       density: 0,
     )
+  );
+
+  // Les tableaux prennent le fond de la carte qui les contient, avec des filets discrets.
+  @include mat.table-overrides(
+    (
+      background-color: transparent,
+      row-item-outline-color: var(--mat-sys-outline-variant),
+    )
+  );
+}
+
+// Fond de la page, et fond des cartes et de l'en-tête : en clair, des cartes blanches sur un gris
+// très léger ; en sombre, des cartes un ton plus clair que la page, pour qu'elles ne paraissent
+// pas creusées.
+html {
+  --page-background: light-dark(var(--mat-sys-surface-container-low), var(--mat-sys-surface));
+  --card-background: light-dark(
+    var(--mat-sys-surface-container-lowest),
+    var(--mat-sys-surface-container)
   );
 }
 
 body {
   margin: 0;
   font-family: Roboto, sans-serif;
+  color: var(--mat-sys-on-surface);
+  background: var(--page-background);
+}
+
+a {
+  color: var(--mat-sys-primary);
+}
+
+// Hiérarchie des titres : le titre de la page, puis ceux de ses sections.
+h1 {
+  margin: 0 0 1.5rem;
+  font: var(--mat-sys-headline-medium);
+  font-weight: 500;
+}
+
+h2 {
+  margin: 0 0 1rem;
+  font: var(--mat-sys-title-large);
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+// Contenu de la page : largeur maximale, centré.
+.page {
+  box-sizing: border-box;
+  max-width: 68rem;
+  margin-inline: auto;
+  padding: 2rem 1.5rem 3rem;
+
+  // Écran étroit : des marges plus fines, pour laisser la place au contenu.
+  @media (width <= 37.5rem) {
+    padding-inline: 1rem;
+  }
+}
+
+// Une section de page dans sa carte.
+.card {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 12px;
+  background: var(--card-background);
+
+  > :first-child {
+    margin-block-start: 0;
+  }
+
+  @media (width <= 37.5rem) {
+    padding: 1rem;
+  }
+}
+
+// Un tableau plus large que sa carte défile dans la carte, pas la page entière. position: relative
+// garde dans la zone de défilement les en-têtes masqués (.visually-hidden, en position absolue).
+.table-scroll {
+  position: relative;
+  overflow-x: auto;
+}
+
+// Pages d'authentification : une carte étroite, centrée, champs les uns sous les autres.
+.auth-card {
+  max-width: 26rem;
+  margin: 2rem auto 0;
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  mat-form-field {
+    width: 100%;
+  }
+
+  button[type='submit'] {
+    align-self: flex-start;
+    margin-block-start: 0.5rem;
+  }
+
+  .links {
+    margin-block: 1.5rem 0;
+    padding-block-start: 1rem;
+    border-block-start: 1px solid var(--mat-sys-outline-variant);
+
+    p {
+      margin: 0.25rem 0;
+    }
+  }
+}
+
+.error {
+  color: var(--mat-sys-error);
+}
+
+.success {
+  color: var(--mat-sys-on-surface);
+}
+
+// Texte secondaire : nombre de lignes, état d'une liste.
+.muted {
+  color: var(--mat-sys-on-surface-variant);
 }
 
 // Bouton d'une action destructive (confirmation d'un retrait) : couleur d'erreur du thème.
@@ -25,4 +147,37 @@ body {
       filled-label-text-color: var(--mat-sys-on-error),
     )
   );
+}
+
+// Bouton texte d'une action destructive dans une liste (Retirer, Révoquer, Supprimer) : couleur
+// d'erreur, distinct des autres actions de la ligne.
+.danger-text {
+  @include mat.button-overrides(
+    (
+      text-label-text-color: var(--mat-sys-error),
+      text-state-layer-color: var(--mat-sys-error),
+      text-ripple-color: color-mix(in srgb, var(--mat-sys-error) 12%, transparent),
+    )
+  );
+}
+
+// Un rôle, en badge.
+.role-badge {
+  display: inline-block;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-secondary-container);
+  background: var(--mat-sys-secondary-container);
+
+  &[data-role='Owner'] {
+    color: var(--mat-sys-on-primary-container);
+    background: var(--mat-sys-primary-container);
+  }
+}
+
+// Actions d'une ligne de tableau, alignées à droite.
+.row-actions {
+  text-align: end;
+  white-space: nowrap;
 }

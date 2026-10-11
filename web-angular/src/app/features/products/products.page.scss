@@ -1,0 +1,20 @@
+// Les champs et les boutons du formulaire sur une ligne, qui passe à la ligne sur un écran étroit.
+.product-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1rem;
+  align-items: baseline;
+}
+
+// Région live, toujours présente : vide, elle ne prend aucune place.
+.status {
+  margin: 0;
+}
+
+.mat-column-price {
+  width: 9rem;
+}
+
+.mat-column-actions {
+  width: 14rem;
+}

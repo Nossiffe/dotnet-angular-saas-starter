@@ -24,6 +24,7 @@ import { finalize } from 'rxjs';
 import type { ProductDto } from '../../api/generated';
 import { ProductsService } from './products.service';
 import { FormErrors } from '../../core/forms/form-errors';
+import { TableScroll } from '../../core/layout/table-scroll';
 
 /** Longueur maximale du nom, comme la validation de l'API (UpdateProductValidator). */
 export const NAME_MAX_LENGTH = 200;
@@ -65,8 +66,10 @@ function toPrice(text: string): number {
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
+    TableScroll,
   ],
   templateUrl: './products.page.html',
+  styleUrl: './products.page.scss',
 })
 export class ProductsPage {
   protected readonly svc = inject(ProductsService);

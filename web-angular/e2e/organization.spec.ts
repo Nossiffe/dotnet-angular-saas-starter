@@ -117,11 +117,17 @@ test('an admin invites a colleague, and a duplicate is refused by its code', asy
   await expect(page.getByRole('row', { name: /colleague@saas\.local/ })).toContainText('Vous');
 
   await page.getByLabel('E-mail').fill('colleague@saas.local');
+  // Après un refus, la page relit la liste. Le test attend la réponse à cette relecture : sinon, la
+  // requête encore en route à la fin du test sortirait des mocks.
+  const readAgain = page.waitForResponse(
+    (r) => r.request().method() === 'GET' && new URL(r.url()).pathname.endsWith('/invitations'),
+  );
   await page.getByRole('button', { name: 'Inviter' }).click();
 
   await expect(page.getByRole('alert')).toHaveText(
     'Une invitation est déjà en attente pour cette adresse.',
   );
+  await readAgain;
 });
 
 // « Déconnexion » n'est pas une session expirée : ni message, ni retour prévu sur l'écran.

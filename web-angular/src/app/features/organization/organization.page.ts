@@ -29,6 +29,7 @@ import { SKIP_ERROR_TOAST } from '../../core/error/http-error.interceptor';
 import { InvitableRole, OrganizationService } from './organization.service';
 import { problemMessage } from './problem-message';
 import { FormErrors } from '../../core/forms/form-errors';
+import { TableScroll } from '../../core/layout/table-scroll';
 import {
   RemoveMemberDecision,
   RemoveMemberDialog,
@@ -70,6 +71,7 @@ interface Revocation {
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
+    TableScroll,
   ],
   templateUrl: './organization.page.html',
   styleUrl: './organization.page.scss',
