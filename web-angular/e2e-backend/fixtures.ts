@@ -1,5 +1,5 @@
 import { test as base, expect, type Page } from '@playwright/test';
-import AxeBuilder from '@axe-core/playwright';
+import { axeBuilder } from '../e2e/axe';
 
 /**
  * The API's auth policy: 10 requests per 30 seconds and per IP, on every /api/v1/auth route
@@ -17,7 +17,10 @@ interface Journey {
    * if it fails because of a 429, that is the error reported, rather than the timeout it caused.
    */
   step(title: string, body: () => Promise<void>): Promise<void>;
-  /** Fails on any WCAG 2.2 A or AA violation axe finds on the page as it is. */
+  /**
+   * Fails on any WCAG 2.2 A or AA violation axe finds on the page, once its open snack-bars have
+   * been announced (see e2e/axe.ts).
+   */
   expectAccessible(page: Page, state: string): Promise<void>;
 }
 
@@ -54,9 +57,7 @@ export const test = base.extend<{ journey: Journey }>({
         });
       },
       async expectAccessible(page, state) {
-        const results = await new AxeBuilder({ page })
-          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
-          .analyze();
+        const results = await axeBuilder(page).analyze();
         const violations = results.violations.map((v) => ({
           rule: v.id,
           targets: v.nodes.map((n) => n.target.join(' ')),
