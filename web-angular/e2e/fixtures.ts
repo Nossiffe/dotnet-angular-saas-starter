@@ -1,5 +1,6 @@
 import { test as base } from '@playwright/test';
-import AxeBuilder from '@axe-core/playwright';
+import type AxeBuilder from '@axe-core/playwright';
+import { axeBuilder } from './axe';
 
 // These specs run without a backend. The API answers every call with 401, as it
 // does for a visitor without a session: without that, the startup session
@@ -18,10 +19,9 @@ export const test = base.extend<{ anonymousVisitor: void; makeAxeBuilder: () => 
     },
     { auto: true },
   ],
+  // WCAG 2.2 A and AA, once the open snack-bars have been announced (see e2e/axe.ts).
   makeAxeBuilder: async ({ page }, use) => {
-    await use(() =>
-      new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']),
-    );
+    await use(() => axeBuilder(page));
   },
 });
 export { expect } from '@playwright/test';

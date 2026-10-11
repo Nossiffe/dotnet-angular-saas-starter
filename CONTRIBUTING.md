@@ -165,11 +165,38 @@ avant de poser le tag.
 - **Front** (`web-angular/`) : tests unitaires Vitest (`npm test`) et Playwright sur les pages
   de connexion, d'acceptation d'invitation, Produits et Organisation, API simulée, avec contrôle
   d'accessibilité axe (`npm run e2e`).
+- **Parcours de bout en bout** (`web-angular/e2e-backend/`, job CI `e2e-backend`) : Playwright
+  contre le vrai backend, sans rien simuler. Inscription et e-mail de confirmation lu dans
+  Mailpit, connexion, un produit créé, modifié et supprimé, invitation d'un Admin et son e-mail,
+  acceptation, l'Admin sur l'écran Organisation, son retrait, après lequel il perd l'accès ; axe
+  sur chaque page traversée.
 
 ```bash
 dotnet test                                                  # tous
 dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulement (sans Docker)
 ```
+
+Lancer le parcours de bout en bout en local, comme la CI :
+
+```bash
+docker compose --profile full up -d --build db mailpit api   # l'API dans son image Docker
+curl -sf --retry 30 --retry-delay 2 --retry-all-errors http://localhost:5123/health/ready
+cd web-angular
+npx playwright install chromium                              # une fois
+npm run e2e:backend                                          # démarre le front, puis le parcours
+```
+
+- Les ports sont ceux de `docker-compose.yml` : API 5123, Mailpit 8025, front 4200. Une API
+  lancée par `dotnet run` sur le port 5123 convient aussi, mais seule l'image prouve que l'image
+  fonctionne.
+- Les comptes du parcours ont une adresse unique par exécution : la base n'a pas besoin d'être
+  vidée entre deux runs.
+- Le rate limiting reste celui de la production. La politique d'authentification accepte 10
+  appels par 30 secondes et par IP, et les deux utilisateurs du parcours partagent l'IP de la
+  machine : le parcours compte ses appels à `/api/v1/auth` et échoue, en le disant, s'il en fait
+  plus de 10 (`e2e-backend/fixtures.ts`). Deux runs lancés à moins de 30 secondes d'écart
+  peuvent recevoir un 429 ; le parcours l'indique aussi.
+- En cas d'échec : `npx playwright show-trace test-results/e2e-backend/<test>/trace.zip`.
 
 > ⚠️ **Runner MTP** : `dotnet test` transmet les options qu'il ne connaît pas aux
 > exécutables de test ; une option VSTest historique (`--nologo`, `--collect`…) est
@@ -185,6 +212,7 @@ dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulemen
 | Workflow | Déclencheur | Rôle | Si ça casse |
 |---|---|---|---|
 | `ci.yml` | Push/PR/`merge_group` sur `main` | Restore NuGet verrouillé (contrôle que chaque projet l'est) + build + tests (unit/intégration/archi) + front Angular (lint/format/typecheck, tests unitaires, build, Playwright + axe sur les pages de connexion, d'acceptation d'invitation, Produits et Organisation) + vérification des chemins cités dans la doc (`scripts/check-docs.sh`) + couverture backend (Microsoft.CodeCoverage MTP, résumé ReportGenerator + artifact, **non bloquante** — cf. § Couverture) | Lire le log du job en échec (build/tests/front) ; NU1004 au restore : un `packages.lock.json` périmé, à régénérer par `dotnet restore` en local puis committer ; une couverture qui baisse n'échoue jamais le job, c'est un signal |
+| `ci.yml`, job `e2e-backend` | Push/PR/`merge_group` sur `main`, sans filtre de chemins | Parcours Playwright contre le vrai backend : image Docker de l'API (profil Compose `full`), PostgreSQL, Mailpit et le front ; axe sur chaque page traversée | Ouvrir l'artifact `e2e-backend-failure` (trace Playwright, captures, rapport HTML, journaux de la pile) ; reproduire en local : § Tests ci-dessus |
 | `smoke.yml` | Push `main` + PR sur `main` + manuel ; sur une PR, le job `smoke` ne tourne que si le backend change (`src/`, `Directory.Packages.props`, `scripts/smoke.sh`, `docker-compose.yml`) | Bout-en-bout réel (Postgres + Mailpit + API + Hangfire) via `scripts/smoke.sh` | Reproduire en local : `docker compose up -d db mailpit && dotnet run --project src/Api` puis `bash scripts/smoke.sh` |
 | `deps-audit.yml` | PR sur `main` + cron hebdo (lundi 05h UTC) + manuel ; sur une PR, `dotnet-audit` et `npm-audit` ne tournent que si un manifeste de deps change (`Directory.Packages.props`, `packages.lock.json`, `package.json`/`package-lock.json`) | Bloque sur CVE High/Critical — `dotnet-audit` (NuGet, direct + transitif) et `npm-audit` (front Angular, dépendances de prod seulement) | Corriger (bump/pin) ou documenter une exception datée — voir § Procédure d'exception CVE ci-dessous |
 | `zizmor.yml` | Push `main` touchant `.github/workflows/**` + toute PR ; sur une PR, le job `zizmor` ne tourne que si `.github/workflows/**` change | Lint de sécurité des workflows GitHub Actions (permissions, injections, cache-poisoning…) — mode console (`advanced-security: false`), exit non nul = bloquant | Reproduire en local : `uvx zizmor .github/workflows/` ; corriger le finding (permissions minimales, pin SHA, échappement d'input) |

@@ -21,7 +21,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "fix": "prettier --write . && ng lint --fix && stylelint \"src/**/*.scss\" --fix",
     "check": "npm run api:gen && prettier --check . && ng lint && stylelint \"src/**/*.scss\" && tsc -p tsconfig.json --noEmit",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:backend": "playwright test -c playwright.backend.config.ts"
   },
   "private": true,
   "packageManager": "npm@11.13.0",
