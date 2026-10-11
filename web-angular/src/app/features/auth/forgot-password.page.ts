@@ -5,6 +5,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from '../../core/auth/auth.service';
+import { FormErrors } from '../../core/forms/form-errors';
 
 @Component({
   selector: 'app-forgot-password',
@@ -20,13 +21,15 @@ export class ForgotPasswordPage {
   readonly sent = signal(false);
 
   readonly forgotForm = form(this.model, (p) => {
-    required(p.email);
+    required(p.email, { message: 'Email requis' });
     email(p.email, { message: 'Email invalide' });
   });
+  /** Erreurs sous le champ modifié puis quitté, ou après un envoi refusé. */
+  readonly errors = new FormErrors();
 
   onSubmit(event: Event): void {
     event.preventDefault();
-    if (this.forgotForm().invalid()) return;
+    if (this.submitting() || !this.errors.check(this.forgotForm)) return;
     this.submitting.set(true);
     this.auth.forgotPassword(this.model().email).subscribe({
       next: () => {

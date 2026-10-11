@@ -5,6 +5,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from '../../core/auth/auth.service';
+import { FormErrors } from '../../core/forms/form-errors';
 
 @Component({
   selector: 'app-register',
@@ -21,15 +22,17 @@ export class RegisterPage {
   readonly serverError = signal<string | null>(null);
 
   readonly registerForm = form(this.model, (p) => {
-    required(p.email);
+    required(p.email, { message: 'Email requis' });
     email(p.email, { message: 'Email invalide' });
-    required(p.password);
+    required(p.password, { message: 'Mot de passe requis' });
     minLength(p.password, 12, { message: 'Au moins 12 caractères' });
   });
+  /** Erreurs sous un champ modifié puis quitté, ou sous tous après un envoi refusé. */
+  readonly errors = new FormErrors();
 
   onSubmit(event: Event): void {
     event.preventDefault();
-    if (this.registerForm().invalid()) return;
+    if (this.submitting() || !this.errors.check(this.registerForm)) return;
     this.submitting.set(true);
     this.serverError.set(null);
     this.auth.register(this.model()).subscribe({

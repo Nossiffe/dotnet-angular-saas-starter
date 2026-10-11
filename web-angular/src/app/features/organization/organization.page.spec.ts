@@ -10,6 +10,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { httpErrorInterceptor } from '../../core/error/http-error.interceptor';
 import { fakeAccessToken, ORG_ID, OWNER_ID, signIn } from '../../testing/fake-session';
 import { OrganizationPage } from './organization.page';
+import { fieldErrors, showing, touch, typeAndLeave } from '../../testing/form-field';
 
 const MEMBERS_URL = `/api/v1/organizations/${ORG_ID}/members`;
 const INVITATIONS_URL = `/api/v1/organizations/${ORG_ID}/invitations`;
@@ -643,13 +644,62 @@ describe('OrganizationPage', () => {
       await reload(fixture, INVITATIONS_URL, INVITATIONS);
     });
 
-    it('does not send an invalid e-mail', async () => {
+    // Les erreurs de l'e-mail, sous le champ : la règle de tous les formulaires (FormErrors).
+    const emailInput = (fixture: ComponentFixture<OrganizationPage>) =>
+      inviteForm(fixture).querySelector<HTMLInputElement>('input[type=email]')!;
+
+    it('does not send an invalid e-mail, and says why under the field', async () => {
       const fixture = await open();
 
       await fillInvite(fixture, 'not-an-email', 'Member');
 
       httpMock.expectNone({ method: 'POST', url: INVITATIONS_URL });
-      expect(text(fixture)).toContain('Adresse e-mail invalide');
+      expect(fieldErrors(emailInput(fixture))).toEqual(showing('Adresse e-mail invalide'));
+    });
+
+    it('does not send an empty e-mail, and says it is required', async () => {
+      const fixture = await open();
+
+      inviteForm(fixture).dispatchEvent(new Event('submit'));
+      await fixture.whenStable();
+
+      httpMock.expectNone({ method: 'POST', url: INVITATIONS_URL });
+      expect(fieldErrors(emailInput(fixture))).toEqual(showing('Adresse e-mail requise'));
+    });
+
+    it('shows why an e-mail changed then left is refused, and nothing for one only left', async () => {
+      const fixture = await open();
+
+      touch(emailInput(fixture));
+      await fixture.whenStable();
+      expect(fieldErrors(emailInput(fixture))).toEqual(showing());
+
+      typeAndLeave(emailInput(fixture), 'not-an-email');
+      await fixture.whenStable();
+      expect(fieldErrors(emailInput(fixture))).toEqual(showing('Adresse e-mail invalide'));
+    });
+
+    // Après l'envoi, la page vide le formulaire et y met le focus : le champ vidé, quitté sans avoir
+    // été modifié, ne montre pas d'erreur. Celles d'un envoi refusé avant ne reviennent pas.
+    it('shows no error on the emptied field after an invitation, when the focus leaves it', async () => {
+      const fixture = await open();
+      inviteForm(fixture).dispatchEvent(new Event('submit'));
+      await fixture.whenStable();
+
+      await fillInvite(fixture, 'colleague@saas.local', 'Member');
+      httpMock
+        .expectOne({ method: 'POST', url: INVITATIONS_URL })
+        .flush(
+          { invitationId: '0199c9a0-0000-7000-8000-0000000000c1' },
+          { status: 201, statusText: 'Created' },
+        );
+      await reload(fixture, INVITATIONS_URL, INVITATIONS);
+      expect(document.activeElement).toBe(emailInput(fixture));
+
+      emailInput(fixture).dispatchEvent(new Event('blur'));
+      await fixture.whenStable();
+
+      expect(fieldErrors(emailInput(fixture))).toEqual(showing());
     });
 
     it.each([

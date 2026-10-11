@@ -6,6 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { InvitationsService } from './invitations.service';
+import { FormErrors } from '../../core/forms/form-errors';
 
 // Code stable de l'extension `code` du ProblemDetails (docs/error-codes.md) : l'invitation est
 // valide, mais aucun compte n'existe pour cet e-mail.
@@ -58,9 +59,11 @@ export class AcceptInvitationPage implements OnInit {
 
   readonly model = signal({ password: '' });
   readonly passwordForm = form(this.model, (p) => {
-    required(p.password);
+    required(p.password, { message: 'Mot de passe requis' });
     minLength(p.password, 12, { message: 'Au moins 12 caractères' });
   });
+  /** Erreurs sous le champ modifié puis quitté, ou après un envoi refusé. */
+  readonly errors = new FormErrors();
 
   ngOnInit(): void {
     if (!GUID.test(this.invitationId()) || !this.token()) {
@@ -78,7 +81,7 @@ export class AcceptInvitationPage implements OnInit {
 
   onSubmit(event: Event): void {
     event.preventDefault();
-    if (this.passwordForm().invalid()) return;
+    if (this.submitting() || !this.errors.check(this.passwordForm)) return;
     this.accept(this.model().password);
   }
 

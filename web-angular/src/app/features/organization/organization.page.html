@@ -150,11 +150,17 @@
   <form class="invite" aria-labelledby="invite-title" (submit)="invite($event)" novalidate>
     <mat-form-field appearance="outline">
       <mat-label>E-mail</mat-label>
-      <input #inviteEmail matInput type="email" autocomplete="off" [formField]="inviteForm.email" />
-      @if (inviteForm.email().touched() && inviteForm.email().invalid()) {
-        @for (e of inviteForm.email().errors(); track e.kind) {
-          <mat-error>{{ e.message }}</mat-error>
-        }
+      <input
+        #inviteEmail
+        matInput
+        type="email"
+        autocomplete="off"
+        [formField]="inviteForm.email"
+        [errorStateMatcher]="inviteErrors.matcher"
+      />
+      <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
+      @if (inviteErrors.shown(inviteForm.email)) {
+        <mat-error>{{ inviteErrors.text(inviteForm.email) }}</mat-error>
       }
     </mat-form-field>
     <mat-form-field appearance="outline">

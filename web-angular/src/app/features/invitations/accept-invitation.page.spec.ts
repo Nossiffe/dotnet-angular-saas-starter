@@ -4,6 +4,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { AcceptInvitationPage } from './accept-invitation.page';
+import { fieldErrors, showing, touch, typeAndLeave } from '../../testing/form-field';
 
 const ACCEPT_URL = '/api/v1/invitations/accept';
 const INVITATION_ID = '0199c9a0-0000-7000-8000-000000000001';
@@ -178,13 +179,47 @@ describe('AcceptInvitationPage', () => {
     },
   );
 
-  it('does not send a password shorter than 12 characters', async () => {
-    const fixture = await askedForPassword();
+  // Les erreurs du mot de passe, sous le champ : la règle de tous les formulaires (FormErrors).
+  describe('password errors', () => {
+    const password = (fixture: ComponentFixture<AcceptInvitationPage>) =>
+      query<HTMLInputElement>(fixture, 'input[type=password]')!;
 
-    await submitPassword(fixture, 'trop-court');
+    it('shows none on the field only entered and left', async () => {
+      const fixture = await askedForPassword();
 
-    httpMock.expectNone(ACCEPT_URL);
-    expect(query<HTMLButtonElement>(fixture, 'button[type=submit]')!.disabled).toBe(true);
+      touch(password(fixture));
+      await fixture.whenStable();
+
+      expect(fieldErrors(password(fixture))).toEqual(showing());
+    });
+
+    it('shows why a password changed then left is too short, under the field', async () => {
+      const fixture = await askedForPassword();
+
+      typeAndLeave(password(fixture), 'trop-court');
+      await fixture.whenStable();
+
+      expect(fieldErrors(password(fixture))).toEqual(showing('Au moins 12 caractères'));
+    });
+
+    it('does not send a password shorter than 12 characters, and says why', async () => {
+      const fixture = await askedForPassword();
+
+      await submitPassword(fixture, 'trop-court');
+
+      httpMock.expectNone(ACCEPT_URL);
+      expect(fieldErrors(password(fixture))).toEqual(showing('Au moins 12 caractères'));
+    });
+
+    it('does not send an empty password, and says it is required', async () => {
+      const fixture = await askedForPassword();
+
+      query<HTMLButtonElement>(fixture, 'button[type=submit]')!.click();
+      await fixture.whenStable();
+
+      httpMock.expectNone(ACCEPT_URL);
+      expect(fieldErrors(password(fixture))).toEqual(showing('Mot de passe requis'));
+    });
   });
 
   it('offers a retry after a server error', async () => {

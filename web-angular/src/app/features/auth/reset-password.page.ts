@@ -7,6 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../core/auth/auth.service';
+import { FormErrors } from '../../core/forms/form-errors';
 
 @Component({
   selector: 'app-reset-password',
@@ -28,13 +29,15 @@ export class ResetPasswordPage {
   readonly serverError = signal<string | null>(null);
 
   readonly resetForm = form(this.model, (p) => {
-    required(p.newPassword);
+    required(p.newPassword, { message: 'Mot de passe requis' });
     minLength(p.newPassword, 12, { message: 'Au moins 12 caractères' });
   });
+  /** Erreurs sous le champ modifié puis quitté, ou après un envoi refusé. */
+  readonly errors = new FormErrors();
 
   onSubmit(event: Event): void {
     event.preventDefault();
-    if (this.resetForm().invalid()) return;
+    if (this.submitting() || !this.errors.check(this.resetForm)) return;
     const uid = this.userId();
     const tok = this.token();
     if (!uid || !tok) {

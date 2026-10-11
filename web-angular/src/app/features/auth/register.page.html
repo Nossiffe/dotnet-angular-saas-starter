@@ -1,32 +1,35 @@
 <h1>Inscription</h1>
-<form (submit)="onSubmit($event)">
+<form novalidate (submit)="onSubmit($event)">
   <mat-form-field appearance="outline">
     <mat-label>Email</mat-label>
-    <input matInput type="email" [formField]="registerForm.email" />
-    @if (registerForm.email().touched() && registerForm.email().invalid()) {
-      @for (e of registerForm.email().errors(); track e.kind) {
-        <mat-error>{{ e.message }}</mat-error>
-      }
+    <input
+      matInput
+      type="email"
+      [formField]="registerForm.email"
+      [errorStateMatcher]="errors.matcher"
+    />
+    <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
+    @if (errors.shown(registerForm.email)) {
+      <mat-error>{{ errors.text(registerForm.email) }}</mat-error>
     }
   </mat-form-field>
   <mat-form-field appearance="outline">
     <mat-label>Mot de passe</mat-label>
-    <input matInput type="password" [formField]="registerForm.password" />
-    @if (registerForm.password().touched() && registerForm.password().invalid()) {
-      @for (e of registerForm.password().errors(); track e.kind) {
-        <mat-error>{{ e.message }}</mat-error>
-      }
+    <input
+      matInput
+      type="password"
+      [formField]="registerForm.password"
+      [errorStateMatcher]="errors.matcher"
+    />
+    <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
+    @if (errors.shown(registerForm.password)) {
+      <mat-error>{{ errors.text(registerForm.password) }}</mat-error>
     }
   </mat-form-field>
   @if (serverError()) {
     <p class="error">{{ serverError() }}</p>
   }
-  <button
-    mat-flat-button
-    color="primary"
-    type="submit"
-    [disabled]="registerForm().invalid() || submitting()"
-  >
+  <button mat-flat-button color="primary" type="submit" [disabled]="submitting()">
     Créer le compte
   </button>
 </form>
