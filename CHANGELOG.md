@@ -6,6 +6,12 @@ Convention spécifique : chaque entrée de release comporte une rubrique **Migra
 
 ## [Unreleased]
 
+### Changed
+- Front : finition visuelle, sans nouvelle fonctionnalité. Thème Material sobre : des neutres et une seule couleur d'accent (palette azure), à la place du violet et du fond rosé par défaut ; en mode sombre, les cartes se détachent de la page. En-tête clair, avec le nom de l'application, « SaaS Starter », au lieu de « Saas » en texte brut ; le même nom dans l'onglet du navigateur, au lieu de « WebAngular ». Contenu centré à largeur maximale, sections en cartes, titre de page plus marqué que les titres de section. Sur un écran étroit, l'en-tête d'une session ouverte passe sur deux lignes, et un tableau trop large défile dans sa carte et s'atteint alors au clavier : aucune page ne défile plus horizontalement, jusqu'à 320 px de large. Écran Organisation : rôles en badges ; changement de rôle par une liste compacte, qui garde la hauteur des lignes ; colonnes dimensionnées ; « Retirer » et « Révoquer » en couleur d'erreur, distincts de « Renvoyer » ; formulaire d'invitation dans sa propre carte. Page Produits : le formulaire (titré « Ajouter un produit », ou « Modification de « … » » pendant une modification) et la liste, chacun dans sa carte ; « Supprimer » en couleur d'erreur. Pages d'authentification : une carte centrée, champs les uns sous les autres. Les contrôles axe passent toujours ; les captures de `docs/screenshots` sont refaites.
+
+### Migrations DB
+- aucune
+
 ## [0.2.0] - 2026-10-11
 
 ### Added

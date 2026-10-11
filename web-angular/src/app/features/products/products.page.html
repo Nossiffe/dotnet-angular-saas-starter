@@ -1,93 +1,102 @@
 <h1>Produits</h1>
-@if (editing(); as product) {
-  <p id="editing-caption">Modification de « {{ product.name }} »</p>
-}
-<form
-  novalidate
-  (submit)="$event.preventDefault(); submit()"
-  (keydown.escape)="cancel()"
-  [attr.aria-labelledby]="editing() ? 'editing-caption' : null"
-  style="display: flex; gap: 1rem; align-items: baseline"
->
-  <mat-form-field appearance="outline">
-    <mat-label>Nom</mat-label>
-    <input
-      #nameInput
-      matInput
-      [formField]="productForm.name"
-      [errorStateMatcher]="errors.matcher"
-      (input)="userInput()"
-    />
-    <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
-    @if (errors.shown(productForm.name)) {
-      <mat-error>{{ errors.text(productForm.name) }}</mat-error>
-    }
-  </mat-form-field>
-  <mat-form-field appearance="outline">
-    <mat-label>Prix</mat-label>
-    <!-- Un champ texte, pas type="number" : voir ProductFields. inputmode : le clavier numérique. -->
-    <input
-      matInput
-      inputmode="decimal"
-      [formField]="productForm.price"
-      [errorStateMatcher]="errors.matcher"
-      (input)="userInput()"
-    />
-    <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
-    @if (errors.shown(productForm.price)) {
-      <mat-error>{{ errors.text(productForm.price) }}</mat-error>
-    }
-  </mat-form-field>
-  <button mat-flat-button color="primary" type="submit" [disabled]="busy()">
-    {{ editing() ? 'Enregistrer' : 'Ajouter' }}
-  </button>
-  @if (editing()) {
-    <button mat-button type="button" [disabled]="saving()" (click)="cancel()">Annuler</button>
+<section class="card">
+  @if (editing(); as product) {
+    <h2 id="editing-caption">Modification de « {{ product.name }} »</h2>
+  } @else {
+    <h2>Ajouter un produit</h2>
   }
-</form>
-<p role="status">{{ status() }}</p>
+  <form
+    class="product-form"
+    novalidate
+    (submit)="$event.preventDefault(); submit()"
+    (keydown.escape)="cancel()"
+    [attr.aria-labelledby]="editing() ? 'editing-caption' : null"
+  >
+    <mat-form-field appearance="outline">
+      <mat-label>Nom</mat-label>
+      <input
+        #nameInput
+        matInput
+        [formField]="productForm.name"
+        [errorStateMatcher]="errors.matcher"
+        (input)="userInput()"
+      />
+      <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
+      @if (errors.shown(productForm.name)) {
+        <mat-error>{{ errors.text(productForm.name) }}</mat-error>
+      }
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Prix</mat-label>
+      <!-- Un champ texte, pas type="number" : voir ProductFields. inputmode : le clavier numérique. -->
+      <input
+        matInput
+        inputmode="decimal"
+        [formField]="productForm.price"
+        [errorStateMatcher]="errors.matcher"
+        (input)="userInput()"
+      />
+      <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
+      @if (errors.shown(productForm.price)) {
+        <mat-error>{{ errors.text(productForm.price) }}</mat-error>
+      }
+    </mat-form-field>
+    <button mat-flat-button color="primary" type="submit" [disabled]="busy()">
+      {{ editing() ? 'Enregistrer' : 'Ajouter' }}
+    </button>
+    @if (editing()) {
+      <button mat-button type="button" [disabled]="saving()" (click)="cancel()">Annuler</button>
+    }
+  </form>
+  <p class="status" role="status">{{ status() }}</p>
+</section>
 
 <!-- Pendant une relecture, la liste reste affichée : les lignes et le focus ne disparaissent pas. -->
-@if (svc.products.isLoading() && !svc.products.hasValue()) {
-  <p>Chargement…</p>
-} @else if (svc.products.error()) {
-  <p>Échec du chargement.</p>
-} @else if (svc.products.hasValue()) {
-  <p>{{ svc.products.value()!.totalCount }} produit(s) au total</p>
-  <table mat-table [dataSource]="svc.products.value()!.items">
-    <ng-container matColumnDef="name">
-      <th mat-header-cell *matHeaderCellDef>Nom</th>
-      <td mat-cell *matCellDef="let p">{{ p.name }}</td>
-    </ng-container>
-    <ng-container matColumnDef="price">
-      <th mat-header-cell *matHeaderCellDef>Prix</th>
-      <td mat-cell *matCellDef="let p">{{ p.price | currency: 'EUR' }}</td>
-    </ng-container>
-    <ng-container matColumnDef="actions">
-      <th mat-header-cell *matHeaderCellDef></th>
-      <td mat-cell *matCellDef="let p">
-        <button
-          mat-button
-          type="button"
-          [attr.data-edit-id]="p.id"
-          [attr.aria-label]="'Modifier ' + p.name"
-          [disabled]="busy()"
-          (click)="edit(p)"
-        >
-          Modifier
-        </button>
-        <button
-          mat-button
-          type="button"
-          [attr.aria-label]="'Supprimer ' + p.name"
-          [disabled]="busy()"
-          (click)="remove(p.id)"
-        >
-          Supprimer
-        </button>
-      </td>
-    </ng-container>
-    <tr mat-header-row *matHeaderRowDef="cols"></tr>
-    <tr mat-row *matRowDef="let row; columns: cols"></tr>
-  </table>
-}
+<section class="card">
+  @if (svc.products.isLoading() && !svc.products.hasValue()) {
+    <p>Chargement…</p>
+  } @else if (svc.products.error()) {
+    <p>Échec du chargement.</p>
+  } @else if (svc.products.hasValue()) {
+    <p class="muted">{{ svc.products.value()!.totalCount }} produit(s) au total</p>
+    <div appTableScroll="Liste des produits">
+      <table mat-table [dataSource]="svc.products.value()!.items">
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>Nom</th>
+          <td mat-cell *matCellDef="let p">{{ p.name }}</td>
+        </ng-container>
+        <ng-container matColumnDef="price">
+          <th mat-header-cell *matHeaderCellDef>Prix</th>
+          <td mat-cell *matCellDef="let p">{{ p.price | currency: 'EUR' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let p" class="row-actions">
+            <button
+              mat-button
+              type="button"
+              [attr.data-edit-id]="p.id"
+              [attr.aria-label]="'Modifier ' + p.name"
+              [disabled]="busy()"
+              (click)="edit(p)"
+            >
+              Modifier
+            </button>
+            <button
+              mat-button
+              class="danger-text"
+              type="button"
+              [attr.aria-label]="'Supprimer ' + p.name"
+              [disabled]="busy()"
+              (click)="remove(p.id)"
+            >
+              Supprimer
+            </button>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="cols"></tr>
+        <tr mat-row *matRowDef="let row; columns: cols"></tr>
+      </table>
+    </div>
+  }
+</section>

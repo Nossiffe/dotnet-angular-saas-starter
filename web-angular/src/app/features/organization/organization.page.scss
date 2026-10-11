@@ -1,26 +1,69 @@
-section {
-  margin-block: 1.5rem;
+// Le statut d'une action : région live, toujours présente ; vide, elle ne prend aucune place.
+.status {
+  margin: 0 0 1rem;
+}
+
+.status:empty {
+  margin: 0;
 }
 
 table {
   width: 100%;
 }
 
+// Colonnes dimensionnées : l'e-mail prend la place qui reste. Le rôle d'un membre peut porter la
+// liste et « Appliquer » ; celui d'une invitation n'est qu'un badge.
+.members-table .mat-column-role {
+  width: 15rem;
+}
+
+.invitations-table .mat-column-role {
+  width: 8rem;
+}
+
+.col-date {
+  width: 7.5rem;
+}
+
+.col-sender {
+  width: 12rem;
+}
+
+.mat-column-actions {
+  width: 13rem;
+}
+
 .invite {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0 1rem;
   align-items: baseline;
 }
 
-.compact {
-  width: 9rem;
-}
-
+// Changement de rôle : une liste native compacte et « Appliquer », dans la hauteur d'une ligne.
 .role-change {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+}
+
+.role-select {
+  height: 2rem;
+  padding-inline: 0.625rem 0.25rem;
+  border: 1px solid var(--mat-sys-outline);
+  border-radius: 8px;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface);
+  background: var(--card-background);
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    color: color-mix(in srgb, var(--mat-sys-on-surface) 38%, transparent);
+  }
 }
 
 h2:focus {
@@ -30,10 +73,6 @@ h2:focus {
 h2:focus-visible {
   outline: 2px solid var(--mat-sys-primary);
   outline-offset: 2px;
-}
-
-.error {
-  color: var(--mat-sys-error);
 }
 
 .visually-hidden {

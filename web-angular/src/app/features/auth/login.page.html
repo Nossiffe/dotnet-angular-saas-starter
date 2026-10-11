@@ -1,37 +1,41 @@
-<h1>Connexion</h1>
-<form novalidate (submit)="onSubmit($event)">
-  <mat-form-field appearance="outline">
-    <mat-label>Email</mat-label>
-    <input
-      matInput
-      type="email"
-      [formField]="loginForm.email"
-      [errorStateMatcher]="errors.matcher"
-    />
-    <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
-    @if (errors.shown(loginForm.email)) {
-      <mat-error>{{ errors.text(loginForm.email) }}</mat-error>
+<div class="card auth-card">
+  <h1>Connexion</h1>
+  <form novalidate (submit)="onSubmit($event)">
+    <mat-form-field appearance="outline">
+      <mat-label>Email</mat-label>
+      <input
+        matInput
+        type="email"
+        [formField]="loginForm.email"
+        [errorStateMatcher]="errors.matcher"
+      />
+      <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
+      @if (errors.shown(loginForm.email)) {
+        <mat-error>{{ errors.text(loginForm.email) }}</mat-error>
+      }
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Mot de passe</mat-label>
+      <input
+        matInput
+        type="password"
+        [formField]="loginForm.password"
+        [errorStateMatcher]="errors.matcher"
+      />
+      <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
+      @if (errors.shown(loginForm.password)) {
+        <mat-error>{{ errors.text(loginForm.password) }}</mat-error>
+      }
+    </mat-form-field>
+    @if (serverError()) {
+      <p class="error">{{ serverError() }}</p>
     }
-  </mat-form-field>
-  <mat-form-field appearance="outline">
-    <mat-label>Mot de passe</mat-label>
-    <input
-      matInput
-      type="password"
-      [formField]="loginForm.password"
-      [errorStateMatcher]="errors.matcher"
-    />
-    <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
-    @if (errors.shown(loginForm.password)) {
-      <mat-error>{{ errors.text(loginForm.password) }}</mat-error>
-    }
-  </mat-form-field>
-  @if (serverError()) {
-    <p class="error">{{ serverError() }}</p>
-  }
-  <button mat-flat-button color="primary" type="submit" [disabled]="submitting()">
-    Se connecter
-  </button>
-</form>
-<p><a routerLink="/forgot-password">Mot de passe oublié ?</a></p>
-<p>Pas de compte ? <a routerLink="/register">Créer un compte</a></p>
+    <button mat-flat-button color="primary" type="submit" [disabled]="submitting()">
+      Se connecter
+    </button>
+  </form>
+  <div class="links">
+    <p><a routerLink="/forgot-password">Mot de passe oublié ?</a></p>
+    <p>Pas de compte ? <a routerLink="/register">Créer un compte</a></p>
+  </div>
+</div>

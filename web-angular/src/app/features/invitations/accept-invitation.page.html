@@ -1,58 +1,60 @@
-<h1>Invitation</h1>
-@switch (step()) {
-  @case ('checking') {
-    <p role="status">Vérification de l'invitation…</p>
-  }
-  @case ('password') {
-    <!-- Règles d'Identity : options par défaut, sauf RequiredLength = 12 (Infrastructure/DependencyInjection.cs). -->
-    <p id="password-rules">
-      Aucun compte n'existe encore pour votre adresse e-mail. Choisissez un mot de passe pour le
-      créer et rejoindre l'organisation : au moins 12 caractères, avec une majuscule, une minuscule,
-      un chiffre et un caractère spécial.
-    </p>
-    <form novalidate (submit)="onSubmit($event)">
-      <mat-form-field appearance="outline">
-        <mat-label>Mot de passe</mat-label>
-        <input
-          matInput
-          type="password"
-          autocomplete="new-password"
-          aria-describedby="password-rules"
-          [formField]="passwordForm.password"
-          [errorStateMatcher]="errors.matcher"
-        />
-        <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
-        @if (errors.shown(passwordForm.password)) {
-          <mat-error>{{ errors.text(passwordForm.password) }}</mat-error>
-        }
-      </mat-form-field>
-      @if (serverError()) {
-        <p class="error" role="alert">{{ serverError() }}</p>
-      }
-      <button mat-flat-button color="primary" type="submit" [disabled]="submitting()">
-        {{ submitting() ? 'Création du compte…' : 'Créer mon compte et rejoindre' }}
-      </button>
-    </form>
-  }
-  @case ('accepted') {
-    @if (isNewUser()) {
-      <p class="success" role="status">
-        Votre compte est créé et vous avez rejoint l'organisation.
-      </p>
-    } @else {
-      <p class="success" role="status">Vous avez rejoint l'organisation.</p>
+<div class="card auth-card">
+  <h1>Invitation</h1>
+  @switch (step()) {
+    @case ('checking') {
+      <p role="status">Vérification de l'invitation…</p>
     }
-    <a mat-flat-button color="primary" routerLink="/login">Se connecter</a>
+    @case ('password') {
+      <!-- Règles d'Identity : options par défaut, sauf RequiredLength = 12 (Infrastructure/DependencyInjection.cs). -->
+      <p id="password-rules">
+        Aucun compte n'existe encore pour votre adresse e-mail. Choisissez un mot de passe pour le
+        créer et rejoindre l'organisation : au moins 12 caractères, avec une majuscule, une
+        minuscule, un chiffre et un caractère spécial.
+      </p>
+      <form novalidate (submit)="onSubmit($event)">
+        <mat-form-field appearance="outline">
+          <mat-label>Mot de passe</mat-label>
+          <input
+            matInput
+            type="password"
+            autocomplete="new-password"
+            aria-describedby="password-rules"
+            [formField]="passwordForm.password"
+            [errorStateMatcher]="errors.matcher"
+          />
+          <!-- Un seul élément racine dans le @if : mat-form-field le projette sous le champ. -->
+          @if (errors.shown(passwordForm.password)) {
+            <mat-error>{{ errors.text(passwordForm.password) }}</mat-error>
+          }
+        </mat-form-field>
+        @if (serverError()) {
+          <p class="error" role="alert">{{ serverError() }}</p>
+        }
+        <button mat-flat-button color="primary" type="submit" [disabled]="submitting()">
+          {{ submitting() ? 'Création du compte…' : 'Créer mon compte et rejoindre' }}
+        </button>
+      </form>
+    }
+    @case ('accepted') {
+      @if (isNewUser()) {
+        <p class="success" role="status">
+          Votre compte est créé et vous avez rejoint l'organisation.
+        </p>
+      } @else {
+        <p class="success" role="status">Vous avez rejoint l'organisation.</p>
+      }
+      <a mat-flat-button color="primary" routerLink="/login">Se connecter</a>
+    }
+    @case ('invalid') {
+      <p class="error" role="alert">
+        Cette invitation est invalide ou a expiré. Demandez-en une nouvelle à la personne qui vous a
+        invité.
+      </p>
+      <p><a routerLink="/login">Retour à la connexion</a></p>
+    }
+    @case ('error') {
+      <p class="error" role="alert">Une erreur est survenue, veuillez réessayer.</p>
+      <button mat-stroked-button type="button" (click)="retry()">Réessayer</button>
+    }
   }
-  @case ('invalid') {
-    <p class="error" role="alert">
-      Cette invitation est invalide ou a expiré. Demandez-en une nouvelle à la personne qui vous a
-      invité.
-    </p>
-    <p><a routerLink="/login">Retour à la connexion</a></p>
-  }
-  @case ('error') {
-    <p class="error" role="alert">Une erreur est survenue, veuillez réessayer.</p>
-    <button mat-stroked-button type="button" (click)="retry()">Réessayer</button>
-  }
-}
+</div>

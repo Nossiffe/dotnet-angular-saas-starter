@@ -1,17 +1,19 @@
-<h1>Confirmation de l'adresse email</h1>
-@switch (status()) {
-  @case ('pending') {
-    <p>Vérification en cours…</p>
+<div class="card auth-card">
+  <h1>Confirmation de l'adresse email</h1>
+  @switch (status()) {
+    @case ('pending') {
+      <p>Vérification en cours…</p>
+    }
+    @case ('success') {
+      <p class="success">Votre adresse email a été confirmée avec succès.</p>
+      <a mat-flat-button color="primary" routerLink="/login">Se connecter</a>
+    }
+    @case ('error') {
+      <p class="error">Le lien de confirmation est invalide ou a expiré.</p>
+      <p><a routerLink="/login">Retour à la connexion</a></p>
+    }
+    @case ('invalid') {
+      <p class="error">Lien invalide. <a routerLink="/login">Retour à la connexion</a></p>
+    }
   }
-  @case ('success') {
-    <p class="success">Votre adresse email a été confirmée avec succès.</p>
-    <a mat-flat-button color="primary" routerLink="/login">Se connecter</a>
-  }
-  @case ('error') {
-    <p class="error">Le lien de confirmation est invalide ou a expiré.</p>
-    <p><a routerLink="/login">Retour à la connexion</a></p>
-  }
-  @case ('invalid') {
-    <p class="error">Lien invalide. <a routerLink="/login">Retour à la connexion</a></p>
-  }
-}
+</div>
