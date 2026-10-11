@@ -61,6 +61,9 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@angular-devkit/*"
         update-types: ["version-update:semver-major"]
+      # The Node types follow the Node version of the CI (24): a major moves with it.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
