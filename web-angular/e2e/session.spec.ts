@@ -40,6 +40,8 @@ test('two tabs that refresh the session at the same time both stay signed in', a
       tab.getByRole('heading', { name: 'Produits' }),
       `tab ${index + 1} still signed in`,
     ).toBeVisible();
+    // Its product list read: a request still on its way when the test ends leaves the mocks.
+    await expect(tab.getByText('2 produit(s) au total')).toBeVisible();
   }
   // The second tab presented the token the first one received, not the one it replaced.
   expect(session.state.received).toEqual(['rt-0', 'rt-1']);
@@ -47,7 +49,7 @@ test('two tabs that refresh the session at the same time both stay signed in', a
 
   // The cookie left in the browser is still valid: a reload refreshes the session again.
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Produits' })).toBeVisible();
+  await expect(page.getByText('2 produit(s) au total')).toBeVisible();
   expect(session.state.received).toEqual(['rt-0', 'rt-1', 'rt-2']);
 });
 
@@ -69,6 +71,9 @@ test('a logout sent while another tab refreshes the session closes it', async ({
   release();
 
   await expect(page.getByRole('heading', { name: 'Connexion' })).toBeVisible();
+  // The second tab keeps the access token its refresh received. Its product list is read before
+  // the test ends: a request still on its way then would leave the mocks for the network.
+  await expect(second.getByText('2 produit(s) au total')).toBeVisible();
   // The logout presented the cookie the refresh set, and closed that session.
   expect(session.state.loggedOut).toEqual(['rt-2']);
   expect(session.state.current).toBeNull();
