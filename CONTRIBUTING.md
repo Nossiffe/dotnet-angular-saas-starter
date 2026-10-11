@@ -141,9 +141,12 @@ au déploiement (cf. `DEPLOYMENT.md` § Migration Bundle).
 2. Remplir la rubrique **Migrations DB** de la nouvelle section à partir des migrations
    EF ajoutées depuis le tag précédent :
    ```bash
-   git diff <tag-précédent>..HEAD --stat -- '**/Migrations/'
+   git diff <tag-précédent>..HEAD --stat -- ":(glob)**/Migrations/**"
    ```
-   Si la commande ne retourne rien : « aucune ».
+   Si la commande ne retourne rien : « aucune ». Le motif finit par `**` pour désigner les
+   fichiers du dossier : l'ancien, `'**/Migrations/'`, n'en désignait aucun, et la commande ne
+   retournait jamais rien. Les guillemets doubles servent aussi sous cmd (Windows), qui
+   transmettrait des guillemets simples à git avec le motif.
 3. Lier cette rubrique au **Migration Bundle** (`DEPLOYMENT.md` § Production — Migration
    Bundle) — c'est ce bundle qui applique ces migrations en production, une seule fois par
    release, avant le déploiement de la nouvelle version.
