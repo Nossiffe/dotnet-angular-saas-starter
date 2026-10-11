@@ -26,6 +26,10 @@ npm start   # http://localhost:4200
 | `src/app/api/generated`         | TypeScript types generated from `openapi.json` (not versioned)                                                                                                                                                                                                          |
 | `src/app/testing`               | Test helpers: a signed-in session with a given role                                                                                                                                                                                                                     |
 
+## Products
+
+Known limit of the edit: the API does not receive the version of the product the page read, so when two people edit the same product one after the other, both starting from the same version, the second save overwrites the first without warning. The 409 only covers two saves landing at the same moment.
+
 ## Screens
 
 The Organization page as the Owner sees it, and the confirmation of a member's removal. The screenshots come from the Playwright tests' mocked API.

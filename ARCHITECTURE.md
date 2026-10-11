@@ -317,6 +317,12 @@ OutboxPollingService (toutes les 5 s) → OutboxProcessor → IDomainEventHandle
   n'est pas un GUID, 415 pour un mauvais `Content-Type`), toute autre exception non prévue → 500
   (Serilog la logue). ASP.NET Core ne lève `BadHttpRequestException` qu'en Development ; ailleurs,
   il répond lui-même le statut, sans corps problem+json.
+- **Concurrence optimiste, limite connue** : un produit porte la colonne système `xmin` de
+  PostgreSQL comme jeton de concurrence (`ProductConfiguration`), mais l'API ne reçoit pas la
+  version lue par le client. Si deux personnes modifient l'une après l'autre le même produit,
+  ouvert dans la même version, la seconde modification écrase la première sans avertissement ; le
+  409 ne couvre qu'une autre écriture survenue entre la lecture du handler et son `SaveChanges`,
+  c'est-à-dire deux écritures simultanées.
 - Depuis .NET 10, une exception traitée par un `IExceptionHandler` ne produit plus de log d'erreur
   ni de métrique d'erreur. L'API les garde pour les 500, et seulement pour eux
   (`SuppressDiagnosticsCallback`) : un 400 de validation n'est pas une erreur serveur.
