@@ -165,11 +165,38 @@ avant de poser le tag.
 - **Front** (`web-angular/`) : tests unitaires Vitest (`npm test`) et Playwright sur les pages
   de connexion, d'acceptation d'invitation, Produits et Organisation, API simulée, avec contrôle
   d'accessibilité axe (`npm run e2e`).
+- **Parcours de bout en bout** (`web-angular/e2e-backend/`) : Playwright
+  contre le vrai backend, sans rien simuler. Inscription et e-mail de confirmation lu dans
+  Mailpit, connexion, un produit créé, modifié et supprimé, invitation d'un Admin et son e-mail,
+  acceptation, l'Admin sur l'écran Organisation, son retrait, après lequel il perd l'accès ; axe
+  sur chaque page traversée.
 
 ```bash
 dotnet test                                                  # tous
 dotnet test --project src/tests/UnitTests/Saas.UnitTests.csproj  # unit seulement (sans Docker)
 ```
+
+Lancer le parcours de bout en bout en local :
+
+```bash
+docker compose --profile full up -d --build db mailpit api   # l'API dans son image Docker
+curl -sf --retry 30 --retry-delay 2 --retry-all-errors http://localhost:5123/health/ready
+cd web-angular
+npx playwright install chromium                              # une fois
+npm run e2e:backend                                          # démarre le front, puis le parcours
+```
+
+- Les ports sont ceux de `docker-compose.yml` : API 5123, Mailpit 8025, front 4200. Une API
+  lancée par `dotnet run` sur le port 5123 convient aussi, mais seule l'image prouve que l'image
+  fonctionne.
+- Les comptes du parcours ont une adresse unique par exécution : la base n'a pas besoin d'être
+  vidée entre deux runs.
+- Le rate limiting reste celui de la production. La politique d'authentification accepte 10
+  appels par 30 secondes et par IP, et les deux utilisateurs du parcours partagent l'IP de la
+  machine : le parcours compte ses appels à `/api/v1/auth` et échoue, en le disant, s'il en fait
+  plus de 10 (`e2e-backend/fixtures.ts`). Deux runs lancés à moins de 30 secondes d'écart
+  peuvent recevoir un 429 ; le parcours l'indique aussi.
+- En cas d'échec : `npx playwright show-trace test-results/e2e-backend/<test>/trace.zip`.
 
 > ⚠️ **Runner MTP** : `dotnet test` transmet les options qu'il ne connaît pas aux
 > exécutables de test ; une option VSTest historique (`--nologo`, `--collect`…) est
