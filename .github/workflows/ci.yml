@@ -114,3 +114,70 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e
 
+
+  e2e-backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Le parcours complet contre le vrai backend, sans rien simuler : inscription, e-mails lus
+    # dans Mailpit, produits, invitation d'un Admin, retrait. L'API tourne dans son image Docker
+    # (profil Compose full), ce qui prouve aussi que l'image se construit et démarre. Sans filtre
+    # de chemins : c'est une vérification exigée, qui doit poster un statut sur chaque PR.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # En arrière-plan : l'image de l'API se construit pendant l'installation du front.
+      - name: Construire et démarrer PostgreSQL, Mailpit et l'API
+        run: |
+          docker compose --profile full up -d --build db mailpit api > "$RUNNER_TEMP/compose-up.log" 2>&1 &
+          echo "COMPOSE_UP_PID=$!" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web-angular/package-lock.json
+      - run: npm ci
+        working-directory: web-angular
+      - run: npx playwright install --with-deps chromium
+        working-directory: web-angular
+      # Interroge /health/ready (base et migrations prêtes) jusqu'à 5 minutes, et échoue tout de
+      # suite si `docker compose up` s'est arrêté sans démarrer l'API (image qui ne se construit
+      # pas, par exemple).
+      - name: Attendre que l'API soit prête
+        run: |
+          for _ in $(seq 1 150); do
+            if curl -sf --max-time 5 http://localhost:5123/health/ready > /dev/null; then
+              echo "API prête"
+              exit 0
+            fi
+            if ! kill -0 "$COMPOSE_UP_PID" 2> /dev/null && [ -z "$(docker compose --profile full ps --status running -q api)" ]; then
+              break
+            fi
+            sleep 2
+          done
+          echo "::error::L'API n'a pas démarré."
+          cat "$RUNNER_TEMP/compose-up.log"
+          docker compose --profile full logs api
+          exit 1
+      # Une limite propre à l'étape : dépassée, l'étape échoue (le job, lui, serait annulé) et
+      # l'artifact ci-dessous est publié.
+      - name: Parcours de bout en bout (Playwright + axe)
+        run: npm run e2e:backend
+        working-directory: web-angular
+        timeout-minutes: 10
+      - name: Journaux de la pile
+        if: failure()
+        run: |
+          mkdir -p web-angular/test-results/e2e-backend
+          cp "$RUNNER_TEMP/compose-up.log" web-angular/test-results/e2e-backend/ || true
+          docker compose --profile full logs --no-color db mailpit api > web-angular/test-results/e2e-backend/compose.log 2>&1
+      # La trace Playwright (étapes, appels réseau, DOM), les captures, le rapport HTML, la sortie
+      # de `docker compose up` et les journaux de la pile, pour comprendre un échec sans le rejouer.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: e2e-backend-failure
+          path: |
+            web-angular/test-results/e2e-backend/
+            web-angular/playwright-report/e2e-backend/
+          retention-days: 14
