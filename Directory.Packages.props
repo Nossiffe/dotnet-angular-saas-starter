@@ -6,7 +6,7 @@
   </PropertyGroup>
   <!-- Analyseurs solution-wide (auto sur tous les projets) -->
   <ItemGroup>
-    <GlobalPackageReference Include="Meziantou.Analyzer" Version="3.0.296" />
+    <GlobalPackageReference Include="Meziantou.Analyzer" Version="3.0.299" />
     <GlobalPackageReference Include="SonarAnalyzer.CSharp" Version="10.35.0.4138" />
     <GlobalPackageReference Include="Roslynator.Analyzers" Version="5.0.1" />
     <GlobalPackageReference Include="DotNet.ReproducibleBuilds" Version="2.0.5" />
@@ -19,8 +19,8 @@
     <PackageVersion Include="ErrorOr" Version="2.1.1" />
     <PackageVersion Include="Mediator.Abstractions" Version="3.0.2" />
     <PackageVersion Include="Mediator.SourceGenerator" Version="3.0.2" />
-    <PackageVersion Include="FluentValidation" Version="12.1.1" />
-    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+    <PackageVersion Include="FluentValidation" Version="12.2.0" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.2.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
@@ -58,8 +58,8 @@
     <!-- xunit.v3 et CodeCoverage doivent viser la même version majeure de Microsoft Testing
          Platform : xunit.v3 4 et CodeCoverage 18.1.0+ sont sur MTP 2. Un écart fait planter les
          deux projets de test (TypeLoadException) sans exécuter un seul test : les monter ensemble. -->
-    <PackageVersion Include="xunit.v3" Version="4.0.1" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.2" />
+    <PackageVersion Include="xunit.v3" Version="4.0.2" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
